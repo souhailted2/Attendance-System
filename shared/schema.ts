@@ -77,6 +77,7 @@ export const deviceSettings = pgTable("device_settings", {
   ipAddress: text("ip_address").notNull(),
   port: integer("port").notNull().default(4370),
   isActive: boolean("is_active").notNull().default(true),
+  lastSyncAt: text("last_sync_at"),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -143,6 +144,7 @@ export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pic
   ipAddress: true,
   port: true,
   isActive: true,
+  lastSyncAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

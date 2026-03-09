@@ -11,13 +11,18 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Fingerprint, Wifi, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Fingerprint, Wifi, RefreshCw, Loader2, CheckCircle, XCircle, Eraser, Clock } from "lucide-react";
 import type { DeviceSettings } from "@shared/schema";
 
 export default function Devices() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<DeviceSettings | null>(null);
+  const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string; info?: any }>>({});
+  const [syncResults, setSyncResults] = useState<Record<string, { imported: number; duplicates: number; skipped: number; total: number; errors: string[]; message: string }>>({});
+  const [testingDeviceId, setTestingDeviceId] = useState<string | null>(null);
+  const [syncingDeviceId, setSyncingDeviceId] = useState<string | null>(null);
+  const [clearingDeviceId, setClearingDeviceId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [ipAddress, setIpAddress] = useState("");
@@ -59,29 +64,53 @@ export default function Devices() {
 
   const testMutation = useMutation({
     mutationFn: async (id: string) => {
+      setTestingDeviceId(id);
       const res = await apiRequest("POST", `/api/device-settings/${id}/test`);
-      return res.json();
+      return { id, result: await res.json() };
     },
-    onSuccess: (data: any) => {
-      if (data.success) {
-        toast({ title: "تم الاتصال بنجاح", description: `المستخدمين: ${data.info?.userCounts || 0} | السجلات: ${data.info?.logCounts || 0}` });
+    onSuccess: ({ id, result }: { id: string; result: any }) => {
+      setTestingDeviceId(null);
+      setTestResults(prev => ({ ...prev, [id]: result }));
+      if (result.success) {
+        toast({ title: "تم الاتصال بنجاح", description: `المستخدمين: ${result.info?.userCounts || 0} | السجلات: ${result.info?.logCounts || 0}` });
       } else {
-        toast({ title: "فشل الاتصال", description: data.message, variant: "destructive" });
+        toast({ title: "فشل الاتصال", description: result.message, variant: "destructive" });
       }
     },
-    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => { setTestingDeviceId(null); toast({ title: "خطأ", description: err.message, variant: "destructive" }); },
   });
 
   const syncMutation = useMutation({
     mutationFn: async (id: string) => {
+      setSyncingDeviceId(id);
       const res = await apiRequest("POST", `/api/device-settings/${id}/sync`);
-      return res.json();
+      return { id, result: await res.json() };
     },
-    onSuccess: (data: any) => {
-      toast({ title: data.message, description: `مستورد: ${data.imported} | مكرر: ${data.duplicates} | متخطى: ${data.skipped}` });
+    onSuccess: ({ id, result }: { id: string; result: any }) => {
+      setSyncingDeviceId(null);
+      setSyncResults(prev => ({ ...prev, [id]: result }));
+      queryClient.invalidateQueries({ queryKey: ["/api/device-settings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      toast({ title: result.message });
     },
-    onError: (err: Error) => toast({ title: "خطأ في المزامنة", description: err.message, variant: "destructive" }),
+    onError: (err: Error) => { setSyncingDeviceId(null); toast({ title: "خطأ في المزامنة", description: err.message, variant: "destructive" }); },
+  });
+
+  const clearLogsMutation = useMutation({
+    mutationFn: async (id: string) => {
+      setClearingDeviceId(id);
+      const res = await apiRequest("POST", `/api/device-settings/${id}/clear-logs`);
+      return { id, result: await res.json() };
+    },
+    onSuccess: ({ id, result }: { id: string; result: any }) => {
+      setClearingDeviceId(null);
+      if (result.success) {
+        toast({ title: "تم مسح السجلات", description: result.message });
+      } else {
+        toast({ title: "فشل مسح السجلات", description: result.message, variant: "destructive" });
+      }
+    },
+    onError: (err: Error) => { setClearingDeviceId(null); toast({ title: "خطأ", description: err.message, variant: "destructive" }); },
   });
 
   function resetForm() {
@@ -104,6 +133,16 @@ export default function Devices() {
       updateMutation.mutate({ id: editingDevice.id, data });
     } else {
       createMutation.mutate(data);
+    }
+  }
+
+  function formatSyncDate(dateStr: string | null | undefined) {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("ar-SA") + " " + d.toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return null;
     }
   }
 
@@ -164,71 +203,162 @@ export default function Devices() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
-          {devices.map((device) => (
-            <Card key={device.id} data-testid={`card-device-${device.id}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Fingerprint className="h-4 w-4 text-primary" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm">{device.name}</p>
-                        <Badge variant={device.isActive ? "default" : "secondary"} className="text-xs">
-                          {device.isActive ? "نشط" : "غير نشط"}
-                        </Badge>
+        <div className="grid gap-4">
+          {devices.map((device) => {
+            const testResult = testResults[device.id];
+            const syncResult = syncResults[device.id];
+            const lastSync = formatSyncDate(device.lastSyncAt);
+
+            return (
+              <Card key={device.id} data-testid={`card-device-${device.id}`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <Fingerprint className="h-4 w-4 text-primary" />
                       </div>
-                      <p className="text-xs text-muted-foreground">{device.ipAddress}:{device.port}</p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{device.name}</p>
+                          <Badge variant={device.isActive ? "default" : "secondary"} className="text-xs">
+                            {device.isActive ? "نشط" : "غير نشط"}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{device.ipAddress}:{device.port}</p>
+                        {lastSync && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3" />
+                            آخر مزامنة: {lastSync}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => testMutation.mutate(device.id)}
+                        disabled={testingDeviceId === device.id}
+                        data-testid={`button-test-${device.id}`}
+                      >
+                        {testingDeviceId === device.id ? (
+                          <Loader2 className="h-3 w-3 ml-1 animate-spin" />
+                        ) : (
+                          <Wifi className="h-3 w-3 ml-1" />
+                        )}
+                        اختبار
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => syncMutation.mutate(device.id)}
+                        disabled={syncingDeviceId === device.id}
+                        data-testid={`button-sync-${device.id}`}
+                      >
+                        {syncingDeviceId === device.id ? (
+                          <Loader2 className="h-3 w-3 ml-1 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3 ml-1" />
+                        )}
+                        مزامنة
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={clearingDeviceId === device.id}
+                            data-testid={`button-clear-logs-${device.id}`}
+                          >
+                            {clearingDeviceId === device.id ? (
+                              <Loader2 className="h-3 w-3 ml-1 animate-spin" />
+                            ) : (
+                              <Eraser className="h-3 w-3 ml-1" />
+                            )}
+                            مسح السجلات
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>تأكيد مسح السجلات</AlertDialogTitle>
+                            <AlertDialogDescription>سيتم مسح جميع سجلات الحضور من الجهاز. هذا الإجراء لا يمكن التراجع عنه.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => clearLogsMutation.mutate(device.id)}>مسح</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button size="icon" variant="ghost" onClick={() => openEdit(device)} data-testid={`button-edit-device-${device.id}`}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="icon" variant="ghost" data-testid={`button-delete-device-${device.id}`}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                            <AlertDialogDescription>هل أنت متأكد من حذف هذا الجهاز؟</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteMutation.mutate(device.id)}>حذف</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => testMutation.mutate(device.id)}
-                      disabled={testMutation.isPending}
-                      data-testid={`button-test-${device.id}`}
-                    >
-                      <Wifi className="h-3 w-3 ml-1" />
-                      اختبار
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => syncMutation.mutate(device.id)}
-                      disabled={syncMutation.isPending}
-                      data-testid={`button-sync-${device.id}`}
-                    >
-                      <RefreshCw className="h-3 w-3 ml-1" />
-                      مزامنة
-                    </Button>
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(device)} data-testid={`button-edit-device-${device.id}`}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="ghost" data-testid={`button-delete-device-${device.id}`}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                          <AlertDialogDescription>هل أنت متأكد من حذف هذا الجهاز؟</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteMutation.mutate(device.id)}>حذف</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+
+                  {testResult && (
+                    <div className={`rounded-md p-3 text-sm ${testResult.success ? "bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800" : "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800"}`} data-testid={`test-result-${device.id}`}>
+                      <div className="flex items-center gap-2">
+                        {testResult.success ? (
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 flex-shrink-0" />
+                        )}
+                        <span className={testResult.success ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}>
+                          {testResult.message}
+                        </span>
+                      </div>
+                      {testResult.success && testResult.info && (
+                        <div className="mt-2 flex gap-4 text-xs text-green-600 dark:text-green-400 mr-6">
+                          <span>المستخدمين: {testResult.info.userCounts}</span>
+                          <span>السجلات: {testResult.info.logCounts}</span>
+                          {testResult.info.firmwareVersion && <span>الإصدار: {testResult.info.firmwareVersion}</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {syncResult && (
+                    <div className="rounded-md p-3 text-sm bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800" data-testid={`sync-result-${device.id}`}>
+                      <p className="text-blue-700 dark:text-blue-300 font-medium">{syncResult.message}</p>
+                      <div className="mt-2 flex gap-4 text-xs text-blue-600 dark:text-blue-400">
+                        <span>إجمالي: {syncResult.total}</span>
+                        <span>مستورد: {syncResult.imported}</span>
+                        <span>مكرر: {syncResult.duplicates}</span>
+                        <span>متخطى: {syncResult.skipped}</span>
+                      </div>
+                      {syncResult.errors && syncResult.errors.length > 0 && (
+                        <div className="mt-2 text-xs text-red-600 dark:text-red-400 space-y-0.5">
+                          {syncResult.errors.slice(0, 5).map((err, i) => (
+                            <p key={i}>{err}</p>
+                          ))}
+                          {syncResult.errors.length > 5 && (
+                            <p>... و {syncResult.errors.length - 5} أخطاء أخرى</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

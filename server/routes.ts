@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insertWorkRuleSchema, insertEmployeeSchema, insertDeviceSettingsSchema } from "@shared/schema";
 import multer from "multer";
+import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -366,9 +367,11 @@ export async function registerRoutes(
     try {
       const setting = await storage.getDeviceSetting(req.params.id);
       if (!setting) return res.status(404).json({ message: "Not found" });
-      res.json({ success: false, message: "وظيفة الاتصال بالجهاز غير متاحة حاليا. تأكد من تثبيت مكتبة zkteco-js" });
+
+      const result = await testConnection(setting.ipAddress, setting.port);
+      res.json(result);
     } catch (error: any) {
-      res.json({ success: false, message: error.message });
+      res.json({ success: false, message: `خطأ غير متوقع: ${error.message}` });
     }
   });
 
@@ -376,9 +379,119 @@ export async function registerRoutes(
     try {
       const setting = await storage.getDeviceSetting(req.params.id);
       if (!setting) return res.status(404).json({ message: "Not found" });
-      res.json({ imported: 0, skipped: 0, duplicates: 0, total: 0, errors: [], message: "وظيفة المزامنة غير متاحة حاليا" });
+
+      const result = await syncAttendanceLogs(setting.ipAddress, setting.port);
+      if (!result.success) {
+        return res.json({ imported: 0, skipped: 0, duplicates: 0, total: 0, errors: [result.message], message: result.message });
+      }
+
+      const allEmployees = await storage.getEmployees();
+
+      let imported = 0;
+      let skipped = 0;
+      let duplicates = 0;
+      const errors: string[] = [];
+
+      const logsByUser = new Map<string, { date: string; times: string[] }[]>();
+      for (const log of result.logs) {
+        const uid = String(log.oduid);
+        const d = log.odtimestamp;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const timeStr = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+        if (!logsByUser.has(uid)) logsByUser.set(uid, []);
+        const userLogs = logsByUser.get(uid)!;
+        let dayEntry = userLogs.find(d => d.date === dateStr);
+        if (!dayEntry) {
+          dayEntry = { date: dateStr, times: [] };
+          userLogs.push(dayEntry);
+        }
+        dayEntry.times.push(timeStr);
+      }
+
+      for (const [uid, dayEntries] of logsByUser) {
+        const employee = allEmployees.find(e => e.employeeCode === uid);
+        if (!employee) {
+          errors.push(`رقم المستخدم ${uid} غير مطابق لأي موظف`);
+          skipped += dayEntries.length;
+          continue;
+        }
+
+        const workRule = await getWorkRuleForEmployee(employee.id);
+
+        for (const dayEntry of dayEntries) {
+          dayEntry.times.sort();
+          const checkIn = dayEntry.times[0] || null;
+          const checkOut = dayEntry.times.length > 1 ? dayEntry.times[dayEntry.times.length - 1] : null;
+
+          let attendanceData: any = {
+            employeeId: employee.id,
+            date: dayEntry.date,
+            checkIn,
+            checkOut,
+            status: "present",
+            notes: `مزامنة من جهاز: ${setting.name}`,
+            lateMinutes: 0,
+            earlyLeaveMinutes: 0,
+            totalHours: "0",
+            penalty: "0",
+          };
+
+          if (workRule) {
+            const calc = calculateAttendanceDetails(
+              checkIn, checkOut,
+              workRule.workStartTime, workRule.workEndTime,
+              workRule.lateGraceMinutes,
+              workRule.latePenaltyPerMinute,
+              workRule.earlyLeavePenaltyPerMinute,
+              workRule.absencePenalty,
+              "present"
+            );
+            attendanceData.lateMinutes = calc.lateMinutes;
+            attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
+            attendanceData.totalHours = String(calc.totalHours);
+            attendanceData.penalty = String(calc.penalty);
+            attendanceData.status = calc.status;
+          }
+
+          try {
+            await storage.createAttendance(attendanceData);
+            imported++;
+          } catch (e: any) {
+            if (e.message?.includes("duplicate") || e.code === "23505") {
+              duplicates++;
+            } else {
+              errors.push(`${employee.name} - ${dayEntry.date}: ${e.message}`);
+              skipped++;
+            }
+          }
+        }
+      }
+
+      await storage.updateDeviceSetting(setting.id, { lastSyncAt: new Date().toISOString() });
+
+      res.json({
+        imported,
+        skipped,
+        duplicates,
+        total: result.logs.length,
+        errors,
+        message: `تمت المزامنة: ${imported} سجل جديد، ${duplicates} مكرر، ${skipped} متخطى`,
+      });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      res.status(500).json({ message: `خطأ في المزامنة: ${error.message}` });
+    }
+  });
+
+  app.post("/api/device-settings/:id/clear-logs", async (req, res) => {
+    try {
+      const setting = await storage.getDeviceSetting(req.params.id);
+      if (!setting) return res.status(404).json({ message: "Not found" });
+
+      const result = await clearDeviceLogs(setting.ipAddress, setting.port);
+      res.json(result);
+    } catch (error: any) {
+      res.json({ success: false, message: `خطأ: ${error.message}` });
     }
   });
 

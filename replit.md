@@ -14,6 +14,7 @@ A comprehensive worker attendance management system built with React + Express +
 - `server/routes.ts` - API endpoints
 - `server/storage.ts` - Database storage layer (IStorage interface + DatabaseStorage)
 - `server/db.ts` - Database connection
+- `server/zk-service.ts` - ZKTeco device communication service (testConnection, syncAttendanceLogs, clearDeviceLogs)
 - `server/seed.ts` - Seed data (5 employees, 3 companies, 3 workshops, 3 positions, 1 work rule, 5 days attendance)
 - `client/src/pages/dashboard.tsx` - Dashboard with stats and contract alerts
 - `client/src/pages/employees.tsx` - Employee CRUD management
@@ -36,7 +37,7 @@ A comprehensive worker attendance management system built with React + Express +
 - Monthly attendance summary reports with totals row
 - Work rules configuration (start/end times, grace periods, penalties)
 - Dashboard with contract expiry alerts
-- Device settings management (stub for ZK biometric device sync)
+- ZKTeco biometric device integration (connect, test, sync attendance, clear logs) via `node-zklib`
 - CSV import for attendance
 - RTL Arabic interface with dark mode support
 
@@ -49,7 +50,9 @@ A comprehensive worker attendance management system built with React + Express +
 - GET /api/attendance?date=YYYY-MM-DD, POST /api/attendance, PATCH /api/attendance/:id
 - GET /api/reports/monthly?month=MM&year=YYYY
 - GET/POST /api/device-settings, PATCH/DELETE /api/device-settings/:id
-- POST /api/device-settings/:id/test, /sync (stub endpoints)
+- POST /api/device-settings/:id/test (real ZK connection test)
+- POST /api/device-settings/:id/sync (sync attendance from ZK device)
+- POST /api/device-settings/:id/clear-logs (clear device attendance logs)
 - POST /api/import/attendance (CSV file upload)
 
 ## Database Tables
@@ -59,7 +62,7 @@ A comprehensive worker attendance management system built with React + Express +
 - **work_rules** - id, name, workStartTime, workEndTime, lateGraceMinutes, penalties, isDefault
 - **employees** - id, name, employeeCode, positionId, workRuleId, companyId, workshopId, phone, wage, shift, contractEndDate, nonRenewalDate, isActive
 - **attendance_records** - id, employeeId, date, checkIn, checkOut, status, lateMinutes, earlyLeaveMinutes, totalHours, penalty, notes
-- **device_settings** - id, name, ipAddress, port, isActive
+- **device_settings** - id, name, ipAddress, port, isActive, lastSyncAt
 
 ## Running
 - `npm run dev` starts Express backend + Vite frontend on port 5000
