@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,12 @@ export default function AgentSettings() {
   const { data: devices, isLoading: devicesLoading } = useQuery<DeviceSettings[]>({
     queryKey: ["/api/device-settings"],
   });
+
+  useEffect(() => {
+    if (devices && devices.length > 0 && selectedDeviceIds.size === 0) {
+      setSelectedDeviceIds(new Set(devices.map(d => d.id)));
+    }
+  }, [devices]);
 
   const generateMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/settings/agent-key/generate"),
@@ -73,7 +79,7 @@ export default function AgentSettings() {
       const ids = selectedDeviceIds.size > 0
         ? Array.from(selectedDeviceIds)
         : devices.map(d => d.id);
-      const res = await fetch(`/api/agent/download-package?deviceIds=${ids.join(",")}`, { credentials: "include" });
+      const res = await fetch(`/api/agent/download-package?deviceIds=${encodeURIComponent(ids.join(","))}`, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: "خطأ غير معروف" }));
         throw new Error(err.message);
