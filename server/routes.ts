@@ -100,8 +100,7 @@ async function processAttendanceLogs(
       } else {
         errors.push(`رقم المستخدم ${entry.uid} غير مطابق لأي موظف`);
       }
-      skipped += entry.times.length > 0 ? 1 : 0;
-      skipped += entry.times.length === 0 ? 1 : 0;
+      skipped++;
       continue;
     }
 
@@ -568,6 +567,25 @@ export async function registerRoutes(
       const { deviceName, workshopId, logs } = req.body;
       if (!Array.isArray(logs)) {
         return res.status(400).json({ message: "البيانات المرسلة غير صحيحة - logs يجب أن يكون مصفوفة" });
+      }
+
+      // Validate each log entry shape
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+      const timePattern = /^\d{2}:\d{2}$/;
+      for (let i = 0; i < logs.length; i++) {
+        const item = logs[i];
+        if (!item || typeof item !== "object") {
+          return res.status(400).json({ message: `العنصر رقم ${i + 1} في logs غير صالح` });
+        }
+        if (typeof item.uid !== "string" || !item.uid.trim()) {
+          return res.status(400).json({ message: `العنصر رقم ${i + 1}: uid مطلوب ويجب أن يكون نصاً` });
+        }
+        if (typeof item.date !== "string" || !datePattern.test(item.date)) {
+          return res.status(400).json({ message: `العنصر رقم ${i + 1}: date يجب أن يكون بصيغة YYYY-MM-DD` });
+        }
+        if (!Array.isArray(item.times) || item.times.some((t: any) => typeof t !== "string" || !timePattern.test(t))) {
+          return res.status(400).json({ message: `العنصر رقم ${i + 1}: times يجب أن يكون مصفوفة من أوقات بصيغة HH:MM` });
+        }
       }
 
       // logs format: [{ uid, date, times }] where times is array of HH:MM strings
