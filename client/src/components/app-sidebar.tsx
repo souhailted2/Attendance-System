@@ -10,6 +10,7 @@ import {
   Scale,
   Fingerprint,
   Upload,
+  Bot,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const settingsItems = [
 const toolsItems = [
   { title: "أجهزة البصمة", url: "/devices", icon: Fingerprint },
   { title: "استيراد البيانات", url: "/import", icon: Upload },
+  { title: "Agent المصنع", url: "/agent-settings", icon: Bot },
 ];
 
 export function AppSidebar() {

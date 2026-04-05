@@ -78,6 +78,13 @@ export const deviceSettings = pgTable("device_settings", {
   port: integer("port").notNull().default(4370),
   isActive: boolean("is_active").notNull().default(true),
   lastSyncAt: text("last_sync_at"),
+  workshopId: varchar("workshop_id"),
+});
+
+export const appSettings = pgTable("app_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -145,6 +152,12 @@ export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pic
   port: true,
   isActive: true,
   lastSyncAt: true,
+  workshopId: true,
+});
+
+export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({
+  key: true,
+  value: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -163,3 +176,5 @@ export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
 export type InsertDeviceSettings = z.infer<typeof insertDeviceSettingsSchema>;
 export type DeviceSettings = typeof deviceSettings.$inferSelect;
+export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
+export type AppSettings = typeof appSettings.$inferSelect;

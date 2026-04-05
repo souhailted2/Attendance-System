@@ -1,11 +1,18 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { randomBytes } from "crypto";
 import { storage } from "./storage";
 import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insertWorkRuleSchema, insertEmployeeSchema, insertDeviceSettingsSchema } from "@shared/schema";
 import multer from "multer";
 import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+const AGENT_API_KEY_SETTING = "agent_api_key";
+
+function generateApiKey(): string {
+  return randomBytes(32).toString("hex");
+}
 
 function calculateAttendanceDetails(checkIn: string | null, checkOut: string | null, workStartTime: string, workEndTime: string, lateGraceMinutes: number, latePenaltyPerMinute: string, earlyLeavePenaltyPerMinute: string, absencePenalty: string, status: string) {
   let lateMinutes = 0;
@@ -65,6 +72,88 @@ async function getWorkRuleForEmployee(employeeId: string) {
     workRule = rules.find(r => r.isDefault) || null;
   }
   return workRule;
+}
+
+async function processAttendanceLogs(
+  logs: Array<{ uid: string; date: string; times: string[] }>,
+  allEmployees: Awaited<ReturnType<typeof storage.getEmployees>>,
+  workshopId: string | null | undefined,
+  sourceName: string
+): Promise<{ imported: number; skipped: number; duplicates: number; errors: string[] }> {
+  let imported = 0;
+  let skipped = 0;
+  let duplicates = 0;
+  const errors: string[] = [];
+
+  const eligibleEmployees = workshopId
+    ? allEmployees.filter(e => e.workshopId === workshopId)
+    : allEmployees;
+
+  const workshops = workshopId ? await storage.getWorkshops() : [];
+  const workshopName = workshopId ? (workshops.find(w => w.id === workshopId)?.name || "الورشة") : null;
+
+  for (const entry of logs) {
+    const employee = eligibleEmployees.find(e => e.employeeCode === entry.uid);
+    if (!employee) {
+      if (workshopId) {
+        errors.push(`رقم المستخدم ${entry.uid} غير مسجل في ${workshopName}`);
+      } else {
+        errors.push(`رقم المستخدم ${entry.uid} غير مطابق لأي موظف`);
+      }
+      skipped += entry.times.length > 0 ? 1 : 0;
+      skipped += entry.times.length === 0 ? 1 : 0;
+      continue;
+    }
+
+    const workRule = await getWorkRuleForEmployee(employee.id);
+    entry.times.sort();
+    const checkIn = entry.times[0] || null;
+    const checkOut = entry.times.length > 1 ? entry.times[entry.times.length - 1] : null;
+
+    let attendanceData: any = {
+      employeeId: employee.id,
+      date: entry.date,
+      checkIn,
+      checkOut,
+      status: "present",
+      notes: `مزامنة من: ${sourceName}`,
+      lateMinutes: 0,
+      earlyLeaveMinutes: 0,
+      totalHours: "0",
+      penalty: "0",
+    };
+
+    if (workRule) {
+      const calc = calculateAttendanceDetails(
+        checkIn, checkOut,
+        workRule.workStartTime, workRule.workEndTime,
+        workRule.lateGraceMinutes,
+        workRule.latePenaltyPerMinute,
+        workRule.earlyLeavePenaltyPerMinute,
+        workRule.absencePenalty,
+        "present"
+      );
+      attendanceData.lateMinutes = calc.lateMinutes;
+      attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
+      attendanceData.totalHours = String(calc.totalHours);
+      attendanceData.penalty = String(calc.penalty);
+      attendanceData.status = calc.status;
+    }
+
+    try {
+      await storage.createAttendance(attendanceData);
+      imported++;
+    } catch (e: any) {
+      if (e.message?.includes("duplicate") || e.code === "23505") {
+        duplicates++;
+      } else {
+        errors.push(`${employee.name} - ${entry.date}: ${e.message}`);
+        skipped++;
+      }
+    }
+  }
+
+  return { imported, skipped, duplicates, errors };
 }
 
 export async function registerRoutes(
@@ -387,11 +476,6 @@ export async function registerRoutes(
 
       const allEmployees = await storage.getEmployees();
 
-      let imported = 0;
-      let skipped = 0;
-      let duplicates = 0;
-      const errors: string[] = [];
-
       const logsByUser = new Map<string, { date: string; times: string[] }[]>();
       for (const log of result.logs) {
         const uid = String(log.oduid);
@@ -409,64 +493,19 @@ export async function registerRoutes(
         dayEntry.times.push(timeStr);
       }
 
+      const flatLogs: Array<{ uid: string; date: string; times: string[] }> = [];
       for (const [uid, dayEntries] of logsByUser) {
-        const employee = allEmployees.find(e => e.employeeCode === uid);
-        if (!employee) {
-          errors.push(`رقم المستخدم ${uid} غير مطابق لأي موظف`);
-          skipped += dayEntries.length;
-          continue;
-        }
-
-        const workRule = await getWorkRuleForEmployee(employee.id);
-
         for (const dayEntry of dayEntries) {
-          dayEntry.times.sort();
-          const checkIn = dayEntry.times[0] || null;
-          const checkOut = dayEntry.times.length > 1 ? dayEntry.times[dayEntry.times.length - 1] : null;
-
-          let attendanceData: any = {
-            employeeId: employee.id,
-            date: dayEntry.date,
-            checkIn,
-            checkOut,
-            status: "present",
-            notes: `مزامنة من جهاز: ${setting.name}`,
-            lateMinutes: 0,
-            earlyLeaveMinutes: 0,
-            totalHours: "0",
-            penalty: "0",
-          };
-
-          if (workRule) {
-            const calc = calculateAttendanceDetails(
-              checkIn, checkOut,
-              workRule.workStartTime, workRule.workEndTime,
-              workRule.lateGraceMinutes,
-              workRule.latePenaltyPerMinute,
-              workRule.earlyLeavePenaltyPerMinute,
-              workRule.absencePenalty,
-              "present"
-            );
-            attendanceData.lateMinutes = calc.lateMinutes;
-            attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
-            attendanceData.totalHours = String(calc.totalHours);
-            attendanceData.penalty = String(calc.penalty);
-            attendanceData.status = calc.status;
-          }
-
-          try {
-            await storage.createAttendance(attendanceData);
-            imported++;
-          } catch (e: any) {
-            if (e.message?.includes("duplicate") || e.code === "23505") {
-              duplicates++;
-            } else {
-              errors.push(`${employee.name} - ${dayEntry.date}: ${e.message}`);
-              skipped++;
-            }
-          }
+          flatLogs.push({ uid, date: dayEntry.date, times: dayEntry.times });
         }
       }
+
+      const { imported, skipped, duplicates, errors } = await processAttendanceLogs(
+        flatLogs,
+        allEmployees,
+        setting.workshopId,
+        setting.name
+      );
 
       await storage.updateDeviceSetting(setting.id, { lastSyncAt: new Date().toISOString() });
 
@@ -492,6 +531,65 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.json({ success: false, message: `خطأ: ${error.message}` });
+    }
+  });
+
+  // Agent API key management
+  app.get("/api/settings/agent-key", async (_req, res) => {
+    try {
+      const setting = await storage.getAppSetting(AGENT_API_KEY_SETTING);
+      res.json({ key: setting?.value || null });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/settings/agent-key/generate", async (_req, res) => {
+    try {
+      const newKey = generateApiKey();
+      await storage.setAppSetting(AGENT_API_KEY_SETTING, newKey);
+      res.json({ key: newKey });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Agent push attendance endpoint
+  app.post("/api/agent/push-attendance", async (req, res) => {
+    try {
+      const authHeader = req.headers["authorization"] || "";
+      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+      const storedKey = await storage.getAppSetting(AGENT_API_KEY_SETTING);
+      if (!storedKey || !token || token !== storedKey.value) {
+        return res.status(401).json({ message: "مفتاح API غير صحيح أو غير موجود" });
+      }
+
+      const { deviceName, workshopId, logs } = req.body;
+      if (!Array.isArray(logs)) {
+        return res.status(400).json({ message: "البيانات المرسلة غير صحيحة - logs يجب أن يكون مصفوفة" });
+      }
+
+      // logs format: [{ uid, date, times }] where times is array of HH:MM strings
+      const allEmployees = await storage.getEmployees();
+
+      const { imported, skipped, duplicates, errors } = await processAttendanceLogs(
+        logs,
+        allEmployees,
+        workshopId || null,
+        deviceName || "Agent"
+      );
+
+      res.json({
+        imported,
+        skipped,
+        duplicates,
+        total: logs.length,
+        errors,
+        message: `تم استيراد ${imported} سجل، ${duplicates} مكرر، ${skipped} متخطى`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: `خطأ في استيراد البيانات: ${error.message}` });
     }
   });
 

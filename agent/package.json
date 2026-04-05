@@ -1,0 +1,13 @@
+{
+  "name": "zk-agent",
+  "version": "1.0.0",
+  "description": "ZKTeco biometric device sync agent for factory use",
+  "main": "zk-agent.js",
+  "scripts": {
+    "start": "node zk-agent.js",
+    "watch": "node zk-agent.js --watch"
+  },
+  "dependencies": {
+    "node-zklib": "^1.0.1"
+  }
+}

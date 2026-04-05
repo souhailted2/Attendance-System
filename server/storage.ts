@@ -1,7 +1,7 @@
 import { eq, and, gte, lte } from "drizzle-orm";
 import { db } from "./db";
 import {
-  users, positions, workRules, employees, attendanceRecords, deviceSettings,
+  users, positions, workRules, employees, attendanceRecords, deviceSettings, appSettings,
   companies, workshops,
   type InsertUser, type User,
   type InsertCompany, type Company,
@@ -11,6 +11,7 @@ import {
   type InsertEmployee, type Employee,
   type InsertAttendance, type AttendanceRecord,
   type InsertDeviceSettings, type DeviceSettings,
+  type InsertAppSettings, type AppSettings,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -60,6 +61,9 @@ export interface IStorage {
   createDeviceSetting(data: InsertDeviceSettings): Promise<DeviceSettings>;
   updateDeviceSetting(id: string, data: Partial<InsertDeviceSettings>): Promise<DeviceSettings | undefined>;
   deleteDeviceSetting(id: string): Promise<void>;
+
+  getAppSetting(key: string): Promise<AppSettings | undefined>;
+  setAppSetting(key: string, value: string): Promise<AppSettings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -253,6 +257,21 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDeviceSetting(id: string): Promise<void> {
     await db.delete(deviceSettings).where(eq(deviceSettings.id, id));
+  }
+
+  async getAppSetting(key: string): Promise<AppSettings | undefined> {
+    const [setting] = await db.select().from(appSettings).where(eq(appSettings.key, key));
+    return setting;
+  }
+
+  async setAppSetting(key: string, value: string): Promise<AppSettings> {
+    const existing = await this.getAppSetting(key);
+    if (existing) {
+      const [updated] = await db.update(appSettings).set({ value }).where(eq(appSettings.key, key)).returning();
+      return updated;
+    }
+    const [created] = await db.insert(appSettings).values({ key, value }).returning();
+    return created;
   }
 }
 

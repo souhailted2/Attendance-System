@@ -16,6 +16,7 @@ import WorkRules from "@/pages/work-rules";
 import Devices from "@/pages/devices";
 import ImportData from "@/pages/import-data";
 import CrudPage from "@/pages/crud-page";
+import AgentSettings from "@/pages/agent-settings";
 import { Building2, Wrench, Briefcase } from "lucide-react";
 
 function Router() {
@@ -61,6 +62,7 @@ function Router() {
       <Route path="/work-rules" component={WorkRules} />
       <Route path="/devices" component={Devices} />
       <Route path="/import" component={ImportData} />
+      <Route path="/agent-settings" component={AgentSettings} />
       <Route component={NotFound} />
     </Switch>
   );

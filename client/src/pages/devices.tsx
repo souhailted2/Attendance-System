@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Fingerprint, Wifi, RefreshCw, Loader2, CheckCircle, XCircle, Eraser, Clock } from "lucide-react";
-import type { DeviceSettings } from "@shared/schema";
+import { Plus, Pencil, Trash2, Fingerprint, Wifi, RefreshCw, Loader2, CheckCircle, XCircle, Eraser, Clock, Wrench } from "lucide-react";
+import type { DeviceSettings, Workshop } from "@shared/schema";
 
 export default function Devices() {
   const { toast } = useToast();
@@ -28,8 +29,10 @@ export default function Devices() {
   const [ipAddress, setIpAddress] = useState("");
   const [port, setPort] = useState("4370");
   const [isActive, setIsActive] = useState(true);
+  const [workshopId, setWorkshopId] = useState<string>("");
 
   const { data: devices, isLoading } = useQuery<DeviceSettings[]>({ queryKey: ["/api/device-settings"] });
+  const { data: workshops } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/device-settings", data),
@@ -114,7 +117,7 @@ export default function Devices() {
   });
 
   function resetForm() {
-    setName(""); setIpAddress(""); setPort("4370"); setIsActive(true); setEditingDevice(null);
+    setName(""); setIpAddress(""); setPort("4370"); setIsActive(true); setWorkshopId(""); setEditingDevice(null);
   }
 
   function openEdit(device: DeviceSettings) {
@@ -123,12 +126,19 @@ export default function Devices() {
     setIpAddress(device.ipAddress);
     setPort(String(device.port));
     setIsActive(device.isActive);
+    setWorkshopId(device.workshopId || "");
     setOpen(true);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const data = { name, ipAddress, port: parseInt(port) || 4370, isActive };
+    const data = {
+      name,
+      ipAddress,
+      port: parseInt(port) || 4370,
+      isActive,
+      workshopId: workshopId || null,
+    };
     if (editingDevice) {
       updateMutation.mutate({ id: editingDevice.id, data });
     } else {
@@ -176,6 +186,20 @@ export default function Devices() {
                   <Input type="number" value={port} onChange={(e) => setPort(e.target.value)} data-testid="input-port" />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>الورشة المرتبطة</Label>
+                <Select value={workshopId || "none"} onValueChange={(v) => setWorkshopId(v === "none" ? "" : v)}>
+                  <SelectTrigger data-testid="select-workshop">
+                    <SelectValue placeholder="اختر الورشة (اختياري)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون ورشة</SelectItem>
+                    {workshops?.map(w => (
+                      <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center gap-2">
                 <Switch checked={isActive} onCheckedChange={setIsActive} data-testid="switch-device-active" />
                 <Label>نشط</Label>
@@ -208,6 +232,7 @@ export default function Devices() {
             const testResult = testResults[device.id];
             const syncResult = syncResults[device.id];
             const lastSync = formatSyncDate(device.lastSyncAt);
+            const workshop = workshops?.find(w => w.id === device.workshopId);
 
             return (
               <Card key={device.id} data-testid={`card-device-${device.id}`}>
@@ -218,11 +243,17 @@ export default function Devices() {
                         <Fingerprint className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm">{device.name}</p>
                           <Badge variant={device.isActive ? "default" : "secondary"} className="text-xs">
                             {device.isActive ? "نشط" : "غير نشط"}
                           </Badge>
+                          {workshop && (
+                            <Badge variant="outline" className="text-xs gap-1" data-testid={`badge-workshop-${device.id}`}>
+                              <Wrench className="h-3 w-3" />
+                              {workshop.name}
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-xs text-muted-foreground">{device.ipAddress}:{device.port}</p>
                         {lastSync && (
