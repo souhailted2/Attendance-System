@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Key, RefreshCw, Copy, Check, Bot, Info, Download, ExternalLink, Fingerprint, Package } from "lucide-react";
+import { Key, RefreshCw, Copy, Check, Bot, Info, Download, ExternalLink, Fingerprint, Package, Database, Wifi } from "lucide-react";
 import type { DeviceSettings } from "@shared/schema";
 
 export default function AgentSettings() {
@@ -15,6 +15,7 @@ export default function AgentSettings() {
   const [copied, setCopied] = useState(false);
   const [selectedDeviceIds, setSelectedDeviceIds] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [downloadingMdb, setDownloadingMdb] = useState(false);
 
   const { data, isLoading: keyLoading } = useQuery<{ key: string | null }>({
     queryKey: ["/api/settings/agent-key"],
@@ -98,6 +99,32 @@ export default function AgentSettings() {
     }
   }
 
+  async function downloadMdbPackage() {
+    if (!data?.key) {
+      toast({ title: "أنشئ مفتاح API أولاً", variant: "destructive" });
+      return;
+    }
+    setDownloadingMdb(true);
+    try {
+      const res = await fetch(`/api/agent/download-mdb-package`, { credentials: "include" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: "خطأ غير معروف" }));
+        throw new Error(err.message);
+      }
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "mdb-agent.zip";
+      link.click();
+      URL.revokeObjectURL(link.href);
+      toast({ title: "تم تحميل حزمة MDB بنجاح" });
+    } catch (err: unknown) {
+      toast({ title: "فشل التحميل", description: err instanceof Error ? err.message : "خطأ في التحميل", variant: "destructive" });
+    } finally {
+      setDownloadingMdb(false);
+    }
+  }
+
   const apiKey = data?.key;
   const allSelected = devices && devices.length > 0 && selectedDeviceIds.size === devices.length;
   const selectedCount = selectedDeviceIds.size > 0 ? selectedDeviceIds.size : (devices?.length ?? 0);
@@ -114,6 +141,7 @@ export default function AgentSettings() {
         </div>
       </div>
 
+      {/* الخطوة 1: تثبيت Node.js */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -137,132 +165,200 @@ export default function AgentSettings() {
         </CardContent>
       </Card>
 
+      {/* الخطوة 2: مفتاح API */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">٢</span>
-            تحميل حزمة الـ Agent
+            مفتاح API
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="space-y-3">
-            <p className="text-sm font-medium">مفتاح API</p>
-            {keyLoading ? (
-              <Skeleton className="h-10 w-full" />
-            ) : apiKey ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 p-3 rounded-md bg-muted border font-mono text-xs break-all" data-testid="text-api-key">
-                  <span className="flex-1 select-all">{apiKey}</span>
-                  <Button size="icon" variant="ghost" className="flex-shrink-0 h-8 w-8" onClick={copyKey} data-testid="button-copy-key">
-                    {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
-                  </Button>
-                </div>
-                <Button size="sm" variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} data-testid="button-regenerate-key">
-                  {generateMutation.isPending ? <RefreshCw className="h-3 w-3 ml-1.5 animate-spin" /> : <Key className="h-3 w-3 ml-1.5" />}
-                  تجديد المفتاح
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">مطلوب لكلا نوعَي الـ Agent أدناه.</p>
+          {keyLoading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : apiKey ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 p-3 rounded-md bg-muted border font-mono text-xs break-all" data-testid="text-api-key">
+                <span className="flex-1 select-all">{apiKey}</span>
+                <Button size="icon" variant="ghost" className="flex-shrink-0 h-8 w-8" onClick={copyKey} data-testid="button-copy-key">
+                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">أنشئ مفتاح API أولاً لتفعيل التحميل.</p>
-                <Button onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} data-testid="button-generate-key">
-                  {generateMutation.isPending ? <RefreshCw className="h-4 w-4 ml-2 animate-spin" /> : <Key className="h-4 w-4 ml-2" />}
-                  إنشاء مفتاح
-                </Button>
-              </div>
-            )}
-          </div>
-
-          <div className="border-t pt-4 space-y-3">
-            <p className="text-sm font-medium">الأجهزة المُضمَّنة في الحزمة</p>
-            {devicesLoading ? (
-              <div className="space-y-2">
-                {[1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : !devices || devices.length === 0 ? (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-muted border text-sm text-muted-foreground">
-                <Fingerprint className="h-4 w-4 flex-shrink-0" />
-                <span>لا توجد أجهزة. أضف جهازاً من صفحة <strong>أجهزة البصمة</strong> أولاً.</span>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pb-1 border-b">
-                  <Checkbox
-                    id="select-all"
-                    checked={allSelected ?? false}
-                    onCheckedChange={toggleAll}
-                    data-testid="checkbox-select-all-devices"
-                  />
-                  <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
-                    {allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
-                  </label>
-                </div>
-                {devices.map(device => (
-                  <div
-                    key={device.id}
-                    className="flex items-center gap-3 p-3 rounded-md border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
-                    onClick={() => toggleDevice(device.id)}
-                    data-testid={`device-option-${device.id}`}
-                  >
-                    <Checkbox
-                      id={`device-${device.id}`}
-                      checked={selectedDeviceIds.has(device.id)}
-                      onCheckedChange={() => toggleDevice(device.id)}
-                      onClick={e => e.stopPropagation()}
-                      data-testid={`checkbox-device-${device.id}`}
-                    />
-                    <Fingerprint className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{device.name}</p>
-                      <p className="text-xs text-muted-foreground">{device.ipAddress}:{device.port}</p>
-                    </div>
-                    <Badge variant={device.isActive ? "default" : "secondary"} className="text-xs">
-                      {device.isActive ? "نشط" : "غير نشط"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <Button
-            onClick={downloadPackage}
-            disabled={downloading || !apiKey || !devices || devices.length === 0}
-            className="w-full gap-2"
-            data-testid="button-download-package"
-          >
-            {downloading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {downloading
-              ? "جارٍ إنشاء الحزمة..."
-              : `تحميل الحزمة (${selectedCount} ${selectedCount === 1 ? "جهاز" : "أجهزة"})`}
-          </Button>
-
-          {!apiKey && !keyLoading && (
-            <p className="text-xs text-muted-foreground text-center">أنشئ مفتاح API أولاً لتفعيل التحميل</p>
+              <Button size="sm" variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} data-testid="button-regenerate-key">
+                {generateMutation.isPending ? <RefreshCw className="h-3 w-3 ml-1.5 animate-spin" /> : <Key className="h-3 w-3 ml-1.5" />}
+                تجديد المفتاح
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">أنشئ مفتاح API أولاً لتفعيل التحميل.</p>
+              <Button onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} data-testid="button-generate-key">
+                {generateMutation.isPending ? <RefreshCw className="h-4 w-4 ml-2 animate-spin" /> : <Key className="h-4 w-4 ml-2" />}
+                إنشاء مفتاح
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
 
+      {/* الخطوة 3: اختيار نوع الـ Agent */}
+      <div>
+        <p className="text-sm font-semibold text-muted-foreground mb-3 px-1">الخطوة ٣ — اختر نوع الـ Agent المناسب لك:</p>
+        <div className="grid gap-4">
+
+          {/* النوع أ: قراءة من قاعدة البيانات (MDB) */}
+          <Card className="border-2 border-primary/40">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Database className="h-5 w-5 text-primary" />
+                <div>
+                  <p>النوع أ — قراءة من برنامج ZKTeco</p>
+                  <p className="text-xs font-normal text-muted-foreground mt-0.5">إذا كان برنامج ZKTeco مثبّتاً على نفس الكمبيوتر</p>
+                </div>
+                <Badge className="mr-auto text-xs">موصى به</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2 p-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300">
+                <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <p className="text-xs">
+                  يقرأ مباشرة من ملف:
+                  <code className="mx-1 bg-background border rounded px-1 font-mono" dir="ltr">C:\Program Files (x86)\ZKTeco\ZKTeco\att2000.mdb</code>
+                  <br />
+                  يُنشئ الموظفين تلقائياً ويرسل الحضور دون الحاجة لاتصال شبكي بالجهاز.
+                </p>
+              </div>
+              <Button
+                onClick={downloadMdbPackage}
+                disabled={downloadingMdb || !apiKey}
+                className="w-full gap-2"
+                data-testid="button-download-mdb-package"
+              >
+                {downloadingMdb ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {downloadingMdb ? "جارٍ إنشاء الحزمة..." : "تحميل حزمة MDB Agent"}
+              </Button>
+              {!apiKey && !keyLoading && (
+                <p className="text-xs text-muted-foreground text-center">أنشئ مفتاح API أولاً (الخطوة ٢)</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* النوع ب: اتصال مباشر بالجهاز عبر الشبكة */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wifi className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p>النوع ب — اتصال مباشر بالجهاز</p>
+                  <p className="text-xs font-normal text-muted-foreground mt-0.5">إذا كان جهاز البصمة متصلاً بالشبكة مباشرة</p>
+                </div>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">الأجهزة المُضمَّنة في الحزمة</p>
+                {devicesLoading ? (
+                  <div className="space-y-2">
+                    {[1, 2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+                  </div>
+                ) : !devices || devices.length === 0 ? (
+                  <div className="flex items-center gap-2 p-3 rounded-md bg-muted border text-sm text-muted-foreground">
+                    <Fingerprint className="h-4 w-4 flex-shrink-0" />
+                    <span>لا توجد أجهزة. أضف جهازاً من صفحة <strong>أجهزة البصمة</strong> أولاً.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 pb-1 border-b">
+                      <Checkbox
+                        id="select-all"
+                        checked={allSelected ?? false}
+                        onCheckedChange={toggleAll}
+                        data-testid="checkbox-select-all-devices"
+                      />
+                      <label htmlFor="select-all" className="text-sm font-medium cursor-pointer">
+                        {allSelected ? "إلغاء تحديد الكل" : "تحديد الكل"}
+                      </label>
+                    </div>
+                    {devices.map(device => (
+                      <div
+                        key={device.id}
+                        className="flex items-center gap-3 p-3 rounded-md border bg-card hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => toggleDevice(device.id)}
+                        data-testid={`device-option-${device.id}`}
+                      >
+                        <Checkbox
+                          id={`device-${device.id}`}
+                          checked={selectedDeviceIds.has(device.id)}
+                          onCheckedChange={() => toggleDevice(device.id)}
+                          onClick={e => e.stopPropagation()}
+                          data-testid={`checkbox-device-${device.id}`}
+                        />
+                        <Fingerprint className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{device.name}</p>
+                          <p className="text-xs text-muted-foreground">{device.ipAddress}:{device.port}</p>
+                        </div>
+                        <Badge variant={device.isActive ? "default" : "secondary"} className="text-xs">
+                          {device.isActive ? "نشط" : "غير نشط"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                onClick={downloadPackage}
+                disabled={downloading || !apiKey || !devices || devices.length === 0}
+                className="w-full gap-2"
+                variant="outline"
+                data-testid="button-download-package"
+              >
+                {downloading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {downloading
+                  ? "جارٍ إنشاء الحزمة..."
+                  : `تحميل حزمة الاتصال المباشر (${selectedCount} ${selectedCount === 1 ? "جهاز" : "أجهزة"})`}
+              </Button>
+
+              {!apiKey && !keyLoading && (
+                <p className="text-xs text-muted-foreground text-center">أنشئ مفتاح API أولاً (الخطوة ٢)</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* الخطوة 4: تشغيل البرنامج */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">٣</span>
+            <span className="flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">٤</span>
             تشغيل البرنامج
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex gap-3 p-3 rounded-md bg-muted items-start">
             <Package className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <p className="font-medium">بعد تحميل الحزمة واستخراجها:</p>
-              <p className="text-muted-foreground">
-                انقر مرتين على <code className="bg-background border rounded px-1.5 py-0.5 font-mono text-xs">run.bat</code> — سيتصل البرنامج بأجهزة البصمة ويرسل بيانات الحضور للموقع تلقائياً.
-              </p>
+              <div className="space-y-1 text-muted-foreground">
+                <p>
+                  للمزامنة مرة واحدة: انقر مرتين على
+                  <code className="mx-1 bg-background border rounded px-1.5 py-0.5 font-mono text-xs">run.bat</code>
+                </p>
+                <p>
+                  للمزامنة التلقائية كل 30 دقيقة: انقر مرتين على
+                  <code className="mx-1 bg-background border rounded px-1.5 py-0.5 font-mono text-xs">watch.bat</code>
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex gap-2 p-3 rounded-md bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300">
+          <div className="flex gap-2 p-3 rounded-md bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300">
             <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
-            <p className="text-xs">الكمبيوتر يجب أن يكون على نفس الشبكة المحلية لأجهزة البصمة وله اتصال إنترنت.</p>
+            <p className="text-xs">
+              عند أول تشغيل لـ MDB Agent، سيُنشئ الموظفين تلقائياً من جهاز البصمة ويرسل سجلات الـ 30 يوم الماضية.
+            </p>
           </div>
         </CardContent>
       </Card>

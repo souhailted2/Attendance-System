@@ -18,3 +18,11 @@ export function getZkAgentJs(): string {
 export function getAgentPackageJson(): string {
   return readAgentFile("package.json");
 }
+
+export function getMdbAgentJs(): string {
+  return readAgentFile("mdb-agent.js");
+}
+
+export function getMdbPackageJson(): string {
+  return readAgentFile("mdb-package.json");
+}

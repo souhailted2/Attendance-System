@@ -1,0 +1,13 @@
+{
+  "name": "zkteco-mdb-agent",
+  "version": "1.0.0",
+  "description": "قارئ قاعدة بيانات ZKTeco لنظام إدارة الحضور",
+  "main": "mdb-agent.js",
+  "scripts": {
+    "start": "node mdb-agent.js",
+    "watch": "node mdb-agent.js --watch"
+  },
+  "dependencies": {
+    "mdb-reader": "^2.2.5"
+  }
+}

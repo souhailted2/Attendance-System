@@ -6,7 +6,7 @@ import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insert
 import multer from "multer";
 import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
 import archiver from "archiver";
-import { getZkAgentJs, getAgentPackageJson } from "./agent-content";
+import { getZkAgentJs, getAgentPackageJson, getMdbAgentJs, getMdbPackageJson } from "./agent-content";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -613,6 +613,58 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/agent/push-employees", async (req, res) => {
+    try {
+      const authHeader = req.headers["authorization"] || "";
+      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+      const storedKey = await storage.getAppSetting(AGENT_API_KEY_SETTING);
+      if (!storedKey || !token || token !== storedKey.value) {
+        return res.status(401).json({ message: "مفتاح API غير صحيح أو غير موجود" });
+      }
+
+      const { employees } = req.body;
+      if (!Array.isArray(employees) || employees.length === 0) {
+        return res.status(400).json({ message: "employees يجب أن يكون مصفوفة غير فارغة" });
+      }
+
+      let created = 0;
+      let skipped = 0;
+
+      for (const emp of employees) {
+        const code = String(emp.code || "").trim();
+        const name = String(emp.name || "").trim();
+        if (!code || !name) { skipped++; continue; }
+
+        const existing = await storage.getEmployeeByCode(code);
+        if (existing) { skipped++; continue; }
+
+        await storage.createEmployee({
+          name,
+          employeeCode: code,
+          positionId: null,
+          workRuleId: null,
+          companyId: null,
+          workshopId: null,
+          phone: null,
+          wage: "0",
+          shift: "morning",
+          contractEndDate: null,
+          nonRenewalDate: null,
+          isActive: true,
+        });
+        created++;
+      }
+
+      res.json({
+        created,
+        skipped,
+        message: `أُنشئ ${created} موظف جديد، ${skipped} موجود مسبقاً أو بيانات ناقصة`,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: `خطأ في مزامنة الموظفين: ${error.message}` });
+    }
+  });
+
   app.get("/api/agent/download-package", async (req, res) => {
     try {
       const deviceIds = req.query.deviceIds
@@ -739,6 +791,156 @@ export async function registerRoutes(
       zip.append(envContent, { name: ".env" });
       zip.append(runBat, { name: "run.bat" });
       zip.append(instructions, { name: "تعليمات.txt" });
+
+      await zip.finalize();
+    } catch (error: any) {
+      if (!res.headersSent) {
+        res.status(500).json({ message: `خطأ في إنشاء الحزمة: ${error.message}` });
+      }
+    }
+  });
+
+  app.get("/api/agent/download-mdb-package", async (req, res) => {
+    try {
+      const apiKeySetting = await storage.getAppSetting(AGENT_API_KEY_SETTING);
+      if (!apiKeySetting?.value) {
+        return res.status(400).json({ message: "لا يوجد مفتاح API. أنشئ مفتاحاً أولاً من صفحة Agent المصنع." });
+      }
+      const apiKey = apiKeySetting.value;
+      const serverUrl = "https://allal.alllal.com";
+
+      const envContent = [
+        `# عنوان الموقع`,
+        `SERVER_URL=${serverUrl}`,
+        ``,
+        `# مفتاح API للتحقق من الهوية`,
+        `AGENT_API_KEY=${apiKey}`,
+        ``,
+        `# مسار ملف قاعدة بيانات ZKTeco`,
+        `DB_PATH=C:\\Program Files (x86)\\ZKTeco\\ZKTeco\\att2000.mdb`,
+        ``,
+        `# عدد الأيام الماضية لمزامنتها في أول تشغيل`,
+        `DAYS_BACK=30`,
+        ``,
+        `# مزامنة الموظفين تلقائياً من جهاز البصمة (true/false)`,
+        `SYNC_EMPLOYEES=true`,
+        ``,
+        `# فترة المزامنة التلقائية بالدقائق (مع --watch)`,
+        `INTERVAL_MINUTES=30`,
+      ].join("\r\n");
+
+      const runBat = [
+        `@echo off`,
+        `chcp 65001 > nul`,
+        `echo ============================================`,
+        `echo    نظام مزامنة الحضور - ZKTeco MDB Agent`,
+        `echo ============================================`,
+        `echo.`,
+        ``,
+        `where node >nul 2>&1`,
+        `if errorlevel 1 (`,
+        `  echo خطأ: Node.js غير مثبت.`,
+        `  echo حمّل Node.js من: https://nodejs.org`,
+        `  pause`,
+        `  exit /b 1`,
+        `)`,
+        ``,
+        `if not exist node_modules (`,
+        `  echo جارٍ تثبيت المكتبات...`,
+        `  npm install --loglevel=error`,
+        `  if errorlevel 1 (`,
+        `    echo فشل تثبيت المكتبات`,
+        `    pause`,
+        `    exit /b 1`,
+        `  )`,
+        `)`,
+        ``,
+        `echo.`,
+        `echo جارٍ قراءة بيانات ZKTeco ومزامنتها...`,
+        `node mdb-agent.js`,
+        `echo.`,
+        `echo انتهت المزامنة. اضغط أي مفتاح للإغلاق.`,
+        `pause`,
+      ].join("\r\n");
+
+      const watchBat = [
+        `@echo off`,
+        `chcp 65001 > nul`,
+        `echo ============================================`,
+        `echo    مزامنة تلقائية كل 30 دقيقة`,
+        `echo ============================================`,
+        `echo.`,
+        ``,
+        `where node >nul 2>&1`,
+        `if errorlevel 1 (`,
+        `  echo خطأ: Node.js غير مثبت.`,
+        `  pause`,
+        `  exit /b 1`,
+        `)`,
+        ``,
+        `if not exist node_modules (`,
+        `  npm install --loglevel=error`,
+        `)`,
+        ``,
+        `echo اضغط Ctrl+C لإيقاف المزامنة التلقائية.`,
+        `echo.`,
+        `node mdb-agent.js --watch`,
+        `pause`,
+      ].join("\r\n");
+
+      const instructions = [
+        `نظام مزامنة الحضور - ZKTeco MDB Agent`,
+        `========================================`,
+        ``,
+        `هذا البرنامج يقرأ بيانات الحضور مباشرة من قاعدة بيانات برنامج ZKTeco`,
+        `الموجودة في: C:\\Program Files (x86)\\ZKTeco\\ZKTeco\\att2000.mdb`,
+        ``,
+        `المتطلبات:`,
+        `  - Windows 7 أو أحدث`,
+        `  - برنامج ZKTeco مثبّت على نفس الجهاز`,
+        `  - Node.js مثبّت (https://nodejs.org)`,
+        ``,
+        `خطوات التثبيت:`,
+        ``,
+        `الخطوة 1: تثبيت Node.js`,
+        `  - حمّل Node.js من: https://nodejs.org/ar/download`,
+        `  - اختر النسخة LTS وثبّتها بالإعدادات الافتراضية`,
+        ``,
+        `الخطوة 2: تشغيل المزامنة`,
+        `  - انقر مرتين على: run.bat`,
+        `  - سيقرأ البرنامج بيانات الحضور ويرسلها للموقع`,
+        ``,
+        `الخطوة 3 (مزامنة تلقائية):`,
+        `  - انقر مرتين على: watch.bat`,
+        `  - سيعمل البرنامج باستمرار ويزامن كل 30 دقيقة`,
+        ``,
+        `ملاحظات:`,
+        `  - إذا كان مسار ملف قاعدة البيانات مختلفاً، عدّل DB_PATH في ملف .env`,
+        `  - عند أول تشغيل سيُنشئ البرنامج الموظفين تلقائياً في النظام`,
+        `  - سجلات الحضور السابقة (30 يوم) ستُرسل في أول تشغيل`,
+        ``,
+        `للمساعدة: تواصل مع مدير النظام`,
+      ].join("\r\n");
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="mdb-agent.zip"`);
+
+      const zip = archiver("zip", { zlib: { level: 6 } });
+      zip.on("error", (err) => {
+        if (!res.headersSent) {
+          res.status(500).json({ message: `خطأ في ضغط الحزمة: ${err.message}` });
+        } else {
+          res.destroy(err);
+        }
+      });
+      zip.pipe(res);
+
+      zip.append(getMdbAgentJs(),    { name: "mdb-agent.js" });
+      zip.append(getMdbPackageJson(), { name: "package.json" });
+      zip.append(envContent,          { name: ".env" });
+      zip.append(runBat,              { name: "run.bat" });
+      zip.append(watchBat,            { name: "watch.bat" });
+      zip.append(instructions,        { name: "تعليمات.txt" });
 
       await zip.finalize();
     } catch (error: any) {
