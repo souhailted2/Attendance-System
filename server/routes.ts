@@ -637,7 +637,10 @@ export async function registerRoutes(
       const serverUrl = "https://allal.alllal.com";
 
       const devicesEnvLine = selectedDevices
-        .map(d => `${d.ipAddress}:${d.port}:${d.name.replace(/,/g, "-")}${d.workshopId ? `:${d.workshopId}` : ""}`)
+        .map(d => {
+          const safeName = d.name.replace(/[,:\r\n]/g, "-");
+          return `${d.ipAddress}:${d.port}:${safeName}${d.workshopId ? `:${d.workshopId}` : ""}`;
+        })
         .join(",");
 
       const envContent = [
@@ -735,7 +738,13 @@ export async function registerRoutes(
       res.setHeader("Content-Disposition", `attachment; filename="zk-agent.zip"`);
 
       const zip = archiver("zip", { zlib: { level: 6 } });
-      zip.on("error", (err) => { throw err; });
+      zip.on("error", (err) => {
+        if (!res.headersSent) {
+          res.status(500).json({ message: `خطأ في ضغط الحزمة: ${err.message}` });
+        } else {
+          res.destroy(err);
+        }
+      });
       zip.pipe(res);
 
       zip.append(ZK_AGENT_JS, { name: "zk-agent.js" });
