@@ -1,18 +1,47 @@
+import { createRequire } from "module";
+import { randomUUID } from "crypto";
 import { eq, and, gte, lte } from "drizzle-orm";
-import { db } from "./db";
-import {
-  users, positions, workRules, employees, attendanceRecords, deviceSettings, appSettings,
-  companies, workshops,
-  type InsertUser, type User,
-  type InsertCompany, type Company,
-  type InsertWorkshop, type Workshop,
-  type InsertPosition, type Position,
-  type InsertWorkRule, type WorkRule,
-  type InsertEmployee, type Employee,
-  type InsertAttendance, type AttendanceRecord,
-  type InsertDeviceSettings, type DeviceSettings,
-  type InsertAppSettings, type AppSettings,
+import { db, IS_MYSQL } from "./db";
+import type {
+  InsertUser, User,
+  InsertCompany, Company,
+  InsertWorkshop, Workshop,
+  InsertPosition, Position,
+  InsertWorkRule, WorkRule,
+  InsertEmployee, Employee,
+  InsertAttendance, AttendanceRecord,
+  InsertDeviceSettings, DeviceSettings,
+  InsertAppSettings, AppSettings,
 } from "@shared/schema";
+
+const _require = createRequire(import.meta.url);
+
+function getSchema() {
+  if (IS_MYSQL) {
+    return _require("../shared/schema-mysql");
+  }
+  return _require("../shared/schema");
+}
+
+const s = getSchema();
+const {
+  users, companies, workshops, positions, workRules,
+  employees, attendanceRecords, deviceSettings, appSettings,
+} = s;
+
+async function insertAndReturn<T>(table: any, data: any): Promise<T> {
+  const id = randomUUID();
+  const record = { id, ...data };
+  await db.insert(table).values(record);
+  const [result] = await db.select().from(table).where(eq(table.id, id));
+  return result as T;
+}
+
+async function updateAndReturn<T>(table: any, id: string, data: any): Promise<T | undefined> {
+  await db.update(table).set(data).where(eq(table.id, id));
+  const [result] = await db.select().from(table).where(eq(table.id, id));
+  return result as T | undefined;
+}
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -78,8 +107,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(data: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(data).returning();
-    return user;
+    return insertAndReturn<User>(users, data);
   }
 
   async getCompanies(): Promise<Company[]> {
@@ -92,13 +120,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCompany(data: InsertCompany): Promise<Company> {
-    const [c] = await db.insert(companies).values(data).returning();
-    return c;
+    return insertAndReturn<Company>(companies, data);
   }
 
   async updateCompany(id: string, data: Partial<InsertCompany>): Promise<Company | undefined> {
-    const [c] = await db.update(companies).set(data).where(eq(companies.id, id)).returning();
-    return c;
+    return updateAndReturn<Company>(companies, id, data);
   }
 
   async deleteCompany(id: string): Promise<void> {
@@ -115,13 +141,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWorkshop(data: InsertWorkshop): Promise<Workshop> {
-    const [w] = await db.insert(workshops).values(data).returning();
-    return w;
+    return insertAndReturn<Workshop>(workshops, data);
   }
 
   async updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop | undefined> {
-    const [w] = await db.update(workshops).set(data).where(eq(workshops.id, id)).returning();
-    return w;
+    return updateAndReturn<Workshop>(workshops, id, data);
   }
 
   async deleteWorkshop(id: string): Promise<void> {
@@ -138,13 +162,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPosition(data: InsertPosition): Promise<Position> {
-    const [pos] = await db.insert(positions).values(data).returning();
-    return pos;
+    return insertAndReturn<Position>(positions, data);
   }
 
   async updatePosition(id: string, data: Partial<InsertPosition>): Promise<Position | undefined> {
-    const [pos] = await db.update(positions).set(data).where(eq(positions.id, id)).returning();
-    return pos;
+    return updateAndReturn<Position>(positions, id, data);
   }
 
   async deletePosition(id: string): Promise<void> {
@@ -161,13 +183,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWorkRule(data: InsertWorkRule): Promise<WorkRule> {
-    const [rule] = await db.insert(workRules).values(data).returning();
-    return rule;
+    return insertAndReturn<WorkRule>(workRules, data);
   }
 
   async updateWorkRule(id: string, data: Partial<InsertWorkRule>): Promise<WorkRule | undefined> {
-    const [rule] = await db.update(workRules).set(data).where(eq(workRules.id, id)).returning();
-    return rule;
+    return updateAndReturn<WorkRule>(workRules, id, data);
   }
 
   async deleteWorkRule(id: string): Promise<void> {
@@ -189,13 +209,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createEmployee(data: InsertEmployee): Promise<Employee> {
-    const [emp] = await db.insert(employees).values(data).returning();
-    return emp;
+    return insertAndReturn<Employee>(employees, data);
   }
 
   async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined> {
-    const [emp] = await db.update(employees).set(data).where(eq(employees.id, id)).returning();
-    return emp;
+    return updateAndReturn<Employee>(employees, id, data);
   }
 
   async getAttendanceById(id: string): Promise<AttendanceRecord | undefined> {
@@ -227,13 +245,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAttendance(data: InsertAttendance): Promise<AttendanceRecord> {
-    const [record] = await db.insert(attendanceRecords).values(data).returning();
-    return record;
+    return insertAndReturn<AttendanceRecord>(attendanceRecords, data);
   }
 
   async updateAttendance(id: string, data: Partial<InsertAttendance>): Promise<AttendanceRecord | undefined> {
-    const [record] = await db.update(attendanceRecords).set(data).where(eq(attendanceRecords.id, id)).returning();
-    return record;
+    return updateAndReturn<AttendanceRecord>(attendanceRecords, id, data);
   }
 
   async getDeviceSettings(): Promise<DeviceSettings[]> {
@@ -246,13 +262,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createDeviceSetting(data: InsertDeviceSettings): Promise<DeviceSettings> {
-    const [setting] = await db.insert(deviceSettings).values(data).returning();
-    return setting;
+    return insertAndReturn<DeviceSettings>(deviceSettings, data);
   }
 
   async updateDeviceSetting(id: string, data: Partial<InsertDeviceSettings>): Promise<DeviceSettings | undefined> {
-    const [setting] = await db.update(deviceSettings).set(data).where(eq(deviceSettings.id, id)).returning();
-    return setting;
+    return updateAndReturn<DeviceSettings>(deviceSettings, id, data);
   }
 
   async deleteDeviceSetting(id: string): Promise<void> {
@@ -267,11 +281,9 @@ export class DatabaseStorage implements IStorage {
   async setAppSetting(key: string, value: string): Promise<AppSettings> {
     const existing = await this.getAppSetting(key);
     if (existing) {
-      const [updated] = await db.update(appSettings).set({ value }).where(eq(appSettings.key, key)).returning();
-      return updated;
+      return updateAndReturn<AppSettings>(appSettings, existing.id, { value }) as Promise<AppSettings>;
     }
-    const [created] = await db.insert(appSettings).values({ key, value }).returning();
-    return created;
+    return insertAndReturn<AppSettings>(appSettings, { key, value });
   }
 }
 

@@ -143,7 +143,7 @@ async function processAttendanceLogs(
       await storage.createAttendance(attendanceData);
       imported++;
     } catch (e: any) {
-      if (e.message?.includes("duplicate") || e.code === "23505") {
+      if (e.message?.includes("duplicate") || e.code === "23505" || e.errno === 1062) {
         duplicates++;
       } else {
         errors.push(`${employee.name} - ${entry.date}: ${e.message}`);
