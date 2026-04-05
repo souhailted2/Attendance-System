@@ -634,7 +634,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "لا توجد أجهزة محددة. أضف جهازاً من صفحة أجهزة البصمة أولاً." });
       }
 
-      const serverUrl = `${req.protocol}://${req.get("host")}`;
+      const serverUrl = "https://allal.alllal.com";
 
       const devicesEnvLine = selectedDevices
         .map(d => `${d.ipAddress}:${d.port}:${d.name.replace(/,/g, "-")}${d.workshopId ? `:${d.workshopId}` : ""}`)
@@ -721,12 +721,12 @@ export async function registerRoutes(
         `  - ثبّتها مع الإعدادات الافتراضية`,
         ``,
         `الخطوة 2: تشغيل المزامنة`,
-        `  - انقر مرتين على ملف: تشغيل-مرة-واحدة.bat`,
+        `  - انقر مرتين على ملف: run.bat`,
         `  - سيتصل البرنامج بأجهزة البصمة ويرسل البيانات للموقع`,
         ``,
         `الخطوة 3 (اختياري): مزامنة تلقائية`,
-        `  - انقر مرتين على: تشغيل-تلقائي.bat`,
-        `  - سيعمل البرنامج كل 30 دقيقة تلقائياً`,
+        `  - لتشغيل البرنامج تلقائياً كل 30 دقيقة شغّل الأمر:`,
+        `      node zk-agent.js --watch`,
         ``,
         `للمساعدة: تواصل مع مدير النظام`,
       ].join("\r\n");
@@ -741,9 +741,9 @@ export async function registerRoutes(
       zip.append(ZK_AGENT_JS, { name: "zk-agent.js" });
       zip.append(AGENT_PACKAGE_JSON, { name: "package.json" });
       zip.append(envContent, { name: ".env" });
-      zip.append(runBat, { name: "run-once.bat" });
+      zip.append(runBat, { name: "run.bat" });
       zip.append(watchBat, { name: "run-auto.bat" });
-      zip.append(instructions, { name: "README.txt" });
+      zip.append(instructions, { name: "تعليمات.txt" });
 
       await zip.finalize();
     } catch (error: any) {
