@@ -692,19 +692,6 @@ export async function registerRoutes(
         `pause`,
       ].join("\r\n");
 
-      const watchBat = [
-        `@echo off`,
-        `chcp 65001 > nul`,
-        `echo ===================================`,
-        `echo    مزامنة تلقائية كل 30 دقيقة`,
-        `echo ===================================`,
-        `echo اضغط Ctrl+C للإيقاف`,
-        `echo.`,
-        `npm install --loglevel=error`,
-        `node zk-agent.js --watch`,
-        `pause`,
-      ].join("\r\n");
-
       const deviceList = selectedDevices
         .map((d, i) => `  ${i + 1}. ${d.name} (${d.ipAddress}:${d.port})`)
         .join("\r\n");
@@ -751,7 +738,6 @@ export async function registerRoutes(
       zip.append(AGENT_PACKAGE_JSON, { name: "package.json" });
       zip.append(envContent, { name: ".env" });
       zip.append(runBat, { name: "run.bat" });
-      zip.append(watchBat, { name: "run-auto.bat" });
       zip.append(instructions, { name: "تعليمات.txt" });
 
       await zip.finalize();

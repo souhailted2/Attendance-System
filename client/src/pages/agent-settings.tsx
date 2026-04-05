@@ -73,7 +73,7 @@ export default function AgentSettings() {
       const ids = selectedDeviceIds.size > 0
         ? Array.from(selectedDeviceIds)
         : devices.map(d => d.id);
-      const res = await fetch(`/api/agent/download-package?deviceIds=${ids.join(",")}`);
+      const res = await fetch(`/api/agent/download-package?deviceIds=${ids.join(",")}`, { credentials: "include" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: "خطأ غير معروف" }));
         throw new Error(err.message);
