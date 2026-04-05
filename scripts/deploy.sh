@@ -5,15 +5,15 @@
 #   - App: Node.js 20 via nvm, managed by PM2 in cluster mode
 #   - DB:  MySQL 8 on the same host (127.0.0.1:3306)
 #   - Web: LiteSpeed + PHP reverse proxy → port 3000
-#   - Bundle: esbuild CJS (dist/index.cjs) — all npm deps pre-bundled inside
+#   - Deploy: build locally → commit dist/ → push to GitHub → server git pull
 #
 # Prerequisites (caller environment):
 #   - sshpass:              apt-get install sshpass
 #   - DEPLOY_SSH_PASSWORD:  export DEPLOY_SSH_PASSWORD="<password>"
 #
 # Usage:
-#   bash scripts/deploy.sh              # full deploy (build + upload + restart + verify)
-#   SKIP_BUILD=1 bash scripts/deploy.sh # skip local npm run build
+#   bash scripts/deploy.sh              # full deploy (build + push + pull + restart)
+#   SKIP_BUILD=1 bash scripts/deploy.sh # skip local build (just push + pull)
 
 set -euo pipefail
 
@@ -21,6 +21,7 @@ SSH_HOST="109.106.251.14"
 SSH_PORT="65002"
 SSH_USER="u807293731"
 REMOTE_APP_DIR="/home/u807293731/attendance"
+GITHUB_URL="https://github.com/souhailted2/Attendance-System.git"
 PASS_FILE="/tmp/.deploy_pass_$(date +%s)"
 
 if [[ -z "${DEPLOY_SSH_PASSWORD:-}" ]]; then
@@ -38,47 +39,46 @@ ssh_run() {
     -p "$SSH_PORT" "${SSH_USER}@${SSH_HOST}" "$@"
 }
 
-scp_upload() {
-  sshpass -f "$PASS_FILE" scp \
-    -o StrictHostKeyChecking=accept-new \
-    -P "$SSH_PORT" "$@"
-}
-
-# ── Step 1: local build ────────────────────────────────────────────────────────
+# ── Step 1: build locally ──────────────────────────────────────────────────────
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
-  echo "=== [1/5] Building production bundle ==="
+  echo "=== [1/4] Building production bundle ==="
   npm run build
 else
-  echo "=== [1/5] Skipping build (SKIP_BUILD=1) ==="
+  echo "=== [1/4] Skipping build (SKIP_BUILD=1) ==="
 fi
 
-echo "=== [2/5] Uploading dist/index.cjs and agent/ ==="
-scp_upload dist/index.cjs "${SSH_USER}@${SSH_HOST}:${REMOTE_APP_DIR}/dist/index.cjs"
-scp_upload -r agent "${SSH_USER}@${SSH_HOST}:${REMOTE_APP_DIR}/"
+# ── Step 2: commit dist/ and push to GitHub ────────────────────────────────────
+echo "=== [2/4] Committing dist/ and pushing to GitHub ==="
+git add -A
+if git diff --cached --quiet; then
+  echo "لا يوجد تغييرات جديدة للرفع"
+else
+  git commit -m "deploy: update dist/ $(date '+%Y-%m-%d %H:%M')"
+  git push origin main
+fi
 
-# ── Step 3: ensure ecosystem config exists and DATABASE_URL is set ─────────────
-echo "=== [3/5] Verifying ecosystem config and DATABASE_URL on server ==="
-ssh_run bash << 'REMOTE_CHECK'
+# ── Step 3: server pulls from GitHub ──────────────────────────────────────────
+echo "=== [3/4] Server pulling from GitHub ==="
+ssh_run bash << REMOTE
   set -euo pipefail
-  export NVM_DIR="$HOME/.nvm"; source "$NVM_DIR/nvm.sh"; nvm use 20 --silent
+  export NVM_DIR="\$HOME/.nvm"; source "\$NVM_DIR/nvm.sh"; nvm use 20 --silent
+  cd "$REMOTE_APP_DIR"
 
-  if [[ ! -f "$HOME/attendance/ecosystem.config.cjs" ]]; then
-    echo "ERROR: ecosystem.config.cjs not found at ~/attendance/ecosystem.config.cjs" >&2
-    exit 1
+  # Initialize git if not already done
+  if [[ ! -d ".git" ]]; then
+    git init
+    git remote add origin "$GITHUB_URL"
+  elif ! git remote | grep -q "^origin$"; then
+    git remote add origin "$GITHUB_URL"
   fi
 
-  # Verify pm2 can read the config
-  pm2 prettylist --no-color 2>/dev/null | grep -q "attendance" || echo "INFO: App not yet in PM2 — will start fresh."
-
-  # Verify node_modules has mysql2 (bundled in CJS, but double-check for edge cases)
-  if [[ ! -d "$HOME/attendance/node_modules/mysql2" ]]; then
-    echo "INFO: mysql2 not in server node_modules. Installing..."
-    cd "$HOME/attendance" && npm install mysql2 --save 2>&1 | tail -5
-  fi
-REMOTE_CHECK
+  git fetch origin main
+  git reset --hard origin/main
+  echo "تم السحب من GitHub بنجاح"
+REMOTE
 
 # ── Step 4: restart PM2 ───────────────────────────────────────────────────────
-echo "=== [4/5] Restarting PM2 app ==="
+echo "=== [4/4] Restarting PM2 and verifying ==="
 ssh_run bash << 'REMOTE_RESTART'
   set -euo pipefail
   export NVM_DIR="$HOME/.nvm"; source "$NVM_DIR/nvm.sh"; nvm use 20 --silent
@@ -90,21 +90,15 @@ ssh_run bash << 'REMOTE_RESTART'
     pm2 start ecosystem.config.cjs
     pm2 save
   fi
+
+  sleep 5
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/companies)
+  if [[ "$STATUS" == "200" ]]; then
+    echo "✓ النشر نجح — الموقع يعمل (HTTP $STATUS)"
+    echo "✓ الموقع: https://allal.alllal.com"
+  else
+    echo "✗ تحذير: HTTP $STATUS" >&2
+    pm2 logs --nostream --lines 15 attendance 2>&1 | tail -15
+    exit 1
+  fi
 REMOTE_RESTART
-
-# ── Step 5: health check ──────────────────────────────────────────────────────
-echo "=== [5/5] Verifying deployment ==="
-sleep 4
-STATUS=$(ssh_run 'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/companies')
-
-if [[ "$STATUS" == "200" ]]; then
-  echo "✓ Deployment successful — API responded with HTTP $STATUS"
-  echo "✓ Live at: https://allal.alllal.com"
-else
-  echo "✗ WARNING: API responded with HTTP $STATUS (expected 200)" >&2
-  ssh_run '
-    export NVM_DIR="$HOME/.nvm"; source "$NVM_DIR/nvm.sh"; nvm use 20 --silent
-    pm2 logs --nostream --lines 20 attendance 2>&1 | tail -20
-  '
-  exit 1
-fi
