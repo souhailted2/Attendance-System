@@ -6,8 +6,21 @@ A comprehensive worker attendance management system built with React + Express +
 ## Architecture
 - **Frontend**: React + TypeScript + Tailwind CSS + Shadcn UI, RTL layout (Arabic)
 - **Backend**: Express.js + Drizzle ORM
-- **Database**: PostgreSQL
+- **Database**: Dual support — PostgreSQL (dev/Replit) + MySQL (Hostinger production)
 - **Routing**: Wouter for client-side routing
+- **DB Detection**: IS_MYSQL flag in `server/db.ts` based on DATABASE_URL prefix
+
+## Production Deployment (Hostinger)
+- **Domain**: https://allal.alllal.com
+- **Server**: u807293731@109.106.251.14:65002 (shared hosting)
+- **App Path**: ~/attendance/dist/index.cjs (Node.js CJS bundle)
+- **Process Manager**: PM2 (app name: attendance, port 3000, cluster mode)
+- **MySQL DB**: u807293731_insert @ 127.0.0.1:3306
+- **Web Proxy**: PHP reverse proxy at ~/domains/allal.alllal.com/public_html/proxy.php
+  - Routes all requests from domain to localhost:3000
+- **Deploy Steps**: `npm run build` → SCP dist/index.cjs → `pm2 restart attendance`
+- **SSH**: `sshpass -f /tmp/sp ssh -o StrictHostKeyChecking=no -p 65002 u807293731@109.106.251.14`
+- **GitHub**: https://github.com/souhailted2/Attendance-System
 
 ## Project Structure
 - `shared/schema.ts` - Database schema (companies, workshops, positions, workRules, employees, attendanceRecords, deviceSettings)
