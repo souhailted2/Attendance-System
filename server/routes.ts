@@ -1037,5 +1037,158 @@ export async function registerRoutes(
     }
   });
 
+  // ── استيراد بيانات ZKTeco من جداول MySQL القديمة ──────────────────────────
+  app.post("/api/sync/from-zk-mysql", async (req, res) => {
+    try {
+      const { IS_MYSQL, pool } = await import("./db");
+
+      if (!IS_MYSQL) {
+        return res.status(400).json({
+          message: "هذه الخاصية تعمل فقط في بيئة الإنتاج (MySQL).",
+        });
+      }
+
+      const mysqlPool = pool as import("mysql2/promise").Pool;
+      const conn = await mysqlPool.getConnection();
+
+      try {
+        // ── 1. استيراد الموظفين من جدول users ──
+        const [zkUsers] = await conn.execute(
+          `SELECT id, name, employee_id, pin 
+           FROM users 
+           WHERE employee_id IS NOT NULL 
+             AND employee_id != '' 
+             AND employee_id NOT IN ('alla', 'allal')
+           ORDER BY id`
+        ) as any[];
+
+        let empCreated = 0;
+        let empSkipped = 0;
+
+        // بناء خريطة users.id (INT) → employee_code لاستخدامها لاحقاً في الحضور
+        const userIdToCode: Record<number, string> = {};
+
+        for (const u of zkUsers) {
+          const code = String(u.employee_id || u.pin || "").trim();
+          const name = String(u.name || "").trim();
+          if (!code || !name) { empSkipped++; continue; }
+
+          userIdToCode[u.id] = code;
+
+          const existing = await storage.getEmployeeByCode(code);
+          if (existing) { empSkipped++; continue; }
+
+          await storage.createEmployee({
+            name,
+            employeeCode: code,
+            positionId: null,
+            workRuleId: null,
+            companyId: null,
+            workshopId: null,
+            phone: null,
+            wage: "0",
+            shift: "morning",
+            contractEndDate: null,
+            nonRenewalDate: null,
+            isActive: true,
+          });
+          empCreated++;
+        }
+
+        // ── 2. جلب الموظفين المحدّثين لبناء خريطة code → employee UUID ──
+        const allEmployees = await storage.getEmployees();
+        const codeToEmployee: Record<string, string> = {};
+        for (const e of allEmployees) {
+          codeToEmployee[e.employeeCode] = e.id;
+        }
+
+        // ── 3. استيراد سجلات الحضور من جدول attendance ──
+        const [zkAttendance] = await conn.execute(
+          `SELECT a.employee_id as user_int_id, 
+                  DATE_FORMAT(a.log_date, '%Y-%m-%d') as date,
+                  TIME_FORMAT(a.check_in, '%H:%i') as check_in,
+                  TIME_FORMAT(a.check_out, '%H:%i') as check_out,
+                  a.status
+           FROM attendance a
+           JOIN users u ON a.employee_id = u.id
+           WHERE u.employee_id IS NOT NULL AND u.employee_id != ''
+           ORDER BY a.log_date DESC`
+        ) as any[];
+
+        let attCreated = 0;
+        let attSkipped = 0;
+        const attErrors: string[] = [];
+
+        for (const att of zkAttendance) {
+          const code = userIdToCode[att.user_int_id];
+          if (!code) { attSkipped++; continue; }
+
+          const employeeId = codeToEmployee[code];
+          if (!employeeId) { attSkipped++; continue; }
+
+          const date = att.date;
+          if (!date) { attSkipped++; continue; }
+
+          // جلب قاعدة الحضور للموظف
+          const workRule = await getWorkRuleForEmployee(employeeId);
+          const checkIn = att.check_in || null;
+          const checkOut = att.check_out || null;
+
+          const statusMap: Record<string, string> = {
+            present: "present", late: "late", absent: "absent",
+            holiday: "leave", sick_leave: "leave",
+          };
+          let status = statusMap[att.status] || "present";
+
+          let calc = { lateMinutes: 0, earlyLeaveMinutes: 0, totalHours: 0, penalty: 0, status };
+          if (workRule && checkIn) {
+            calc = calculateAttendanceDetails(
+              checkIn, checkOut,
+              workRule.workStartTime, workRule.workEndTime,
+              workRule.lateGraceMinutes,
+              workRule.latePenaltyPerMinute,
+              workRule.earlyLeavePenaltyPerMinute,
+              workRule.absencePenalty,
+              status
+            );
+          }
+
+          try {
+            await storage.createAttendance({
+              employeeId,
+              date,
+              checkIn,
+              checkOut,
+              status: calc.status,
+              lateMinutes: calc.lateMinutes,
+              earlyLeaveMinutes: calc.earlyLeaveMinutes,
+              totalHours: String(calc.totalHours),
+              penalty: String(calc.penalty),
+              notes: null,
+            });
+            attCreated++;
+          } catch (e: any) {
+            if (e.message?.includes("duplicate") || e.message?.includes("Duplicate") || e.code === "23505") {
+              attSkipped++;
+            } else {
+              attErrors.push(`${code} - ${date}: ${e.message}`);
+              attSkipped++;
+            }
+          }
+        }
+
+        res.json({
+          employees: { created: empCreated, skipped: empSkipped },
+          attendance: { created: attCreated, skipped: attSkipped, errors: attErrors.slice(0, 10) },
+          message: `تم استيراد ${empCreated} موظف و${attCreated} سجل حضور من بيانات ZKTeco`,
+        });
+      } finally {
+        conn.release();
+      }
+    } catch (error: any) {
+      res.status(500).json({ message: `خطأ في الاستيراد: ${error.message}` });
+    }
+  });
+
   return httpServer;
 }
