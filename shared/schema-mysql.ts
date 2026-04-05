@@ -4,9 +4,11 @@ import { z } from "zod";
 
 export const users = mysqlTable("auth_users", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  username: text("username").notNull(),
+  username: varchar("username", { length: 191 }).notNull(),
   password: text("password").notNull(),
-});
+}, (table) => [
+  uniqueIndex("auth_users_username_idx").on(table.username),
+]);
 
 export const companies = mysqlTable("companies", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -41,7 +43,7 @@ export const workRules = mysqlTable("work_rules", {
 export const employees = mysqlTable("employees", {
   id: varchar("id", { length: 36 }).primaryKey(),
   name: text("name").notNull(),
-  employeeCode: text("employee_code").notNull(),
+  employeeCode: varchar("employee_code", { length: 100 }).notNull(),
   positionId: varchar("position_id", { length: 36 }),
   workRuleId: varchar("work_rule_id", { length: 36 }),
   companyId: varchar("company_id", { length: 36 }),
@@ -52,7 +54,9 @@ export const employees = mysqlTable("employees", {
   contractEndDate: text("contract_end_date"),
   nonRenewalDate: text("non_renewal_date"),
   isActive: boolean("is_active").notNull().default(true),
-});
+}, (table) => [
+  uniqueIndex("employees_employee_code_idx").on(table.employeeCode),
+]);
 
 export const attendanceRecords = mysqlTable("attendance_records", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -82,9 +86,11 @@ export const deviceSettings = mysqlTable("device_settings", {
 
 export const appSettings = mysqlTable("app_settings", {
   id: varchar("id", { length: 36 }).primaryKey(),
-  key: text("key").notNull(),
+  key: varchar("key", { length: 191 }).notNull(),
   value: text("value").notNull(),
-});
+}, (table) => [
+  uniqueIndex("app_settings_key_idx").on(table.key),
+]);
 
 export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
 export const insertCompanySchema = createInsertSchema(companies).pick({ name: true, description: true });

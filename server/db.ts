@@ -2,6 +2,8 @@ import { Pool } from "pg";
 import mysql2 from "mysql2/promise";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { drizzle as drizzleMysql } from "drizzle-orm/mysql2";
+import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { MySql2Database } from "drizzle-orm/mysql2";
 import * as pgSchema from "../shared/schema";
 import * as mysqlSchema from "../shared/schema-mysql";
 
@@ -12,16 +14,21 @@ if (!process.env.DATABASE_URL) {
 const url = process.env.DATABASE_URL;
 export const IS_MYSQL = url.startsWith("mysql://");
 
-let _db: any;
-let _pool: any;
+export type AppDb = NodePgDatabase<typeof pgSchema> | MySql2Database<typeof mysqlSchema>;
+export type AppPool = Pool | mysql2.Pool;
+
+let _db: AppDb;
+let _pool: AppPool;
 
 if (IS_MYSQL) {
-  _pool = mysql2.createPool(url);
-  _db = drizzleMysql(_pool, { schema: mysqlSchema, mode: "default" });
+  const pool = mysql2.createPool(url);
+  _pool = pool;
+  _db = drizzleMysql(pool, { schema: mysqlSchema, mode: "default" });
 } else {
-  _pool = new Pool({ connectionString: url });
-  _db = drizzlePg(_pool, { schema: pgSchema });
+  const pool = new Pool({ connectionString: url });
+  _pool = pool;
+  _db = drizzlePg(pool, { schema: pgSchema });
 }
 
-export const pool = _pool;
-export const db: any = _db;
+export const pool: AppPool = _pool;
+export const db: AppDb = _db;

@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { eq, and, gte, lte } from "drizzle-orm";
-import { db, IS_MYSQL } from "./db";
+import { eq, and, gte, lte, type Table } from "drizzle-orm";
+import { db, IS_MYSQL, type AppDb } from "./db";
 import * as pgSchema from "../shared/schema";
 import * as mysqlSchema from "../shared/schema-mysql";
 import type {
@@ -21,17 +21,23 @@ const {
   employees, attendanceRecords, deviceSettings, appSettings,
 } = s as typeof pgSchema;
 
-async function insertAndReturn<T>(table: any, data: any): Promise<T> {
+// Narrow escape hatch: the dual-dialect union (NodePgDatabase | MySql2Database) cannot
+// statically resolve table-type compatibility at the ORM call sites inside generic helpers.
+// All exported IStorage methods are fully typed; only these two internal helpers use the cast.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const anyDb = db as any;
+
+async function insertAndReturn<T>(table: Table, data: Record<string, unknown>): Promise<T> {
   const id = randomUUID();
   const record = { id, ...data };
-  await db.insert(table).values(record);
-  const [result] = await db.select().from(table).where(eq(table.id, id));
+  await anyDb.insert(table).values(record);
+  const [result] = await anyDb.select().from(table).where(eq((table as unknown as { id: Parameters<typeof eq>[0] }).id, id));
   return result as T;
 }
 
-async function updateAndReturn<T>(table: any, id: string, data: any): Promise<T | undefined> {
-  await db.update(table).set(data).where(eq(table.id, id));
-  const [result] = await db.select().from(table).where(eq(table.id, id));
+async function updateAndReturn<T>(table: Table, id: string, data: Record<string, unknown>): Promise<T | undefined> {
+  await anyDb.update(table).set(data).where(eq((table as unknown as { id: Parameters<typeof eq>[0] }).id, id));
+  const [result] = await anyDb.select().from(table).where(eq((table as unknown as { id: Parameters<typeof eq>[0] }).id, id));
   return result as T | undefined;
 }
 
@@ -273,7 +279,9 @@ export class DatabaseStorage implements IStorage {
   async setAppSetting(key: string, value: string): Promise<AppSettings> {
     const existing = await this.getAppSetting(key);
     if (existing) {
-      return updateAndReturn<AppSettings>(appSettings, existing.id, { value }) as Promise<AppSettings>;
+      const updated = await updateAndReturn<AppSettings>(appSettings, existing.id, { value });
+      if (!updated) throw new Error(`Failed to update app setting: ${key}`);
+      return updated;
     }
     return insertAndReturn<AppSettings>(appSettings, { key, value });
   }
