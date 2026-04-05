@@ -1,8 +1,3 @@
-import { randomUUID } from "crypto";
-import { eq, and, gte, lte, type Table } from "drizzle-orm";
-import { db, IS_MYSQL, type AppDb } from "./db";
-import * as pgSchema from "../shared/schema";
-import * as mysqlSchema from "../shared/schema-mysql";
 import type {
   InsertUser, User,
   InsertCompany, Company,
@@ -14,32 +9,6 @@ import type {
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
 } from "@shared/schema";
-
-const s = IS_MYSQL ? mysqlSchema : pgSchema;
-const {
-  users, companies, workshops, positions, workRules,
-  employees, attendanceRecords, deviceSettings, appSettings,
-} = s as typeof pgSchema;
-
-// Narrow escape hatch: the dual-dialect union (NodePgDatabase | MySql2Database) cannot
-// statically resolve table-type compatibility at the ORM call sites inside generic helpers.
-// All exported IStorage methods are fully typed; only these two internal helpers use the cast.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const anyDb = db as any;
-
-async function insertAndReturn<T>(table: Table, data: Record<string, unknown>): Promise<T> {
-  const id = randomUUID();
-  const record = { id, ...data };
-  await anyDb.insert(table).values(record);
-  const [result] = await anyDb.select().from(table).where(eq((table as unknown as { id: Parameters<typeof eq>[0] }).id, id));
-  return result as T;
-}
-
-async function updateAndReturn<T>(table: Table, id: string, data: Record<string, unknown>): Promise<T | undefined> {
-  await anyDb.update(table).set(data).where(eq((table as unknown as { id: Parameters<typeof eq>[0] }).id, id));
-  const [result] = await anyDb.select().from(table).where(eq((table as unknown as { id: Parameters<typeof eq>[0] }).id, id));
-  return result as T | undefined;
-}
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -93,198 +62,76 @@ export interface IStorage {
   setAppSetting(key: string, value: string): Promise<AppSettings>;
 }
 
-export class DatabaseStorage implements IStorage {
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user;
-  }
+import { IS_MYSQL } from "./db";
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user;
+async function loadStorage(): Promise<IStorage> {
+  if (IS_MYSQL) {
+    const { MysqlStorage } = await import("./storage-mysql");
+    return new MysqlStorage();
   }
-
-  async createUser(data: InsertUser): Promise<User> {
-    return insertAndReturn<User>(users, data);
-  }
-
-  async getCompanies(): Promise<Company[]> {
-    return db.select().from(companies);
-  }
-
-  async getCompany(id: string): Promise<Company | undefined> {
-    const [c] = await db.select().from(companies).where(eq(companies.id, id));
-    return c;
-  }
-
-  async createCompany(data: InsertCompany): Promise<Company> {
-    return insertAndReturn<Company>(companies, data);
-  }
-
-  async updateCompany(id: string, data: Partial<InsertCompany>): Promise<Company | undefined> {
-    return updateAndReturn<Company>(companies, id, data);
-  }
-
-  async deleteCompany(id: string): Promise<void> {
-    await db.delete(companies).where(eq(companies.id, id));
-  }
-
-  async getWorkshops(): Promise<Workshop[]> {
-    return db.select().from(workshops);
-  }
-
-  async getWorkshop(id: string): Promise<Workshop | undefined> {
-    const [w] = await db.select().from(workshops).where(eq(workshops.id, id));
-    return w;
-  }
-
-  async createWorkshop(data: InsertWorkshop): Promise<Workshop> {
-    return insertAndReturn<Workshop>(workshops, data);
-  }
-
-  async updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop | undefined> {
-    return updateAndReturn<Workshop>(workshops, id, data);
-  }
-
-  async deleteWorkshop(id: string): Promise<void> {
-    await db.delete(workshops).where(eq(workshops.id, id));
-  }
-
-  async getPositions(): Promise<Position[]> {
-    return db.select().from(positions);
-  }
-
-  async getPosition(id: string): Promise<Position | undefined> {
-    const [pos] = await db.select().from(positions).where(eq(positions.id, id));
-    return pos;
-  }
-
-  async createPosition(data: InsertPosition): Promise<Position> {
-    return insertAndReturn<Position>(positions, data);
-  }
-
-  async updatePosition(id: string, data: Partial<InsertPosition>): Promise<Position | undefined> {
-    return updateAndReturn<Position>(positions, id, data);
-  }
-
-  async deletePosition(id: string): Promise<void> {
-    await db.delete(positions).where(eq(positions.id, id));
-  }
-
-  async getWorkRules(): Promise<WorkRule[]> {
-    return db.select().from(workRules);
-  }
-
-  async getWorkRule(id: string): Promise<WorkRule | undefined> {
-    const [rule] = await db.select().from(workRules).where(eq(workRules.id, id));
-    return rule;
-  }
-
-  async createWorkRule(data: InsertWorkRule): Promise<WorkRule> {
-    return insertAndReturn<WorkRule>(workRules, data);
-  }
-
-  async updateWorkRule(id: string, data: Partial<InsertWorkRule>): Promise<WorkRule | undefined> {
-    return updateAndReturn<WorkRule>(workRules, id, data);
-  }
-
-  async deleteWorkRule(id: string): Promise<void> {
-    await db.delete(workRules).where(eq(workRules.id, id));
-  }
-
-  async getEmployees(): Promise<Employee[]> {
-    return db.select().from(employees);
-  }
-
-  async getEmployee(id: string): Promise<Employee | undefined> {
-    const [emp] = await db.select().from(employees).where(eq(employees.id, id));
-    return emp;
-  }
-
-  async getEmployeeByCode(code: string): Promise<Employee | undefined> {
-    const [emp] = await db.select().from(employees).where(eq(employees.employeeCode, code));
-    return emp;
-  }
-
-  async createEmployee(data: InsertEmployee): Promise<Employee> {
-    return insertAndReturn<Employee>(employees, data);
-  }
-
-  async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined> {
-    return updateAndReturn<Employee>(employees, id, data);
-  }
-
-  async getAttendanceById(id: string): Promise<AttendanceRecord | undefined> {
-    const [record] = await db.select().from(attendanceRecords).where(eq(attendanceRecords.id, id));
-    return record;
-  }
-
-  async getAttendanceByDate(date: string): Promise<AttendanceRecord[]> {
-    return db.select().from(attendanceRecords).where(eq(attendanceRecords.date, date));
-  }
-
-  async getAttendanceByEmployee(employeeId: string, startDate: string, endDate: string): Promise<AttendanceRecord[]> {
-    return db.select().from(attendanceRecords).where(
-      and(
-        eq(attendanceRecords.employeeId, employeeId),
-        gte(attendanceRecords.date, startDate),
-        lte(attendanceRecords.date, endDate)
-      )
-    );
-  }
-
-  async getAttendanceByDateRange(startDate: string, endDate: string): Promise<AttendanceRecord[]> {
-    return db.select().from(attendanceRecords).where(
-      and(
-        gte(attendanceRecords.date, startDate),
-        lte(attendanceRecords.date, endDate)
-      )
-    );
-  }
-
-  async createAttendance(data: InsertAttendance): Promise<AttendanceRecord> {
-    return insertAndReturn<AttendanceRecord>(attendanceRecords, data);
-  }
-
-  async updateAttendance(id: string, data: Partial<InsertAttendance>): Promise<AttendanceRecord | undefined> {
-    return updateAndReturn<AttendanceRecord>(attendanceRecords, id, data);
-  }
-
-  async getDeviceSettings(): Promise<DeviceSettings[]> {
-    return db.select().from(deviceSettings);
-  }
-
-  async getDeviceSetting(id: string): Promise<DeviceSettings | undefined> {
-    const [setting] = await db.select().from(deviceSettings).where(eq(deviceSettings.id, id));
-    return setting;
-  }
-
-  async createDeviceSetting(data: InsertDeviceSettings): Promise<DeviceSettings> {
-    return insertAndReturn<DeviceSettings>(deviceSettings, data);
-  }
-
-  async updateDeviceSetting(id: string, data: Partial<InsertDeviceSettings>): Promise<DeviceSettings | undefined> {
-    return updateAndReturn<DeviceSettings>(deviceSettings, id, data);
-  }
-
-  async deleteDeviceSetting(id: string): Promise<void> {
-    await db.delete(deviceSettings).where(eq(deviceSettings.id, id));
-  }
-
-  async getAppSetting(key: string): Promise<AppSettings | undefined> {
-    const [setting] = await db.select().from(appSettings).where(eq(appSettings.key, key));
-    return setting;
-  }
-
-  async setAppSetting(key: string, value: string): Promise<AppSettings> {
-    const existing = await this.getAppSetting(key);
-    if (existing) {
-      const updated = await updateAndReturn<AppSettings>(appSettings, existing.id, { value });
-      if (!updated) throw new Error(`Failed to update app setting: ${key}`);
-      return updated;
-    }
-    return insertAndReturn<AppSettings>(appSettings, { key, value });
-  }
+  const { PgStorage } = await import("./storage-pg");
+  return new PgStorage();
 }
 
-export const storage = new DatabaseStorage();
+class LazyStorage implements IStorage {
+  private _impl: IStorage | null = null;
+
+  private async impl(): Promise<IStorage> {
+    if (!this._impl) {
+      this._impl = await loadStorage();
+    }
+    return this._impl;
+  }
+
+  getUser(id: string) { return this.impl().then(s => s.getUser(id)); }
+  getUserByUsername(u: string) { return this.impl().then(s => s.getUserByUsername(u)); }
+  createUser(d: InsertUser) { return this.impl().then(s => s.createUser(d)); }
+
+  getCompanies() { return this.impl().then(s => s.getCompanies()); }
+  getCompany(id: string) { return this.impl().then(s => s.getCompany(id)); }
+  createCompany(d: InsertCompany) { return this.impl().then(s => s.createCompany(d)); }
+  updateCompany(id: string, d: Partial<InsertCompany>) { return this.impl().then(s => s.updateCompany(id, d)); }
+  deleteCompany(id: string) { return this.impl().then(s => s.deleteCompany(id)); }
+
+  getWorkshops() { return this.impl().then(s => s.getWorkshops()); }
+  getWorkshop(id: string) { return this.impl().then(s => s.getWorkshop(id)); }
+  createWorkshop(d: InsertWorkshop) { return this.impl().then(s => s.createWorkshop(d)); }
+  updateWorkshop(id: string, d: Partial<InsertWorkshop>) { return this.impl().then(s => s.updateWorkshop(id, d)); }
+  deleteWorkshop(id: string) { return this.impl().then(s => s.deleteWorkshop(id)); }
+
+  getPositions() { return this.impl().then(s => s.getPositions()); }
+  getPosition(id: string) { return this.impl().then(s => s.getPosition(id)); }
+  createPosition(d: InsertPosition) { return this.impl().then(s => s.createPosition(d)); }
+  updatePosition(id: string, d: Partial<InsertPosition>) { return this.impl().then(s => s.updatePosition(id, d)); }
+  deletePosition(id: string) { return this.impl().then(s => s.deletePosition(id)); }
+
+  getWorkRules() { return this.impl().then(s => s.getWorkRules()); }
+  getWorkRule(id: string) { return this.impl().then(s => s.getWorkRule(id)); }
+  createWorkRule(d: InsertWorkRule) { return this.impl().then(s => s.createWorkRule(d)); }
+  updateWorkRule(id: string, d: Partial<InsertWorkRule>) { return this.impl().then(s => s.updateWorkRule(id, d)); }
+  deleteWorkRule(id: string) { return this.impl().then(s => s.deleteWorkRule(id)); }
+
+  getEmployees() { return this.impl().then(s => s.getEmployees()); }
+  getEmployee(id: string) { return this.impl().then(s => s.getEmployee(id)); }
+  getEmployeeByCode(code: string) { return this.impl().then(s => s.getEmployeeByCode(code)); }
+  createEmployee(d: InsertEmployee) { return this.impl().then(s => s.createEmployee(d)); }
+  updateEmployee(id: string, d: Partial<InsertEmployee>) { return this.impl().then(s => s.updateEmployee(id, d)); }
+
+  getAttendanceById(id: string) { return this.impl().then(s => s.getAttendanceById(id)); }
+  getAttendanceByDate(date: string) { return this.impl().then(s => s.getAttendanceByDate(date)); }
+  getAttendanceByEmployee(empId: string, start: string, end: string) { return this.impl().then(s => s.getAttendanceByEmployee(empId, start, end)); }
+  getAttendanceByDateRange(start: string, end: string) { return this.impl().then(s => s.getAttendanceByDateRange(start, end)); }
+  createAttendance(d: InsertAttendance) { return this.impl().then(s => s.createAttendance(d)); }
+  updateAttendance(id: string, d: Partial<InsertAttendance>) { return this.impl().then(s => s.updateAttendance(id, d)); }
+
+  getDeviceSettings() { return this.impl().then(s => s.getDeviceSettings()); }
+  getDeviceSetting(id: string) { return this.impl().then(s => s.getDeviceSetting(id)); }
+  createDeviceSetting(d: InsertDeviceSettings) { return this.impl().then(s => s.createDeviceSetting(d)); }
+  updateDeviceSetting(id: string, d: Partial<InsertDeviceSettings>) { return this.impl().then(s => s.updateDeviceSetting(id, d)); }
+  deleteDeviceSetting(id: string) { return this.impl().then(s => s.deleteDeviceSetting(id)); }
+
+  getAppSetting(key: string) { return this.impl().then(s => s.getAppSetting(key)); }
+  setAppSetting(key: string, value: string) { return this.impl().then(s => s.setAppSetting(key, value)); }
+}
+
+export const storage: IStorage = new LazyStorage();
