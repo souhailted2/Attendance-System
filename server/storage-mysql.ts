@@ -18,30 +18,6 @@ import type { IStorage } from "./storage";
 
 const mysqlDb = db as MySql2Database<typeof schema>;
 
-async function insertAndFetch<T>(
-  table: Parameters<typeof mysqlDb.insert>[0],
-  selectTable: Parameters<ReturnType<typeof mysqlDb.select>["from"]>[0],
-  idCol: Parameters<typeof eq>[0],
-  data: Record<string, unknown>,
-): Promise<T> {
-  const id = randomUUID();
-  await mysqlDb.insert(table).values({ id, ...data } as Parameters<ReturnType<typeof mysqlDb.insert>["values"]>[0]);
-  const [result] = await mysqlDb.select().from(selectTable).where(eq(idCol, id));
-  return result as T;
-}
-
-async function updateAndFetch<T>(
-  table: Parameters<typeof mysqlDb.update>[0],
-  selectTable: Parameters<ReturnType<typeof mysqlDb.select>["from"]>[0],
-  idCol: Parameters<typeof eq>[0],
-  id: string,
-  data: Record<string, unknown>,
-): Promise<T | undefined> {
-  await mysqlDb.update(table).set(data as Parameters<ReturnType<typeof mysqlDb.update>["set"]>[0]).where(eq(idCol, id));
-  const [result] = await mysqlDb.select().from(selectTable).where(eq(idCol, id));
-  return result as T | undefined;
-}
-
 export class MysqlStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await mysqlDb.select().from(schema.users).where(eq(schema.users.id, id));
@@ -54,7 +30,10 @@ export class MysqlStorage implements IStorage {
   }
 
   async createUser(data: InsertUser): Promise<User> {
-    return insertAndFetch<User>(schema.users, schema.users, schema.users.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.users).values({ id, username: data.username, password: data.password });
+    const [result] = await mysqlDb.select().from(schema.users).where(eq(schema.users.id, id));
+    return result as User;
   }
 
   async getCompanies(): Promise<Company[]> {
@@ -67,11 +46,16 @@ export class MysqlStorage implements IStorage {
   }
 
   async createCompany(data: InsertCompany): Promise<Company> {
-    return insertAndFetch<Company>(schema.companies, schema.companies, schema.companies.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.companies).values({ id, name: data.name, description: data.description ?? null });
+    const [result] = await mysqlDb.select().from(schema.companies).where(eq(schema.companies.id, id));
+    return result as Company;
   }
 
   async updateCompany(id: string, data: Partial<InsertCompany>): Promise<Company | undefined> {
-    return updateAndFetch<Company>(schema.companies, schema.companies, schema.companies.id, id, data);
+    await mysqlDb.update(schema.companies).set(data).where(eq(schema.companies.id, id));
+    const [result] = await mysqlDb.select().from(schema.companies).where(eq(schema.companies.id, id));
+    return result as Company | undefined;
   }
 
   async deleteCompany(id: string): Promise<void> {
@@ -88,11 +72,16 @@ export class MysqlStorage implements IStorage {
   }
 
   async createWorkshop(data: InsertWorkshop): Promise<Workshop> {
-    return insertAndFetch<Workshop>(schema.workshops, schema.workshops, schema.workshops.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.workshops).values({ id, name: data.name, description: data.description ?? null });
+    const [result] = await mysqlDb.select().from(schema.workshops).where(eq(schema.workshops.id, id));
+    return result as Workshop;
   }
 
   async updateWorkshop(id: string, data: Partial<InsertWorkshop>): Promise<Workshop | undefined> {
-    return updateAndFetch<Workshop>(schema.workshops, schema.workshops, schema.workshops.id, id, data);
+    await mysqlDb.update(schema.workshops).set(data).where(eq(schema.workshops.id, id));
+    const [result] = await mysqlDb.select().from(schema.workshops).where(eq(schema.workshops.id, id));
+    return result as Workshop | undefined;
   }
 
   async deleteWorkshop(id: string): Promise<void> {
@@ -109,11 +98,16 @@ export class MysqlStorage implements IStorage {
   }
 
   async createPosition(data: InsertPosition): Promise<Position> {
-    return insertAndFetch<Position>(schema.positions, schema.positions, schema.positions.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.positions).values({ id, name: data.name, description: data.description ?? null });
+    const [result] = await mysqlDb.select().from(schema.positions).where(eq(schema.positions.id, id));
+    return result as Position;
   }
 
   async updatePosition(id: string, data: Partial<InsertPosition>): Promise<Position | undefined> {
-    return updateAndFetch<Position>(schema.positions, schema.positions, schema.positions.id, id, data);
+    await mysqlDb.update(schema.positions).set(data).where(eq(schema.positions.id, id));
+    const [result] = await mysqlDb.select().from(schema.positions).where(eq(schema.positions.id, id));
+    return result as Position | undefined;
   }
 
   async deletePosition(id: string): Promise<void> {
@@ -130,11 +124,26 @@ export class MysqlStorage implements IStorage {
   }
 
   async createWorkRule(data: InsertWorkRule): Promise<WorkRule> {
-    return insertAndFetch<WorkRule>(schema.workRules, schema.workRules, schema.workRules.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.workRules).values({
+      id,
+      name: data.name,
+      workStartTime: data.workStartTime,
+      workEndTime: data.workEndTime,
+      lateGraceMinutes: data.lateGraceMinutes,
+      latePenaltyPerMinute: data.latePenaltyPerMinute,
+      earlyLeavePenaltyPerMinute: data.earlyLeavePenaltyPerMinute,
+      absencePenalty: data.absencePenalty,
+      isDefault: data.isDefault,
+    });
+    const [result] = await mysqlDb.select().from(schema.workRules).where(eq(schema.workRules.id, id));
+    return result as WorkRule;
   }
 
   async updateWorkRule(id: string, data: Partial<InsertWorkRule>): Promise<WorkRule | undefined> {
-    return updateAndFetch<WorkRule>(schema.workRules, schema.workRules, schema.workRules.id, id, data);
+    await mysqlDb.update(schema.workRules).set(data).where(eq(schema.workRules.id, id));
+    const [result] = await mysqlDb.select().from(schema.workRules).where(eq(schema.workRules.id, id));
+    return result as WorkRule | undefined;
   }
 
   async deleteWorkRule(id: string): Promise<void> {
@@ -156,11 +165,30 @@ export class MysqlStorage implements IStorage {
   }
 
   async createEmployee(data: InsertEmployee): Promise<Employee> {
-    return insertAndFetch<Employee>(schema.employees, schema.employees, schema.employees.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.employees).values({
+      id,
+      name: data.name,
+      employeeCode: data.employeeCode,
+      positionId: data.positionId ?? null,
+      workRuleId: data.workRuleId ?? null,
+      companyId: data.companyId ?? null,
+      workshopId: data.workshopId ?? null,
+      phone: data.phone ?? null,
+      wage: data.wage ?? "0",
+      shift: data.shift ?? "morning",
+      contractEndDate: data.contractEndDate ?? null,
+      nonRenewalDate: data.nonRenewalDate ?? null,
+      isActive: data.isActive ?? true,
+    });
+    const [result] = await mysqlDb.select().from(schema.employees).where(eq(schema.employees.id, id));
+    return result as Employee;
   }
 
   async updateEmployee(id: string, data: Partial<InsertEmployee>): Promise<Employee | undefined> {
-    return updateAndFetch<Employee>(schema.employees, schema.employees, schema.employees.id, id, data);
+    await mysqlDb.update(schema.employees).set(data).where(eq(schema.employees.id, id));
+    const [result] = await mysqlDb.select().from(schema.employees).where(eq(schema.employees.id, id));
+    return result as Employee | undefined;
   }
 
   async getAttendanceById(id: string): Promise<AttendanceRecord | undefined> {
@@ -192,11 +220,28 @@ export class MysqlStorage implements IStorage {
   }
 
   async createAttendance(data: InsertAttendance): Promise<AttendanceRecord> {
-    return insertAndFetch<AttendanceRecord>(schema.attendanceRecords, schema.attendanceRecords, schema.attendanceRecords.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.attendanceRecords).values({
+      id,
+      employeeId: data.employeeId,
+      date: data.date,
+      checkIn: data.checkIn ?? null,
+      checkOut: data.checkOut ?? null,
+      status: data.status ?? "present",
+      lateMinutes: data.lateMinutes ?? 0,
+      earlyLeaveMinutes: data.earlyLeaveMinutes ?? 0,
+      totalHours: data.totalHours ?? "0",
+      penalty: data.penalty ?? "0",
+      notes: data.notes ?? null,
+    });
+    const [result] = await mysqlDb.select().from(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
+    return result as AttendanceRecord;
   }
 
   async updateAttendance(id: string, data: Partial<InsertAttendance>): Promise<AttendanceRecord | undefined> {
-    return updateAndFetch<AttendanceRecord>(schema.attendanceRecords, schema.attendanceRecords, schema.attendanceRecords.id, id, data);
+    await mysqlDb.update(schema.attendanceRecords).set(data).where(eq(schema.attendanceRecords.id, id));
+    const [result] = await mysqlDb.select().from(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
+    return result as AttendanceRecord | undefined;
   }
 
   async getDeviceSettings(): Promise<DeviceSettings[]> {
@@ -209,11 +254,24 @@ export class MysqlStorage implements IStorage {
   }
 
   async createDeviceSetting(data: InsertDeviceSettings): Promise<DeviceSettings> {
-    return insertAndFetch<DeviceSettings>(schema.deviceSettings, schema.deviceSettings, schema.deviceSettings.id, data);
+    const id = randomUUID();
+    await mysqlDb.insert(schema.deviceSettings).values({
+      id,
+      name: data.name,
+      ipAddress: data.ipAddress,
+      port: data.port ?? 4370,
+      isActive: data.isActive ?? true,
+      lastSyncAt: data.lastSyncAt ?? null,
+      workshopId: data.workshopId ?? null,
+    });
+    const [result] = await mysqlDb.select().from(schema.deviceSettings).where(eq(schema.deviceSettings.id, id));
+    return result as DeviceSettings;
   }
 
   async updateDeviceSetting(id: string, data: Partial<InsertDeviceSettings>): Promise<DeviceSettings | undefined> {
-    return updateAndFetch<DeviceSettings>(schema.deviceSettings, schema.deviceSettings, schema.deviceSettings.id, id, data);
+    await mysqlDb.update(schema.deviceSettings).set(data).where(eq(schema.deviceSettings.id, id));
+    const [result] = await mysqlDb.select().from(schema.deviceSettings).where(eq(schema.deviceSettings.id, id));
+    return result as DeviceSettings | undefined;
   }
 
   async deleteDeviceSetting(id: string): Promise<void> {
@@ -228,12 +286,14 @@ export class MysqlStorage implements IStorage {
   async setAppSetting(key: string, value: string): Promise<AppSettings> {
     const existing = await this.getAppSetting(key);
     if (existing) {
-      const updated = await updateAndFetch<AppSettings>(
-        schema.appSettings, schema.appSettings, schema.appSettings.id, existing.id, { value },
-      );
-      if (!updated) throw new Error(`Failed to update app setting: ${key}`);
-      return updated;
+      await mysqlDb.update(schema.appSettings).set({ value }).where(eq(schema.appSettings.id, existing.id));
+      const [result] = await mysqlDb.select().from(schema.appSettings).where(eq(schema.appSettings.id, existing.id));
+      if (!result) throw new Error(`Failed to update app setting: ${key}`);
+      return result as AppSettings;
     }
-    return insertAndFetch<AppSettings>(schema.appSettings, schema.appSettings, schema.appSettings.id, { key, value });
+    const id = randomUUID();
+    await mysqlDb.insert(schema.appSettings).values({ id, key, value });
+    const [result] = await mysqlDb.select().from(schema.appSettings).where(eq(schema.appSettings.id, id));
+    return result as AppSettings;
   }
 }
