@@ -5,6 +5,8 @@ import { storage } from "./storage";
 import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insertWorkRuleSchema, insertEmployeeSchema, insertDeviceSettingsSchema } from "@shared/schema";
 import multer from "multer";
 import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
+import archiver from "archiver";
+import { ZK_AGENT_JS, AGENT_PACKAGE_JSON } from "./agent-content";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -608,6 +610,146 @@ export async function registerRoutes(
       });
     } catch (error: any) {
       res.status(500).json({ message: `خطأ في استيراد البيانات: ${error.message}` });
+    }
+  });
+
+  app.get("/api/agent/download-package", async (req, res) => {
+    try {
+      const deviceIds = req.query.deviceIds
+        ? String(req.query.deviceIds).split(",").map(s => s.trim()).filter(Boolean)
+        : [];
+
+      const apiKeySetting = await storage.getAppSetting(AGENT_API_KEY_SETTING);
+      if (!apiKeySetting?.value) {
+        return res.status(400).json({ message: "لا يوجد مفتاح API. أنشئ مفتاحاً أولاً من صفحة Agent المصنع." });
+      }
+      const apiKey = apiKeySetting.value;
+
+      const allDevices = await storage.getDeviceSettings();
+      const selectedDevices = deviceIds.length > 0
+        ? allDevices.filter(d => deviceIds.includes(d.id))
+        : allDevices;
+
+      if (selectedDevices.length === 0) {
+        return res.status(400).json({ message: "لا توجد أجهزة محددة. أضف جهازاً من صفحة أجهزة البصمة أولاً." });
+      }
+
+      const serverUrl = `${req.protocol}://${req.get("host")}`;
+
+      const devicesEnvLine = selectedDevices
+        .map(d => `${d.ipAddress}:${d.port}:${d.name.replace(/,/g, "-")}${d.workshopId ? `:${d.workshopId}` : ""}`)
+        .join(",");
+
+      const envContent = [
+        `# عنوان السيرفر`,
+        `SERVER_URL=${serverUrl}`,
+        ``,
+        `# مفتاح API للتحقق من الهوية`,
+        `AGENT_API_KEY=${apiKey}`,
+        ``,
+        `# أجهزة البصمة (IP:PORT:الاسم:workshopId)`,
+        `DEVICES=${devicesEnvLine}`,
+        ``,
+        `# مهلة الاتصال بالجهاز بالميلي ثانية`,
+        `TIMEOUT_MS=10000`,
+        ``,
+        `# فترة المزامنة التلقائية بالدقائق (مع --watch)`,
+        `INTERVAL_MINUTES=30`,
+      ].join("\r\n");
+
+      const runBat = [
+        `@echo off`,
+        `chcp 65001 > nul`,
+        `echo ===================================`,
+        `echo    نظام مزامنة البصمة - ZK Agent`,
+        `echo ===================================`,
+        `echo.`,
+        ``,
+        `where node >nul 2>&1`,
+        `if errorlevel 1 (`,
+        `  echo خطأ: Node.js غير مثبت.`,
+        `  echo حمّل Node.js من: https://nodejs.org`,
+        `  pause`,
+        `  exit /b 1`,
+        `)`,
+        ``,
+        `echo جارٍ تثبيت الحزم...`,
+        `npm install --loglevel=error`,
+        `if errorlevel 1 (`,
+        `  echo فشل تثبيت الحزم`,
+        `  pause`,
+        `  exit /b 1`,
+        `)`,
+        ``,
+        `echo.`,
+        `echo جارٍ مزامنة سجلات الحضور...`,
+        `node zk-agent.js`,
+        `echo.`,
+        `echo انتهت المزامنة. اضغط أي مفتاح للإغلاق.`,
+        `pause`,
+      ].join("\r\n");
+
+      const watchBat = [
+        `@echo off`,
+        `chcp 65001 > nul`,
+        `echo ===================================`,
+        `echo    مزامنة تلقائية كل 30 دقيقة`,
+        `echo ===================================`,
+        `echo اضغط Ctrl+C للإيقاف`,
+        `echo.`,
+        `npm install --loglevel=error`,
+        `node zk-agent.js --watch`,
+        `pause`,
+      ].join("\r\n");
+
+      const deviceList = selectedDevices
+        .map((d, i) => `  ${i + 1}. ${d.name} (${d.ipAddress}:${d.port})`)
+        .join("\r\n");
+
+      const instructions = [
+        `نظام مزامنة الحضور - تعليمات التثبيت`,
+        `=====================================`,
+        ``,
+        `الأجهزة المُضمَّنة في هذه الحزمة:`,
+        deviceList,
+        ``,
+        `خطوات التثبيت:`,
+        ``,
+        `الخطوة 1: تثبيت Node.js`,
+        `  - حمّل Node.js من: https://nodejs.org/ar/download`,
+        `  - اختر النسخة LTS`,
+        `  - ثبّتها مع الإعدادات الافتراضية`,
+        ``,
+        `الخطوة 2: تشغيل المزامنة`,
+        `  - انقر مرتين على ملف: تشغيل-مرة-واحدة.bat`,
+        `  - سيتصل البرنامج بأجهزة البصمة ويرسل البيانات للموقع`,
+        ``,
+        `الخطوة 3 (اختياري): مزامنة تلقائية`,
+        `  - انقر مرتين على: تشغيل-تلقائي.bat`,
+        `  - سيعمل البرنامج كل 30 دقيقة تلقائياً`,
+        ``,
+        `للمساعدة: تواصل مع مدير النظام`,
+      ].join("\r\n");
+
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="zk-agent.zip"`);
+
+      const zip = archiver("zip", { zlib: { level: 6 } });
+      zip.on("error", (err) => { throw err; });
+      zip.pipe(res);
+
+      zip.append(ZK_AGENT_JS, { name: "zk-agent.js" });
+      zip.append(AGENT_PACKAGE_JSON, { name: "package.json" });
+      zip.append(envContent, { name: ".env" });
+      zip.append(runBat, { name: "run-once.bat" });
+      zip.append(watchBat, { name: "run-auto.bat" });
+      zip.append(instructions, { name: "README.txt" });
+
+      await zip.finalize();
+    } catch (error: any) {
+      if (!res.headersSent) {
+        res.status(500).json({ message: `خطأ في إنشاء الحزمة: ${error.message}` });
+      }
     }
   });
 
