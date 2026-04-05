@@ -1,7 +1,8 @@
-import { createRequire } from "module";
 import { randomUUID } from "crypto";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { db, IS_MYSQL } from "./db";
+import * as pgSchema from "../shared/schema";
+import * as mysqlSchema from "../shared/schema-mysql";
 import type {
   InsertUser, User,
   InsertCompany, Company,
@@ -14,20 +15,11 @@ import type {
   InsertAppSettings, AppSettings,
 } from "@shared/schema";
 
-const _require = createRequire(import.meta.url);
-
-function getSchema() {
-  if (IS_MYSQL) {
-    return _require("../shared/schema-mysql");
-  }
-  return _require("../shared/schema");
-}
-
-const s = getSchema();
+const s = IS_MYSQL ? mysqlSchema : pgSchema;
 const {
   users, companies, workshops, positions, workRules,
   employees, attendanceRecords, deviceSettings, appSettings,
-} = s;
+} = s as typeof pgSchema;
 
 async function insertAndReturn<T>(table: any, data: any): Promise<T> {
   const id = randomUUID();
