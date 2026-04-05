@@ -52,8 +52,9 @@ else
   echo "=== [1/5] Skipping build (SKIP_BUILD=1) ==="
 fi
 
-echo "=== [2/5] Uploading dist/index.cjs ==="
+echo "=== [2/5] Uploading dist/index.cjs and agent/ ==="
 scp_upload dist/index.cjs "${SSH_USER}@${SSH_HOST}:${REMOTE_APP_DIR}/dist/index.cjs"
+scp_upload -r agent "${SSH_USER}@${SSH_HOST}:${REMOTE_APP_DIR}/"
 
 # ── Step 3: ensure ecosystem config exists and DATABASE_URL is set ─────────────
 echo "=== [3/5] Verifying ecosystem config and DATABASE_URL on server ==="

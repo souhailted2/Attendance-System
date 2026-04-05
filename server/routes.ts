@@ -6,7 +6,7 @@ import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insert
 import multer from "multer";
 import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
 import archiver from "archiver";
-import { ZK_AGENT_JS, AGENT_PACKAGE_JSON } from "./agent-content";
+import { getZkAgentJs, getAgentPackageJson } from "./agent-content";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -734,8 +734,8 @@ export async function registerRoutes(
       });
       zip.pipe(res);
 
-      zip.append(ZK_AGENT_JS, { name: "zk-agent.js" });
-      zip.append(AGENT_PACKAGE_JSON, { name: "package.json" });
+      zip.append(getZkAgentJs(), { name: "zk-agent.js" });
+      zip.append(getAgentPackageJson(), { name: "package.json" });
       zip.append(envContent, { name: ".env" });
       zip.append(runBat, { name: "run.bat" });
       zip.append(instructions, { name: "تعليمات.txt" });
