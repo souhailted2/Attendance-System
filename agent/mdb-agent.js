@@ -117,11 +117,12 @@ function log(msg) {
 function padZ(n) { return String(n).padStart(2, "0"); }
 
 function formatDate(d) {
-  return `${d.getFullYear()}-${padZ(d.getMonth() + 1)}-${padZ(d.getDate())}`;
+  // مكتبة mdb-reader تُعيد التواريخ كـ UTC ← نستخدم getUTC* لتجنّب إزاحة التوقيت المحلي
+  return `${d.getUTCFullYear()}-${padZ(d.getUTCMonth() + 1)}-${padZ(d.getUTCDate())}`;
 }
 
 function formatTime(d) {
-  return `${padZ(d.getHours())}:${padZ(d.getMinutes())}`;
+  return `${padZ(d.getUTCHours())}:${padZ(d.getUTCMinutes())}`;
 }
 
 function loadLastSync() {
