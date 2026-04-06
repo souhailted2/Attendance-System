@@ -103,7 +103,7 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
 });
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
   name: true, employeeCode: true, cardNumber: true, positionId: true, workRuleId: true,
-  companyId: true, workshopId: true, phone: true, wage: true, shift: true,
+  companyId: true, workshopId: true, phone: true, shift: true,
   contractEndDate: true, nonRenewalDate: true, isActive: true,
 });
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({
