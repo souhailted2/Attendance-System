@@ -1,0 +1,119 @@
+node ver: v20.20.2
+node bin: /home/u807293731/.nvm/versions/node/v20.20.2/bin
+pm2:      /home/u807293731/.nvm/versions/node/v20.20.2/bin/pm2
+
+[PM2][Initialization] Environment variable HOME (Linux) or HOMEPATH (Windows) are not set!
+[PM2][Initialization] Defaulting to /etc/.pm2
+Error: EACCES: permission denied, mkdir '/etc/.pm2/logs'
+    at Object.mkdirSync (node:fs:1386:26)
+    at mkdirpNativeSync (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/node_modules/mkdirp/lib/mkdirp-native.js:29:10)
+    at Function.mkdirpSync [as sync] (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/node_modules/mkdirp/index.js:21:7)
+    at Client.initFileStructure (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:133:25)
+    at new module.exports (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:38:8)
+    at new API (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/API.js:107:19)
+    at Object.<anonymous> (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/binaries/CLI.js:27:11)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+Error: EACCES: permission denied, mkdir '/etc/.pm2/pids'
+    at Object.mkdirSync (node:fs:1386:26)
+    at mkdirpNativeSync (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/node_modules/mkdirp/lib/mkdirp-native.js:29:10)
+    at Function.mkdirpSync [as sync] (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/node_modules/mkdirp/index.js:21:7)
+    at Client.initFileStructure (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:141:25)
+    at new module.exports (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:38:8)
+    at new API (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/API.js:107:19)
+    at Object.<anonymous> (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/binaries/CLI.js:27:11)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+Error: ENOENT: no such file or directory, open '/etc/.pm2/module_conf.json'
+    at Object.writeFileSync (node:fs:2380:20)
+    at Client.initFileStructure (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:149:10)
+    at new module.exports (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:38:8)
+    at new API (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/API.js:107:19)
+    at Object.<anonymous> (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/binaries/CLI.js:27:11)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+Error: EACCES: permission denied, mkdir '/etc/.pm2/modules'
+    at Object.mkdirSync (node:fs:1386:26)
+    at mkdirpNativeSync (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/node_modules/mkdirp/lib/mkdirp-native.js:29:10)
+    at Function.mkdirpSync [as sync] (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/node_modules/mkdirp/index.js:21:7)
+    at Client.initFileStructure (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:157:25)
+    at new module.exports (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:38:8)
+    at new API (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/API.js:107:19)
+    at Object.<anonymous> (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/binaries/CLI.js:27:11)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+
+                        -------------
+
+__/\\\\\\\\\\\\\____/\\\\____________/\\\\____/\\\\\\\\\_____
+ _\/\\\/////////\\\_\/\\\\\\________/\\\\\\__/\\\///////\\\___
+  _\/\\\_______\/\\\_\/\\\//\\\____/\\\//\\\_\///______\//\\\__
+   _\/\\\\\\\\\\\\\/__\/\\\\///\\\/\\\/_\/\\\___________/\\\/___
+    _\/\\\/////////____\/\\\__\///\\\/___\/\\\________/\\\//_____
+     _\/\\\_____________\/\\\____\///_____\/\\\_____/\\\//________
+      _\/\\\_____________\/\\\_____________\/\\\___/\\\/___________
+       _\/\\\_____________\/\\\_____________\/\\\__/\\\\\\\\\\\\\\\_
+        _\///______________\///______________\///__\///////////////__
+
+
+                          Runtime Edition
+
+        PM2 is a Production Process Manager for Node.js applications
+                     with a built-in Load Balancer.
+
+                Start and Daemonize any application:
+                $ pm2 start app.js
+
+                Load Balance 4 instances of api.js:
+                $ pm2 start api.js -i 4
+
+                Monitor in production:
+                $ pm2 monitor
+
+                Make pm2 auto-boot at server restart:
+                $ pm2 startup
+
+                To go further checkout:
+                http://pm2.io/
+
+
+                        -------------
+
+Error: ENOENT: no such file or directory, open '/etc/.pm2/module_conf.json'
+    at Object.openSync (node:fs:573:18)
+    at Object.readFileSync (node:fs:452:35)
+    at Configuration.getAllSync (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Configuration.js:299:26)
+    at Configuration.getSync (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Configuration.js:270:30)
+    at new API (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/API.js:116:44)
+    at Object.<anonymous> (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/binaries/CLI.js:27:11)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+node:fs:573
+  return binding.open(
+                 ^
+
+Error: ENOENT: no such file or directory, open '/etc/.pm2/pm2.log'
+    at Object.openSync (node:fs:573:18)
+    at Client.launchDaemon (/home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:228:12)
+    at /home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:104:10
+    at /home/u807293731/.nvm/versions/node/v20.20.2/lib/node_modules/pm2/lib/Client.js:318:14
+    at processTicksAndRejections (node:internal/process/task_queues:77:11)
+    at runNextTicks (node:internal/process/task_queues:64:3)
+    at listOnTimeout (node:internal/timers:545:9)
+    at process.processTimers (node:internal/timers:519:7) {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/etc/.pm2/pm2.log'
+}
+
+Node.js v20.20.2
+✓ تم
