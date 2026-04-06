@@ -78,8 +78,8 @@ export default function Attendance() {
     }
   }
 
-  // ترتيب الحركات تصاعدياً بالوقت
-  movements.sort((a, b) => a.time.localeCompare(b.time));
+  // ترتيب الحركات تنازلياً (الأحدث أولاً)
+  movements.sort((a, b) => b.time.localeCompare(a.time));
 
   return (
     <div className="p-6 space-y-5">
