@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays } from "lucide-react";
+import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 
 export default function Attendance() {
@@ -25,9 +25,14 @@ export default function Attendance() {
   const [status, setStatus] = useState("present");
   const [notes, setNotes] = useState("");
 
+  const today = new Date().toISOString().split("T")[0];
+  const isToday = date === today;
+
   const { data: employees } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
-  const { data: attendance, isLoading } = useQuery<AttendanceRecord[]>({
+  const { data: attendance, isLoading, dataUpdatedAt } = useQuery<AttendanceRecord[]>({
     queryKey: ["/api/attendance", `?date=${date}`],
+    refetchInterval: isToday ? 8000 : false,
+    refetchIntervalInBackground: true,
   });
 
   const createMutation = useMutation({
@@ -86,8 +91,23 @@ export default function Attendance() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">سجل الحضور</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{dateLabel}</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold" data-testid="text-page-title">سجل الحضور</h1>
+            {isToday && (
+              <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+                <Radio className="h-3 w-3 animate-pulse" />
+                مباشر
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {dateLabel}
+            {isToday && dataUpdatedAt > 0 && (
+              <span className="mr-2 text-xs">
+                · آخر تحديث: {new Date(dataUpdatedAt).toLocaleTimeString("ar-SA")}
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Input
