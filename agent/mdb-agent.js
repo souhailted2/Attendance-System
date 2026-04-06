@@ -26,20 +26,30 @@ const iconv = (() => {
 })();
 
 // فك ترميز حقل نصي قادم من قاعدة MDB (Windows-1256 → Unicode)
-// المسار الأساسي: تحويل bytes→ Latin-1 Buffer ثم فك ترميز كـ win1256
+// المسار الأساسي: Buffer مباشر أو Latin-1 → win1256
 // الاستثناء: إذا كانت القيمة تحتوي على أحرف عربية Unicode بالفعل، تُعاد كما هي
 function decodeMdbName(rawValue) {
   if (!rawValue && rawValue !== 0) return "";
+
+  // مسار Buffer المباشر: إذا أعاد mdb-reader Buffer خام، نفكّه مباشرةً كـ win1256
+  if (Buffer.isBuffer(rawValue)) {
+    try {
+      const decoded = iconv.decode(rawValue, "win1256");
+      if (/[\u0600-\u06FF]/.test(decoded)) return decoded.trim();
+    } catch {}
+    return rawValue.toString("utf8").trim();
+  }
+
   const str = String(rawValue);
   if (!str.trim()) return str;
 
-  // مسار الـ UTF-8: النص يحتوي فعلاً على أحرف عربية Unicode
+  // مسار UTF-8: النص يحتوي فعلاً على أحرف عربية Unicode
   if (/[\u0600-\u06FF]/.test(str)) return str.trim();
 
   // نص ASCII خالص (أرقام/رموز فقط) — لا حاجة لإعادة الترميز
   if (/^[\x00-\x7F]*$/.test(str)) return str.trim();
 
-  // المسار الأساسي (Buffer): نعامل القيمة كـ Latin-1 bytes ونفك ترميزها كـ win1256
+  // المسار الأساسي (Latin-1 → win1256): نعامل القيمة كـ Latin-1 bytes ونفك ترميزها
   try {
     const buf = Buffer.from(str, "latin1");
     const decoded = iconv.decode(buf, "win1256");
