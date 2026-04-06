@@ -1,0 +1,157 @@
+[u807293731@us-imm-web485 attendance]$ curl -s "https://raw.githubusercontent.com/souhailted2/Attendance-System/main/scripts/check_after_sql.sql" | mysql -h 127.0.0.1 -u u807293731_insert -pTaher96+++.com u807293731_insert
+temp_remaining
+0
+numeric_codes
+442
+employee_code   name    card_number
+9       9       9
+17      17      17
+19      19      19
+29      29      29
+66      66      66
+77      77      77
+80      80      80
+85      85      85
+89      89      89
+90      90      90
+106     106     106
+116     116     116
+120     120     120
+127     127     127
+140     140     140
+141     141     141
+149     149     149
+150     150     150
+153     153     153
+173     173     173
+174     174     174
+177     177     177
+181     181     181
+226     226     226
+241     241     0011308359
+256     256     256
+280     280     280
+282     282     282
+285     285     285
+291     291     291
+294     294     294
+313     313     313
+320     320     320
+354     354     354
+383     383     383
+390     390     390
+398     398     398
+400     400     400
+429     429     429
+434     434     434
+443     443     443
+451     451     451
+452     452     452
+453     453     453
+455     455     455
+458     458     458
+459     459     459
+466     466     466
+475     475     475
+476     476     476
+total
+442
+[u807293731@us-imm-web485 attendance]$ # الخطوة 1: أنشئ سكريبت النشر
+[u807293731@us-imm-web485 attendance]$ cat > ~/attendance/auto-deploy.sh << 'EOF'
+> #!/bin/bash
+> cd /home/u807293731/attendance
+> git fetch origin -q
+> if ! git diff --quiet HEAD origin/main -- dist/ agent/mdb-agent.js scripts/; then
+>     git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/
+>     PID=$(cat /home/u807293731/.pm2/pids/attendance-0.pid 2>/dev/null)
+>     [ -n "$PID" ] && kill -USR2 $PID 2>/dev/null || true
+>     echo "$(date): deployed new version" >> /home/u807293731/attendance/deploy.log
+> fi
+> EOF
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 2: أعطه صلاحية التنفيذ
+[u807293731@us-imm-web485 attendance]$ chmod +x ~/attendance/auto-deploy.sh
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 3: أضفه لـ crontab (كل دقيقة)
+[u807293731@us-imm-web485 attendance]$ crontab -l 2>/dev/null > /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ echo "* * * * * /home/u807293731/attendance/auto-deploy.sh" >> /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ crontab /tmp/mycron
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 4: تحقق
+[u807293731@us-imm-web485 attendance]$ crontab -l# الخطوة 1: أنشئ سكريبت النشر
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$ cat > ~/attendance/auto-deploy.sh << 'EOF'
+> #!/bin/bash
+> cd /home/u807293731/attendance
+> git fetch origin -q
+> if ! git diff --quiet HEAD origin/main -- dist/ agent/mdb-agent.js scripts/; then
+>     git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/
+>     PID=$(cat /home/u807293731/.pm2/pids/attendance-0.pid 2>/dev/null)
+>     [ -n "$PID" ] && kill -USR2 $PID 2>/dev/null || true
+>     echo "$(date): deployed new version" >> /home/u807293731/attendance/deploy.log
+> fi
+> EOF
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 2: أعطه صلاحية التنفيذ
+[u807293731@us-imm-web485 attendance]$ chmod +x ~/attendance/auto-deploy.sh
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 3: أضفه لـ crontab (كل دقيقة)
+[u807293731@us-imm-web485 attendance]$ crontab -l 2>/dev/null > /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ echo "* * * * * /home/u807293731/attendance/auto-deploy.sh" >> /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ crontab /tmp/mycron
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 4: تحقق
+[u807293731@us-imm-web485 attendance]$ crontab -l# الخطوة 1: أنشئ سكريبت النشر
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$ cat > ~/attendance/auto-deploy.sh << 'EOF'
+> #!/bin/bash
+> cd /home/u807293731/attendance
+> git fetch origin -q
+> if ! git diff --quiet HEAD origin/main -- dist/ agent/mdb-agent.js scripts/; then
+>     git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/
+>     PID=$(cat /home/u807293731/.pm2/pids/attendance-0.pid 2>/dev/null)
+>     [ -n "$PID" ] && kill -USR2 $PID 2>/dev/null || true
+>     echo "$(date): deployed new version" >> /home/u807293731/attendance/deploy.log
+> fi
+> EOF
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 2: أعطه صلاحية التنفيذ
+[u807293731@us-imm-web485 attendance]$ chmod +x ~/attendance/auto-deploy.sh
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 3: أضفه لـ crontab (كل دقيقة)
+[u807293731@us-imm-web485 attendance]$ crontab -l 2>/dev/null > /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ echo "* * * * * /home/u807293731/attendance/auto-deploy.sh" >> /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ crontab /tmp/mycron
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 4: تحقق
+[u807293731@us-imm-web485 attendance]$ crontab -l
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$ # الخطوة 1: أنشئ سكريبت النشر
+[u807293731@us-imm-web485 attendance]$ cat > ~/attendance/auto-deploy.sh << 'EOF'
+> #!/bin/bash
+> cd /home/u807293731/attendance
+> git fetch origin -q
+> if ! git diff --quiet HEAD origin/main -- dist/ agent/mdb-agent.js scripts/; then
+>     git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/
+>     PID=$(cat /home/u807293731/.pm2/pids/attendance-0.pid 2>/dev/null)
+>     [ -n "$PID" ] && kill -USR2 $PID 2>/dev/null || true
+>     echo "$(date): deployed new version" >> /home/u807293731/attendance/deploy.log
+> fi
+> EOF
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 2: أعطه صلاحية التنفيذ
+[u807293731@us-imm-web485 attendance]$ chmod +x ~/attendance/auto-deploy.sh
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 3: أضفه لـ crontab (كل دقيقة)
+[u807293731@us-imm-web485 attendance]$ crontab -l 2>/dev/null > /tmp/mycron
+y.sh" [u807293731@us-imm-web485 attendance]$ echo "* * * * * /home/u807293731/attendance/auto-deploy.sh" >> /tmp/mycron
+[u807293731@us-imm-web485 attendance]$ crontab /tmp/mycron
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # الخطوة 4: تحقق
+[u807293731@us-imm-web485 attendance]$ crontab -l
+no crontab for u807293731
+[u807293731@us-imm-web485 attendance]$
