@@ -95,7 +95,9 @@ async function processAttendanceLogs(
   const workshopName = workshopId ? (workshops.find(w => w.id === workshopId)?.name || "الورشة") : null;
 
   for (const entry of logs) {
-    const employee = eligibleEmployees.find(e => e.employeeCode === entry.uid);
+    const employee =
+      eligibleEmployees.find(e => e.employeeCode === entry.uid) ||
+      eligibleEmployees.find(e => e.cardNumber   === entry.uid);
     if (!employee) {
       if (workshopId) {
         errors.push(`رقم المستخدم ${entry.uid} غير مسجل في ${workshopName}`);
@@ -641,7 +643,7 @@ export async function registerRoutes(
           }
           const normalizedIncoming = cardNumber || null;
           const normalizedExisting = existing.cardNumber || null;
-          if (normalizedIncoming !== normalizedExisting) {
+          if (normalizedIncoming !== null && normalizedIncoming !== normalizedExisting) {
             updateData.cardNumber = normalizedIncoming;
           }
           if (Object.keys(updateData).length > 0) {

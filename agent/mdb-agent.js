@@ -240,9 +240,11 @@ async function runSync() {
     const rawName  = user.NAME || user.Name || `موظف ${badge}`;
     const name     = decodeMdbName(rawName);
     const cardNo   = String(user.CARDNO       || user.CardNo       || user.CARD_NO || "").trim();
+    // إذا كان CARDNO فارغاً واختلف BADGENUMBER عن USERID → استخدم BADGENUMBER كرقم بطاقة
+    const effectiveCardNo = cardNo || (badge !== uid ? badge : null);
     if (uid && badge) {
       userMap[uid] = badge;
-      employeesToSync.push({ code: badge, name, cardNumber: cardNo || null });
+      employeesToSync.push({ code: badge, name, cardNumber: effectiveCardNo || null });
     }
   }
 
