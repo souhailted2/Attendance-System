@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Fingerprint, Wifi, RefreshCw, Loader2, CheckCircle, XCircle, Eraser, Clock, Wrench } from "lucide-react";
+import { Plus, Pencil, Trash2, Fingerprint, Wifi, RefreshCw, Loader2, CheckCircle, XCircle, Eraser, Clock, Wrench, Link2, Copy } from "lucide-react";
 import type { DeviceSettings, Workshop } from "@shared/schema";
 
 export default function Devices() {
@@ -30,6 +30,7 @@ export default function Devices() {
   const [port, setPort] = useState("4370");
   const [isActive, setIsActive] = useState(true);
   const [workshopId, setWorkshopId] = useState<string>("");
+  const [serialNumber, setSerialNumber] = useState<string>("");
 
   const { data: devices, isLoading } = useQuery<DeviceSettings[]>({ queryKey: ["/api/device-settings"] });
   const { data: workshops } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
@@ -117,7 +118,7 @@ export default function Devices() {
   });
 
   function resetForm() {
-    setName(""); setIpAddress(""); setPort("4370"); setIsActive(true); setWorkshopId(""); setEditingDevice(null);
+    setName(""); setIpAddress(""); setPort("4370"); setIsActive(true); setWorkshopId(""); setSerialNumber(""); setEditingDevice(null);
   }
 
   function openEdit(device: DeviceSettings) {
@@ -127,6 +128,7 @@ export default function Devices() {
     setPort(String(device.port));
     setIsActive(device.isActive);
     setWorkshopId(device.workshopId || "");
+    setSerialNumber(device.serialNumber || "");
     setOpen(true);
   }
 
@@ -138,6 +140,7 @@ export default function Devices() {
       port: parseInt(port) || 4370,
       isActive,
       workshopId: workshopId || null,
+      serialNumber: serialNumber.trim() || null,
     };
     if (editingDevice) {
       updateMutation.mutate({ id: editingDevice.id, data });
@@ -185,6 +188,18 @@ export default function Devices() {
                   <Label>المنفذ</Label>
                   <Input type="number" value={port} onChange={(e) => setPort(e.target.value)} data-testid="input-port" />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>الرقم التسلسلي للجهاز (SN)</Label>
+                <Input
+                  value={serialNumber}
+                  onChange={(e) => setSerialNumber(e.target.value)}
+                  placeholder="مثال: ABCxxxxxx (اختياري — لاستقبال Push من الجهاز)"
+                  data-testid="input-serial-number"
+                />
+                <p className="text-xs text-muted-foreground">
+                  اضبط الجهاز على إرسال البيانات لـ: <span className="font-mono">http://allal.alllal.com/iclock/</span>
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>الورشة المرتبطة</Label>
@@ -256,6 +271,23 @@ export default function Devices() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">{device.ipAddress}:{device.port}</p>
+                        {device.serialNumber && (
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Link2 className="h-3 w-3 text-blue-500 flex-shrink-0" />
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-mono" data-testid={`text-sn-${device.id}`}>SN: {device.serialNumber}</span>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText("http://allal.alllal.com/iclock/");
+                                toast({ title: "تم نسخ رابط ADMS" });
+                              }}
+                              className="text-xs text-muted-foreground hover:text-primary flex items-center gap-0.5"
+                              title="نسخ رابط ADMS"
+                              data-testid={`button-copy-adms-${device.id}`}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
                         {lastSync && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                             <Clock className="h-3 w-3" />

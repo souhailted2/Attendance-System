@@ -263,6 +263,7 @@ export class MysqlStorage implements IStorage {
       isActive: data.isActive ?? true,
       lastSyncAt: data.lastSyncAt ?? null,
       workshopId: data.workshopId ?? null,
+      serialNumber: data.serialNumber ?? null,
     });
     const [result] = await mysqlDb.select().from(schema.deviceSettings).where(eq(schema.deviceSettings.id, id));
     return result as DeviceSettings;

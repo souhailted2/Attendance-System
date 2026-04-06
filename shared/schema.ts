@@ -79,6 +79,7 @@ export const deviceSettings = pgTable("device_settings", {
   isActive: boolean("is_active").notNull().default(true),
   lastSyncAt: text("last_sync_at"),
   workshopId: varchar("workshop_id"),
+  serialNumber: varchar("serial_number"),
 });
 
 export const appSettings = pgTable("app_settings", {
@@ -153,6 +154,7 @@ export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pic
   isActive: true,
   lastSyncAt: true,
   workshopId: true,
+  serialNumber: true,
 });
 
 export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({

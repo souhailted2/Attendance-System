@@ -1190,5 +1190,149 @@ export async function registerRoutes(
     }
   });
 
+  // ── ZKTeco ADMS Push Receiver (device pushes data to server) ─────────────
+  // الجهاز يُرسل البيانات للسيرفر عبر HTTP بدلاً من أن نسحب منه
+
+  const admsTextParser = (req: any, res: any, next: any) => {
+    if (req.headers["content-type"]?.includes("application/json")) {
+      return next();
+    }
+    let data = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk: string) => { data += chunk; });
+    req.on("end", () => { req.body = data; next(); });
+    req.on("error", next);
+  };
+
+  // GET /iclock/cdata — device registration handshake
+  app.get("/iclock/cdata", async (req, res) => {
+    const sn = String(req.query.SN || "");
+    const table = String(req.query.table || "");
+    console.log(`[ADMS] GET /iclock/cdata SN=${sn} table=${table}`);
+
+    // If device is just checking status (table=Status), respond OK
+    if (table === "Status") {
+      res.setHeader("Content-Type", "text/plain");
+      return res.send("OK");
+    }
+
+    // Initial handshake — respond with ADMS config
+    res.setHeader("Content-Type", "text/plain");
+    const now = Math.floor(Date.now() / 1000);
+    res.send(
+      `GET OPTION FROM SERVER\r\n` +
+      `Stamp=${now}\r\n` +
+      `ErrorDelay=30\r\n` +
+      `Delay=10\r\n` +
+      `TransTimes=00:00;14:05\r\n` +
+      `TransInterval=1\r\n` +
+      `TransFlag=111111111\r\n` +
+      `TimeZone=0\r\n` +
+      `Realtime=1\r\n` +
+      `Encrypt=None\r\n` +
+      `ServerVer=2.2.14\r\n` +
+      `PushProtVer=2.2.14\r\n` +
+      `PushOptionsFlag=1\r\n` +
+      `ATTLOGStamp=9999999999\r\n` +
+      `OPERLOGStamp=9999999999\r\n` +
+      `ATTPHOTOStamp=9999999999\r\n`
+    );
+  });
+
+  // POST /iclock/cdata — receive attendance records (ATTLOG)
+  app.post("/iclock/cdata", admsTextParser, async (req, res) => {
+    const sn = String(req.query.SN || "");
+    const table = String(req.query.table || "");
+    console.log(`[ADMS] POST /iclock/cdata SN=${sn} table=${table}`);
+
+    res.setHeader("Content-Type", "text/plain");
+
+    if (table !== "ATTLOG") {
+      return res.send("OK");
+    }
+
+    try {
+      // Find device by serial number
+      const devices = await storage.getDeviceSettings();
+      const device = devices.find(d => d.serialNumber && d.serialNumber === sn);
+
+      if (!device) {
+        console.log(`[ADMS] Unknown device SN=${sn}`);
+        return res.send("OK");
+      }
+
+      const body = typeof req.body === "string" ? req.body : "";
+      const lines = body.split(/\r?\n/).filter(l => l.trim());
+
+      // Parse ATTLOG lines: UID\tYYYY-MM-DD HH:MM:SS\tSTATUS\tVERIFY\tWORKCODE
+      const logsByUser = new Map<string, { date: string; times: string[] }[]>();
+
+      for (const line of lines) {
+        const parts = line.split("\t");
+        if (parts.length < 2) continue;
+
+        const uid = String(parts[0]).trim();
+        const dateTimeRaw = String(parts[1]).trim();
+        if (!uid || !dateTimeRaw) continue;
+
+        // Parse "2024-01-15 08:30:00"
+        const [datePart, timePart] = dateTimeRaw.split(" ");
+        if (!datePart || !timePart) continue;
+
+        // Validate date format
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) continue;
+        const timeShort = timePart.substring(0, 5); // HH:MM
+
+        if (!logsByUser.has(uid)) logsByUser.set(uid, []);
+        const userLogs = logsByUser.get(uid)!;
+        let dayEntry = userLogs.find(d => d.date === datePart);
+        if (!dayEntry) {
+          dayEntry = { date: datePart, times: [] };
+          userLogs.push(dayEntry);
+        }
+        dayEntry.times.push(timeShort);
+      }
+
+      const flatLogs: Array<{ uid: string; date: string; times: string[] }> = [];
+      for (const [uid, dayEntries] of logsByUser) {
+        for (const dayEntry of dayEntries) {
+          flatLogs.push({ uid, date: dayEntry.date, times: dayEntry.times });
+        }
+      }
+
+      const allEmployees = await storage.getEmployees();
+      const { imported, skipped, duplicates } = await processAttendanceLogs(
+        flatLogs,
+        allEmployees,
+        device.workshopId,
+        device.name
+      );
+
+      await storage.updateDeviceSetting(device.id, { lastSyncAt: new Date().toISOString() });
+
+      console.log(`[ADMS] SN=${sn} imported=${imported} duplicates=${duplicates} skipped=${skipped} total=${lines.length}`);
+      res.send("OK");
+    } catch (error: any) {
+      console.error(`[ADMS] Error processing ATTLOG from SN=${sn}:`, error.message);
+      res.send("OK");
+    }
+  });
+
+  // GET /iclock/getrequest — device polling for commands (none to send)
+  app.get("/iclock/getrequest", (req, res) => {
+    const sn = String(req.query.SN || "");
+    console.log(`[ADMS] GET /iclock/getrequest SN=${sn}`);
+    res.setHeader("Content-Type", "text/plain");
+    res.send("OK");
+  });
+
+  // POST /iclock/devicecmd — device reporting command result
+  app.post("/iclock/devicecmd", admsTextParser, (req, res) => {
+    const sn = String(req.query.SN || "");
+    console.log(`[ADMS] POST /iclock/devicecmd SN=${sn}`);
+    res.setHeader("Content-Type", "text/plain");
+    res.send("OK");
+  });
+
   return httpServer;
 }
