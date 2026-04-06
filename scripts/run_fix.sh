@@ -16,7 +16,8 @@ SELECT COUNT(*) AS 'تطابقات ناجحة'
 FROM employees e
 INNER JOIN users u
   ON e.card_number COLLATE utf8mb4_general_ci = u.card_no COLLATE utf8mb4_general_ci
-WHERE e.employee_code = u.employee_id AND u.employee_id IS NOT NULL;
+  AND e.employee_code COLLATE utf8mb4_general_ci = u.employee_id COLLATE utf8mb4_general_ci
+WHERE u.employee_id IS NOT NULL;
 SELECT e.employee_code, e.name, u.employee_id AS 'رقم_users', u.name AS 'اسم_users'
 FROM employees e
 INNER JOIN users u
