@@ -16,6 +16,24 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+// ── إصلاح ترميز النصوص العربية (Windows-1256) ────────────────────────────────
+let iconv = null;
+try { iconv = require("iconv-lite"); } catch {}
+
+function fixArabicEncoding(str) {
+  if (!str || typeof str !== "string") return str || "";
+  if (/[\u0600-\u06FF]/.test(str)) return str;
+  if (/^[\x00-\x7F]*$/.test(str)) return str;
+  if (iconv) {
+    try {
+      const bytes = Buffer.from(str, "latin1");
+      const decoded = iconv.decode(bytes, "win1256");
+      if (/[\u0600-\u06FF]/.test(decoded)) return decoded.trim();
+    } catch {}
+  }
+  return str;
+}
+
 // ── تحميل إعدادات .env ─────────────────────────────────────────────────────
 const envPath = path.join(__dirname, ".env");
 if (!fs.existsSync(envPath)) {
@@ -174,12 +192,14 @@ async function runSync() {
   const employeesToSync = [];
 
   for (const user of users) {
-    const uid   = String(user.USERID   || user.UserID   || "").trim();
-    const badge = String(user.BADGENUMBER || user.BadgeNumber || user.PIN || uid).trim();
-    const name  = String(user.NAME     || user.Name     || `موظف ${badge}`).trim();
+    const uid      = String(user.USERID      || user.UserID      || "").trim();
+    const badge    = String(user.BADGENUMBER  || user.BadgeNumber  || user.PIN    || uid).trim();
+    const rawName  = String(user.NAME         || user.Name         || `موظف ${badge}`).trim();
+    const name     = fixArabicEncoding(rawName);
+    const cardNo   = String(user.CARDNO       || user.CardNo       || user.CARD_NO || "").trim();
     if (uid && badge) {
       userMap[uid] = badge;
-      employeesToSync.push({ code: badge, name });
+      employeesToSync.push({ code: badge, name, cardNumber: cardNo || null });
     }
   }
 
@@ -195,7 +215,8 @@ async function runSync() {
         AGENT_API_KEY
       );
       if (resp.status === 200 || resp.status === 201) {
-        log(`✅ الموظفون: أُنشئ ${resp.data.created}، موجود مسبقاً ${resp.data.skipped}`);
+        const d = resp.data;
+        log(`✅ الموظفون: أُنشئ ${d.created}، حُدِّث ${d.updated || 0}، بدون تغيير ${d.skipped}`);
       } else if (resp.status === 401) {
         log("❌ مفتاح API خاطئ — تحقق من AGENT_API_KEY في .env");
         return;

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Users as UsersIcon, RefreshCw, Download } from "lucide-react";
+import { Plus, Search, Pencil, Users as UsersIcon, RefreshCw, Download, Hash, CreditCard } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 
 export default function Employees() {
@@ -22,6 +22,7 @@ export default function Employees() {
 
   const [name, setName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
   const [positionId, setPositionId] = useState("");
   const [workRuleId, setWorkRuleId] = useState("");
   const [companyId, setCompanyId] = useState("");
@@ -73,7 +74,7 @@ export default function Employees() {
   });
 
   function resetForm() {
-    setName(""); setEmployeeCode(""); setPositionId(""); setWorkRuleId("");
+    setName(""); setEmployeeCode(""); setCardNumber(""); setPositionId(""); setWorkRuleId("");
     setCompanyId(""); setWorkshopId(""); setPhone(""); setWage("");
     setShift("morning"); setContractEndDate(""); setIsActive(true);
     setEditingEmployee(null);
@@ -83,6 +84,7 @@ export default function Employees() {
     setEditingEmployee(emp);
     setName(emp.name);
     setEmployeeCode(emp.employeeCode);
+    setCardNumber((emp as any).cardNumber || "");
     setPositionId(emp.positionId || "");
     setWorkRuleId(emp.workRuleId || "");
     setCompanyId(emp.companyId || "");
@@ -99,6 +101,7 @@ export default function Employees() {
     e.preventDefault();
     const data = {
       name, employeeCode,
+      cardNumber: cardNumber || null,
       positionId: positionId || null,
       workRuleId: workRuleId || null,
       companyId: companyId || null,
@@ -117,7 +120,7 @@ export default function Employees() {
   }
 
   const filtered = employees?.filter((e) =>
-    e.name.includes(search) || e.employeeCode.includes(search)
+    e.name.includes(search) || e.employeeCode.includes(search) || ((e as any).cardNumber || "").includes(search)
   ) || [];
 
   return (
@@ -157,6 +160,10 @@ export default function Employees() {
                 <div className="space-y-2">
                   <Label>رقم الموظف *</Label>
                   <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required data-testid="input-employee-code" />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>رقم البطاقة</Label>
+                  <Input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="رقم البطاقة من جهاز البصمة (اختياري)" data-testid="input-card-number" />
                 </div>
                 <div className="space-y-2">
                   <Label>الشركة</Label>
@@ -280,8 +287,19 @@ export default function Employees() {
                         <span className="text-sm font-bold text-primary">{emp.name.charAt(0)}</span>
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-sm truncate">{emp.name}</p>
-                        <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
+                        <p className="font-medium text-sm truncate" data-testid={`text-name-${emp.id}`}>{emp.name}</p>
+                        <div className="flex items-center gap-3 mt-0.5">
+                          <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-code-${emp.id}`}>
+                            <Hash className="h-3 w-3" />
+                            {emp.employeeCode}
+                          </span>
+                          {(emp as any).cardNumber && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-card-${emp.id}`}>
+                              <CreditCard className="h-3 w-3" />
+                              {(emp as any).cardNumber}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex flex-wrap items-center gap-1 mt-1">
                           {company && <Badge variant="secondary" className="text-xs">{company.name}</Badge>}
                           {workshop && <Badge variant="secondary" className="text-xs">{workshop.name}</Badge>}

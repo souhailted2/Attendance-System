@@ -613,19 +613,49 @@ export async function registerRoutes(
       }
 
       let created = 0;
+      let updated = 0;
       let skipped = 0;
 
+      function isGarbledName(name: string): boolean {
+        if (!name) return true;
+        const arabicChars = (name.match(/[\u0600-\u06FF]/g) || []).length;
+        const totalChars = name.replace(/\s/g, "").length;
+        if (totalChars === 0) return true;
+        const questionMarks = (name.match(/[?﹖？]/g) || []).length;
+        if (questionMarks / totalChars > 0.3) return true;
+        const strangeChars = (name.match(/[^\u0000-\u007F\u0600-\u06FF\s\d\-_.]/g) || []).length;
+        if (strangeChars > 0 && arabicChars === 0) return true;
+        return false;
+      }
+
       for (const emp of employees) {
-        const code = String(emp.code || "").trim();
-        const name = String(emp.name || "").trim();
+        const code       = String(emp.code       || "").trim();
+        const name       = String(emp.name       || "").trim();
+        const cardNumber = emp.cardNumber ? String(emp.cardNumber).trim() : null;
         if (!code || !name) { skipped++; continue; }
 
         const existing = await storage.getEmployeeByCode(code);
-        if (existing) { skipped++; continue; }
+        if (existing) {
+          const updateData: any = {};
+          if (isGarbledName(existing.name) && !isGarbledName(name)) {
+            updateData.name = name;
+          }
+          if (cardNumber && existing.cardNumber !== cardNumber) {
+            updateData.cardNumber = cardNumber;
+          }
+          if (Object.keys(updateData).length > 0) {
+            await storage.updateEmployee(existing.id, updateData);
+            updated++;
+          } else {
+            skipped++;
+          }
+          continue;
+        }
 
         await storage.createEmployee({
           name,
           employeeCode: code,
+          cardNumber: cardNumber || null,
           positionId: null,
           workRuleId: null,
           companyId: null,
@@ -642,8 +672,9 @@ export async function registerRoutes(
 
       res.json({
         created,
+        updated,
         skipped,
-        message: `أُنشئ ${created} موظف جديد، ${skipped} موجود مسبقاً أو بيانات ناقصة`,
+        message: `أُنشئ ${created} موظف جديد، حُدِّث ${updated}، ${skipped} بدون تغيير`,
       });
     } catch (error: any) {
       res.status(500).json({ message: `خطأ في مزامنة الموظفين: ${error.message}` });
