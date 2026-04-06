@@ -56,14 +56,15 @@ SELECT COUNT(*) AS 'مكررات' FROM (SELECT employee_code, COUNT(*) c FROM em
 SELECT COUNT(*) AS 'الإجمالي' FROM employees;
 SELECT COUNT(*) AS 'تطابقات ناجحة مع users'
 FROM employees e
-JOIN users u ON CONVERT(e.card_number USING utf8mb4) COLLATE utf8mb4_general_ci
-             = CONVERT(u.card_no      USING utf8mb4) COLLATE utf8mb4_general_ci
-WHERE u.employee_id IS NOT NULL AND e.employee_code = u.employee_id;
--- عينة 5 للتحقق
-SELECT e.employee_code, e.name, e.card_number
+JOIN users u
+  ON e.card_number COLLATE utf8mb4_general_ci = u.card_no COLLATE utf8mb4_general_ci
+  AND e.employee_code COLLATE utf8mb4_general_ci = u.employee_id COLLATE utf8mb4_general_ci
+WHERE u.employee_id IS NOT NULL;
+-- عينة 10 للتحقق
+SELECT e.employee_code, e.name, u.employee_id AS 'رقم_users', u.name AS 'اسم_users'
 FROM employees e
-JOIN users u ON CONVERT(e.card_number USING utf8mb4) COLLATE utf8mb4_general_ci
-             = CONVERT(u.card_no      USING utf8mb4) COLLATE utf8mb4_general_ci
+JOIN users u
+  ON e.card_number COLLATE utf8mb4_general_ci = u.card_no COLLATE utf8mb4_general_ci
 WHERE u.employee_id IS NOT NULL
 ORDER BY e.employee_code + 0
-LIMIT 5;
+LIMIT 10;

@@ -1,11 +1,27 @@
 #!/bin/bash
-DB="mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert"
+MYSQL="mysql -h127.0.0.1 -uu807293731_insert -pTaher96+++.com u807293731_insert"
 
 echo "=== تشغيل الإصلاح ==="
-eval "$DB" < ~/attendance/scripts/fix_from_users_table.sql
+$MYSQL < ~/attendance/scripts/fix_from_users_table.sql
 
 echo ""
 echo "=== النتيجة ==="
-eval "$DB" -e "SELECT COUNT(*) AS total FROM employees;"
-eval "$DB" -e "SELECT employee_code, name FROM employees WHERE employee_code IN ('7','34','380') ORDER BY employee_code+0;"
-eval "$DB" -e "SELECT COUNT(*) AS matched FROM employees e JOIN users u ON CONVERT(e.card_number USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(u.card_no USING utf8mb4) COLLATE utf8mb4_general_ci WHERE e.employee_code = u.employee_id;"
+$MYSQL << 'SQL'
+SELECT COUNT(*) AS 'الإجمالي' FROM employees;
+SELECT employee_code, name, card_number
+FROM employees
+WHERE employee_code IN ('7','34','380')
+ORDER BY employee_code+0;
+SELECT COUNT(*) AS 'تطابقات ناجحة'
+FROM employees e
+INNER JOIN users u
+  ON e.card_number COLLATE utf8mb4_general_ci = u.card_no COLLATE utf8mb4_general_ci
+WHERE e.employee_code = u.employee_id AND u.employee_id IS NOT NULL;
+SELECT e.employee_code, e.name, u.employee_id AS 'رقم_users', u.name AS 'اسم_users'
+FROM employees e
+INNER JOIN users u
+  ON e.card_number COLLATE utf8mb4_general_ci = u.card_no COLLATE utf8mb4_general_ci
+WHERE u.employee_id IS NOT NULL
+ORDER BY e.employee_code+0
+LIMIT 10;
+SQL
