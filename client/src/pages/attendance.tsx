@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,9 +31,21 @@ export default function Attendance() {
   const { data: employees } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: attendance, isLoading, dataUpdatedAt } = useQuery<AttendanceRecord[]>({
     queryKey: ["/api/attendance", `?date=${date}`],
-    refetchInterval: isToday ? 8000 : false,
+    refetchInterval: isToday ? 30000 : false,
     refetchIntervalInBackground: true,
   });
+
+  // SSE — تحديث فوري لحظة وصول حركة جديدة من الجهاز
+  useEffect(() => {
+    if (!isToday) return;
+    const es = new EventSource("/api/attendance/events");
+    es.onmessage = (e) => {
+      if (e.data === "update") {
+        queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      }
+    };
+    return () => es.close();
+  }, [isToday]);
 
   const createMutation = useMutation({
     mutationFn: (data: any) => apiRequest("POST", "/api/attendance", data),

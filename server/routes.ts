@@ -76,6 +76,15 @@ async function getWorkRuleForEmployee(employeeId: string) {
   return workRule;
 }
 
+// SSE — إشعار فوري عند وصول حركة جديدة
+const sseClients = new Set<import("express").Response>();
+
+function notifyAttendanceUpdate() {
+  for (const client of sseClients) {
+    try { client.write("data: update\n\n"); } catch { sseClients.delete(client); }
+  }
+}
+
 async function processAttendanceLogs(
   logs: Array<{ uid: string; date: string; times: string[] }>,
   allEmployees: Awaited<ReturnType<typeof storage.getEmployees>>,
@@ -326,6 +335,18 @@ export async function registerRoutes(
     res.json(emp);
   });
 
+  // SSE endpoint — يستمع المتصفح هنا لأي حركة جديدة
+  app.get("/api/attendance/events", (req, res) => {
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+    res.write("data: connected\n\n");
+    sseClients.add(res);
+    req.on("close", () => sseClients.delete(res));
+  });
+
   app.get("/api/attendance", async (req, res) => {
     const date = req.query.date as string;
     if (!date) return res.status(400).json({ message: "Date required" });
@@ -370,6 +391,7 @@ export async function registerRoutes(
       }
 
       const record = await storage.createAttendance(attendanceData);
+      notifyAttendanceUpdate();
       res.json(record);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -634,6 +656,9 @@ export async function registerRoutes(
         workshopId || null,
         deviceName || "Agent"
       );
+
+      // إشعار فوري لجميع المتصفحات المتصلة عند استيراد حركات جديدة
+      if (imported > 0) notifyAttendanceUpdate();
 
       res.json({
         imported,
