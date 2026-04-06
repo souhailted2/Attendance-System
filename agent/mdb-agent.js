@@ -16,22 +16,53 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-// ── إصلاح ترميز النصوص العربية (Windows-1256) ────────────────────────────────
-let iconv = null;
-try { iconv = require("iconv-lite"); } catch {}
-
-function fixArabicEncoding(str) {
-  if (!str || typeof str !== "string") return str || "";
-  if (/[\u0600-\u06FF]/.test(str)) return str;
-  if (/^[\x00-\x7F]*$/.test(str)) return str;
-  if (iconv) {
-    try {
-      const bytes = Buffer.from(str, "latin1");
-      const decoded = iconv.decode(bytes, "win1256");
-      if (/[\u0600-\u06FF]/.test(decoded)) return decoded.trim();
-    } catch {}
+// ── ترميز Windows-1256 (مطلوب، غير اختياري) ────────────────────────────────
+const iconv = (() => {
+  try { return require("iconv-lite"); }
+  catch (e) {
+    console.error("❌ مكتبة iconv-lite غير موجودة. شغّل: npm install");
+    process.exit(1);
   }
-  return str;
+})();
+
+// فك ترميز حقل نصي قادم من قاعدة MDB (Windows-1256 → Unicode)
+// المسار الأساسي: تحويل bytes→ Latin-1 Buffer ثم فك ترميز كـ win1256
+// الاستثناء: إذا كانت القيمة تحتوي على أحرف عربية Unicode بالفعل، تُعاد كما هي
+function decodeMdbName(rawValue) {
+  if (!rawValue && rawValue !== 0) return "";
+  const str = String(rawValue);
+  if (!str.trim()) return str;
+
+  // مسار الـ UTF-8: النص يحتوي فعلاً على أحرف عربية Unicode
+  if (/[\u0600-\u06FF]/.test(str)) return str.trim();
+
+  // نص ASCII خالص (أرقام/رموز فقط) — لا حاجة لإعادة الترميز
+  if (/^[\x00-\x7F]*$/.test(str)) return str.trim();
+
+  // المسار الأساسي (Buffer): نعامل القيمة كـ Latin-1 bytes ونفك ترميزها كـ win1256
+  try {
+    const buf = Buffer.from(str, "latin1");
+    const decoded = iconv.decode(buf, "win1256");
+    if (/[\u0600-\u06FF]/.test(decoded)) return decoded.trim();
+  } catch {}
+
+  // رجوع: إعادة القيمة الأصلية إذا فشل الفك
+  return str.trim();
+}
+
+// ── اختبار الترميز عند بدء التشغيل ──────────────────────────────────────────
+function selfTestEncoding() {
+  // بايتات Windows-1256 لـ "محمد" = [0xE3, 0xCD, 0xE3, 0xCF]
+  const garbledLatin1 = Buffer.from([0xE3, 0xCD, 0xE3, 0xCF]).toString("latin1");
+  const result = decodeMdbName(garbledLatin1);
+  if (!/[\u0600-\u06FF]/.test(result)) {
+    console.warn("⚠️  تحذير: فك ترميز Windows-1256 لم ينجح على العينة التجريبية");
+  }
+  // نص عربي سليم — يجب أن يُعاد كما هو
+  const alreadyArabic = "محمد علي";
+  if (decodeMdbName(alreadyArabic) !== alreadyArabic) {
+    console.warn("⚠️  تحذير: النص العربي السليم تغيّر بعد decodeMdbName");
+  }
 }
 
 // ── تحميل إعدادات .env ─────────────────────────────────────────────────────
@@ -194,8 +225,8 @@ async function runSync() {
   for (const user of users) {
     const uid      = String(user.USERID      || user.UserID      || "").trim();
     const badge    = String(user.BADGENUMBER  || user.BadgeNumber  || user.PIN    || uid).trim();
-    const rawName  = String(user.NAME         || user.Name         || `موظف ${badge}`).trim();
-    const name     = fixArabicEncoding(rawName);
+    const rawName  = user.NAME || user.Name || `موظف ${badge}`;
+    const name     = decodeMdbName(rawName);
     const cardNo   = String(user.CARDNO       || user.CardNo       || user.CARD_NO || "").trim();
     if (uid && badge) {
       userMap[uid] = badge;
@@ -346,6 +377,8 @@ async function runSync() {
 }
 
 // ── نقطة الدخول ─────────────────────────────────────────────────────────────
+
+selfTestEncoding();
 
 const watchMode = process.argv.includes("--watch");
 const autoMode  = process.argv.includes("--auto");
