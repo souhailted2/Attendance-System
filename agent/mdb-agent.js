@@ -101,6 +101,8 @@ const DB_PATH       = env.DB_PATH || "C:\\Program Files (x86)\\ZKTeco\\ZKTeco\\a
 const DAYS_BACK     = parseInt(env.DAYS_BACK || "30", 10);
 const SYNC_EMPLOYEES = env.SYNC_EMPLOYEES !== "false";
 const INTERVAL_MINUTES = parseInt(env.INTERVAL_MINUTES || "30", 10);
+const POLL_MS_CFG      = parseInt(env.POLL_MS || "2000", 10);
+const DEBOUNCE_MS_CFG  = parseInt(env.DEBOUNCE_MS || "2000", 10);
 const LAST_SYNC_FILE = path.join(__dirname, "last-sync.json");
 
 if (!SERVER_URL) { console.error("❌ SERVER_URL غير محدد في .env"); process.exit(1); }
@@ -422,8 +424,9 @@ if (autoMode) {
     lastSize  = stat.size;
   } catch {}
 
-  // استطلاع الملف كل 5 ثوانٍ (أكثر موثوقية على Windows من fs.watch)
-  const POLL_MS = 5000;
+  // استطلاع الملف (أكثر موثوقية على Windows من fs.watch)
+  const POLL_MS = POLL_MS_CFG;
+  log(`⚙️  فترة الاستطلاع: ${POLL_MS}ms | debounce: ${DEBOUNCE_MS_CFG}ms`);
   setInterval(() => {
     try {
       const stat = fs.statSync(DB_PATH);
@@ -435,7 +438,7 @@ if (autoMode) {
 
       log("📡 تم اكتشاف تغيير في الملف — جارٍ التحضير للمزامنة...");
 
-      // debounce: انتظر 4 ثوانٍ قبل التنفيذ لتجميع التغييرات المتتالية
+      // debounce: انتظر قبل التنفيذ لتجميع التغييرات المتتالية
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         if (isSyncing) {
@@ -448,7 +451,7 @@ if (autoMode) {
         } finally {
           isSyncing = false;
         }
-      }, 4000);
+      }, DEBOUNCE_MS_CFG);
     } catch {}
   }, POLL_MS);
 
