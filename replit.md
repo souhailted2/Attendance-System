@@ -80,3 +80,16 @@ A comprehensive worker attendance management system built with React + Express +
 ## Running
 - `npm run dev` starts Express backend + Vite frontend on port 5000
 - `npm run db:push` syncs schema to database
+
+## إصلاحات قاعدة البيانات (MySQL - Hostinger)
+
+### مصدر الحقيقة
+- `users` table: employee_id (رقم HR) + card_no (رقم البطاقة) + name
+- `employees` table: employee_code (= users.employee_id) + card_number (= users.card_no)
+- الربط عبر: `e.card_number COLLATE utf8mb4_general_ci = u.card_no COLLATE utf8mb4_general_ci`
+
+### سكريبتات الإصلاح (scripts/)
+- `fix_from_users_table.sql` — ربط employees بـ users (v6، مع حل تعارض collation)
+- `fix_names_from_excel.sql` — تحديث أسماء ???? من ملف Excel
+- `fix_encoding.sql` — محاولة إصلاح ترميز latin1→utf8
+- `run_fix.sh` — تشغيل الإصلاح والتحقق بأمر واحد
