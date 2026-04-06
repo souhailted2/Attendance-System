@@ -1,0 +1,99 @@
+[u807293731@us-imm-web485 ~]$ cd ~/attendance && pm2 resurrect && pm2 logs attendance --lines 20 --nostream
+[PM2] Spawning PM2 daemon with pm2_home=/home/u807293731/.pm2
+[PM2] PM2 Successfully daemonized
+[PM2] Resurrecting
+[PM2] Restoring processes located in /home/u807293731/.pm2/dump.pm2
+[PM2] Process /home/u807293731/attendance/dist/index.cjs restored
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ attendance         │ cluster  │ 0    │ online    │ 0%       │ 44.6mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[TAILING] Tailing last 20 lines for [attendance] process (change the value with --lines option)
+/home/u807293731/.pm2/logs/attendance-error-0.log last 20 lines:
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:68:13356
+0|attendan |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|attendan |     at async /home/u807293731/attendance/dist/index.cjs:74:37988
+0|attendan |     at async /home/u807293731/attendance/dist/index.cjs:96:33942 {
+0|attendan |   length: 10
+0|attendan | }
+0|attendan | Internal Server Error: error: received invalid response: 56
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:68:13356
+0|attendan |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|attendan |     at async /home/u807293731/attendance/dist/index.cjs:74:37988
+0|attendan |     at async /home/u807293731/attendance/dist/index.cjs:96:33318 {
+0|attendan |   length: 10
+0|attendan | }
+0|attendan | Internal Server Error: error: received invalid response: 56
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:68:13356
+0|attendan |     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+0|attendan |     at async /home/u807293731/attendance/dist/index.cjs:74:37988
+0|attendan |     at async /home/u807293731/attendance/dist/index.cjs:96:31457 {
+0|attendan |   length: 10
+0|attendan | }
+
+/home/u807293731/.pm2/logs/attendance-out-0.log last 20 lines:
+0|attendan | 8:34:31 PM [express] GET /api/attendance/ 200 in 15ms
+0|attendan | 8:34:39 PM [express] GET /api/attendance/ 200 in 12ms
+0|attendan | 8:34:48 PM [express] GET /api/attendance/ 200 in 9ms
+0|attendan | 8:34:56 PM [express] GET /api/attendance/ 200 in 11ms
+0|attendan | 8:35:03 PM [express] serving on port 3000
+0|attendan | 8:35:05 PM [express] GET /api/attendance/ 200 in 21ms
+0|attendan | 8:35:14 PM [express] GET /api/attendance/ 200 in 15ms
+0|attendan | 8:35:22 PM [express] GET /api/attendance/ 200 in 11ms
+0|attendan | 8:35:31 PM [express] GET /api/attendance/ 200 in 12ms
+0|attendan | 8:35:39 PM [express] GET /api/attendance/ 200 in 10ms
+0|attendan | 8:35:48 PM [express] GET /api/attendance/ 200 in 9ms
+0|attendan | 8:35:56 PM [express] GET /api/attendance/ 200 in 13ms
+0|attendan | 8:36:02 PM [express] serving on port 3000
+0|attendan | 8:36:05 PM [express] GET /api/attendance/ 200 in 22ms
+0|attendan | 8:36:14 PM [express] GET /api/attendance/ 200 in 19ms
+0|attendan | 8:36:22 PM [express] GET /api/attendance/ 200 in 13ms
+0|attendan | 8:36:31 PM [express] GET /api/attendance/ 200 in 9ms
+0|attendan | 8:36:39 PM [express] GET /api/attendance/ 200 in 12ms
+0|attendan | 8:36:48 PM [express] GET /api/attendance/ 200 in 11ms
+0|attendan | 8:36:56 PM [express] GET /api/attendance/ 200 in 15ms
+
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance && pm2 resurrect
+[PM2] Resurrecting
+[PM2] Restoring processes located in /home/u807293731/.pm2/dump.pm2
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ attendance         │ cluster  │ 0    │ online    │ 0%       │ 104.1mb  │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[u807293731@us-imm-web485 attendance]$ cat > ~/attendance/auto-deploy.sh << 'EOF'
+> #!/bin/bash
+> HOME=/home/u807293731
+> PM2_HOME=/home/u807293731/.pm2
+> NODE_BIN=$(ls -d /home/u807293731/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+> export HOME PM2_HOME PATH=$NODE_BIN:/usr/local/bin:/usr/bin:/bin
+>
+> cd /home/u807293731/attendance
+> git fetch origin -q
+>
+> if ! git diff --quiet HEAD origin/main -- dist/ agent/mdb-agent.js scripts/; then
+>     git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/
+>     $NODE_BIN/pm2 reload attendance --update-env 2>&1 >> /home/u807293731/attendance/deploy.log
+>     echo "$(date): deployed + pm2 reloaded" >> /home/u807293731/attendance/deploy.log
+> fi
+> EOF
+[u807293731@us-imm-web485 attendance]$ chmod +x ~/attendance/auto-deploy.sh
+[u807293731@us-imm-web485 attendance]$ echo "تم التحديث"
+تم التحديث
+[u807293731@us-imm-web485 attendance]$ cat ~/attendance/auto-deploy.sh
+#!/bin/bash
+HOME=/home/u807293731
+PM2_HOME=/home/u807293731/.pm2
+NODE_BIN=$(ls -d /home/u807293731/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+export HOME PM2_HOME PATH=$NODE_BIN:/usr/local/bin:/usr/bin:/bin
+
+cd /home/u807293731/attendance
+git fetch origin -q
+
+if ! git diff --quiet HEAD origin/main -- dist/ agent/mdb-agent.js scripts/; then
+    git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/
+    $NODE_BIN/pm2 reload attendance --update-env 2>&1 >> /home/u807293731/attendance/deploy.log
+    echo "$(date): deployed + pm2 reloaded" >> /home/u807293731/attendance/deploy.log
+fi
+[u807293731@us-imm-web485 attendance]$
