@@ -1,23 +1,24 @@
 -- ============================================================
--- إصلاح شامل: تصحيح employee_code من USERID إلى Badgenumber
--- نهج آمن من التعارض: مرحلتان
--- المرحلة 1: تغيير كل الأكواد إلى TEMP_{USERID} (لا تعارض ممكن)
--- المرحلة 2: تعيين القيم الصحيحة (Badgenumber + الاسم + البطاقة)
+-- إصلاح شامل آمن: تصحيح employee_code من USERID إلى Badgenumber
+-- نهج ثنائي المراحل يمنع التعارض على العمود المفهرس
+-- إجمالي: 442 موظف | أسماء إكسل: 315 | أسماء MDB: 2 | بدون اسم: 125
+-- بطاقات: 327 لهم card_number | 115 سيُعيَّن card_number=NULL
 -- ============================================================
 
 SET NAMES utf8mb4;
 
 -- التحقق المسبق:
 SELECT COUNT(*) AS employees_before FROM employees;
-SELECT employee_code, name FROM employees ORDER BY CAST(employee_code AS UNSIGNED) LIMIT 5;
+SELECT employee_code, name, card_number FROM employees ORDER BY CAST(employee_code AS UNSIGNED) LIMIT 5;
 
 START TRANSACTION;
 
--- المرحلة 1: تأمين — تحويل كل employee_code إلى TEMP_{كود_قديم}
--- يمنع تعارض الأكواد عند إعادة التعيين
+-- المرحلة 1: تحويل كل employee_code رقمي → TEMP_{USERID} (يمنع تعارض المفتاح الفريد)
 UPDATE employees SET employee_code = CONCAT('TEMP_', employee_code) WHERE employee_code REGEXP '^[0-9]+$';
 
--- المرحلة 2: تعيين القيم الصحيحة (Badgenumber + الاسم + البطاقة)
+-- المرحلة 2: تعيين القيم الصحيحة (Badgenumber + الاسم + card_number)
+-- card_number مُعيَّن دائماً (NULL عند غياب البطاقة) لمنع الأكواد القديمة
+
 UPDATE employees SET employee_code='261', name='سمينة جمعة', card_number='0013117321' WHERE employee_code='TEMP_1';
 UPDATE employees SET employee_code='245', name='زروق عبد الرزاق', card_number='0016463148' WHERE employee_code='TEMP_2';
 UPDATE employees SET employee_code='82', name='حبيب الزهرة', card_number='0008562215' WHERE employee_code='TEMP_3';
@@ -43,8 +44,8 @@ UPDATE employees SET employee_code='81', name='موم حليمة', card_number='
 UPDATE employees SET employee_code='375', name='دوة محمد الحبيب', card_number='0003803873' WHERE employee_code='TEMP_25';
 UPDATE employees SET employee_code='352', name='تجيني حسين', card_number='0014321282' WHERE employee_code='TEMP_26';
 UPDATE employees SET employee_code='270', name='موساوي جهاد', card_number='0011135001' WHERE employee_code='TEMP_27';
-UPDATE employees SET employee_code='389', name='بن عمار احمد' WHERE employee_code='TEMP_28';
-UPDATE employees SET employee_code='348', name='فايزي المولدي' WHERE employee_code='TEMP_29';
+UPDATE employees SET employee_code='389', name='بن عمار احمد', card_number=NULL WHERE employee_code='TEMP_28';
+UPDATE employees SET employee_code='348', name='فايزي المولدي', card_number=NULL WHERE employee_code='TEMP_29';
 UPDATE employees SET employee_code='138', name='حتيري سليمة', card_number='0014349794' WHERE employee_code='TEMP_13';
 UPDATE employees SET employee_code='361', name='بوغزالة محمد كريمة', card_number='0014112729' WHERE employee_code='TEMP_12';
 UPDATE employees SET employee_code='1', name='بوقطاية عز الدين', card_number='0014324674' WHERE employee_code='TEMP_30';
@@ -54,7 +55,7 @@ UPDATE employees SET employee_code='6', name='بوقطاية محمد انور',
 UPDATE employees SET employee_code='7', name='دهيمي عمار', card_number='0002345331' WHERE employee_code='TEMP_34';
 UPDATE employees SET employee_code='8', name='احميد راتب', card_number='0001365721' WHERE employee_code='TEMP_35';
 UPDATE employees SET employee_code='10', name='شبرو عبد الرحمن', card_number='0014314313' WHERE employee_code='TEMP_36';
-UPDATE employees SET employee_code='11', name='خليل عبد الحميد' WHERE employee_code='TEMP_37';
+UPDATE employees SET employee_code='11', name='خليل عبد الحميد', card_number=NULL WHERE employee_code='TEMP_37';
 UPDATE employees SET employee_code='12', name='العقوبي رمزي', card_number='0010016407' WHERE employee_code='TEMP_38';
 UPDATE employees SET employee_code='13', name='قابوسة علي', card_number='0001695144' WHERE employee_code='TEMP_39';
 UPDATE employees SET employee_code='15', name='حابي اميرة', card_number='0011110694' WHERE employee_code='TEMP_40';
@@ -168,75 +169,75 @@ UPDATE employees SET employee_code='180', name='ياحي السعيد', card_num
 UPDATE employees SET employee_code='182', name='عيساوي احمد البخاري', card_number='0010082121' WHERE employee_code='TEMP_148';
 UPDATE employees SET employee_code='183', name='هنيات المولدي', card_number='0010229143' WHERE employee_code='TEMP_149';
 UPDATE employees SET employee_code='185', name='حنكة علي', card_number='0010057955' WHERE employee_code='TEMP_150';
-UPDATE employees SET employee_code='414', name='414' WHERE employee_code='TEMP_351';
-UPDATE employees SET employee_code='268', name='268' WHERE employee_code='TEMP_352';
-UPDATE employees SET employee_code='362', name='362' WHERE employee_code='TEMP_353';
-UPDATE employees SET employee_code='383', name='383' WHERE employee_code='TEMP_354';
-UPDATE employees SET employee_code='455', name='455' WHERE employee_code='TEMP_355';
-UPDATE employees SET employee_code='410', name='410' WHERE employee_code='TEMP_356';
-UPDATE employees SET employee_code='332', name='332' WHERE employee_code='TEMP_357';
-UPDATE employees SET employee_code='447', name='447' WHERE employee_code='TEMP_358';
-UPDATE employees SET employee_code='426', name='426' WHERE employee_code='TEMP_359';
-UPDATE employees SET employee_code='459', name='459' WHERE employee_code='TEMP_360';
-UPDATE employees SET employee_code='460', name='460' WHERE employee_code='TEMP_361';
-UPDATE employees SET employee_code='177', name='177' WHERE employee_code='TEMP_362';
-UPDATE employees SET employee_code='291', name='291' WHERE employee_code='TEMP_363';
-UPDATE employees SET employee_code='17', name='17' WHERE employee_code='TEMP_364';
-UPDATE employees SET employee_code='42', name='42' WHERE employee_code='TEMP_365';
-UPDATE employees SET employee_code='346', name='346' WHERE employee_code='TEMP_366';
-UPDATE employees SET employee_code='153', name='153' WHERE employee_code='TEMP_367';
-UPDATE employees SET employee_code='407', name='407' WHERE employee_code='TEMP_368';
-UPDATE employees SET employee_code='347', name='347' WHERE employee_code='TEMP_369';
-UPDATE employees SET employee_code='458', name='458' WHERE employee_code='TEMP_370';
-UPDATE employees SET employee_code='50', name='50' WHERE employee_code='TEMP_371';
-UPDATE employees SET employee_code='303', name='303' WHERE employee_code='TEMP_372';
-UPDATE employees SET employee_code='288', name='بلقاضي لمنور' WHERE employee_code='TEMP_373';
-UPDATE employees SET employee_code='373', name='373' WHERE employee_code='TEMP_374';
-UPDATE employees SET employee_code='370', name='370' WHERE employee_code='TEMP_375';
-UPDATE employees SET employee_code='323', name='323' WHERE employee_code='TEMP_376';
-UPDATE employees SET employee_code='89', name='89' WHERE employee_code='TEMP_377';
-UPDATE employees SET employee_code='386', name='دهيمي عبد الحافظ' WHERE employee_code='TEMP_378';
-UPDATE employees SET employee_code='301', name='301' WHERE employee_code='TEMP_379';
-UPDATE employees SET employee_code='272', name='272' WHERE employee_code='TEMP_380';
-UPDATE employees SET employee_code='355', name='355' WHERE employee_code='TEMP_381';
-UPDATE employees SET employee_code='131', name='131' WHERE employee_code='TEMP_382';
-UPDATE employees SET employee_code='443', name='443' WHERE employee_code='TEMP_383';
-UPDATE employees SET employee_code='418', name='418' WHERE employee_code='TEMP_384';
-UPDATE employees SET employee_code='29', name='29' WHERE employee_code='TEMP_385';
-UPDATE employees SET employee_code='451', name='451' WHERE employee_code='TEMP_386';
-UPDATE employees SET employee_code='84', name='84' WHERE employee_code='TEMP_387';
-UPDATE employees SET employee_code='16', name='16' WHERE employee_code='TEMP_388';
-UPDATE employees SET employee_code='439', name='439' WHERE employee_code='TEMP_389';
-UPDATE employees SET employee_code='9', name='9' WHERE employee_code='TEMP_390';
-UPDATE employees SET employee_code='400', name='400' WHERE employee_code='TEMP_391';
-UPDATE employees SET employee_code='452', name='452' WHERE employee_code='TEMP_392';
-UPDATE employees SET employee_code='453', name='453' WHERE employee_code='TEMP_393';
-UPDATE employees SET employee_code='338', name='338' WHERE employee_code='TEMP_394';
-UPDATE employees SET employee_code='174', name='174' WHERE employee_code='TEMP_395';
-UPDATE employees SET employee_code='196', name='196' WHERE employee_code='TEMP_396';
-UPDATE employees SET employee_code='14', name='14' WHERE employee_code='TEMP_397';
-UPDATE employees SET employee_code='150', name='150' WHERE employee_code='TEMP_398';
-UPDATE employees SET employee_code='161', name='161' WHERE employee_code='TEMP_399';
-UPDATE employees SET employee_code='66', name='66' WHERE employee_code='TEMP_400';
-UPDATE employees SET employee_code='146', name='146' WHERE employee_code='TEMP_401';
-UPDATE employees SET employee_code='259', name='259' WHERE employee_code='TEMP_402';
-UPDATE employees SET employee_code='114', name='114' WHERE employee_code='TEMP_403';
-UPDATE employees SET employee_code='277', name='277' WHERE employee_code='TEMP_404';
-UPDATE employees SET employee_code='160', name='160' WHERE employee_code='TEMP_405';
-UPDATE employees SET employee_code='80', name='80' WHERE employee_code='TEMP_406';
-UPDATE employees SET employee_code='398', name='398' WHERE employee_code='TEMP_407';
-UPDATE employees SET employee_code='285', name='285' WHERE employee_code='TEMP_408';
-UPDATE employees SET employee_code='343', name='343' WHERE employee_code='TEMP_409';
-UPDATE employees SET employee_code='90', name='90' WHERE employee_code='TEMP_410';
-UPDATE employees SET employee_code='385', name='385' WHERE employee_code='TEMP_411';
-UPDATE employees SET employee_code='438', name='438' WHERE employee_code='TEMP_412';
-UPDATE employees SET employee_code='176', name='176' WHERE employee_code='TEMP_413';
-UPDATE employees SET employee_code='120', name='120' WHERE employee_code='TEMP_414';
-UPDATE employees SET employee_code='446', name='446' WHERE employee_code='TEMP_415';
-UPDATE employees SET employee_code='85', name='85' WHERE employee_code='TEMP_416';
-UPDATE employees SET employee_code='136', name='136' WHERE employee_code='TEMP_417';
-UPDATE employees SET employee_code='282', name='282' WHERE employee_code='TEMP_418';
-UPDATE employees SET employee_code='181', name='181' WHERE employee_code='TEMP_419';
+UPDATE employees SET employee_code='414', card_number=NULL WHERE employee_code='TEMP_351';
+UPDATE employees SET employee_code='268', card_number=NULL WHERE employee_code='TEMP_352';
+UPDATE employees SET employee_code='362', card_number=NULL WHERE employee_code='TEMP_353';
+UPDATE employees SET employee_code='383', card_number=NULL WHERE employee_code='TEMP_354';
+UPDATE employees SET employee_code='455', card_number=NULL WHERE employee_code='TEMP_355';
+UPDATE employees SET employee_code='410', card_number=NULL WHERE employee_code='TEMP_356';
+UPDATE employees SET employee_code='332', card_number=NULL WHERE employee_code='TEMP_357';
+UPDATE employees SET employee_code='447', card_number=NULL WHERE employee_code='TEMP_358';
+UPDATE employees SET employee_code='426', card_number=NULL WHERE employee_code='TEMP_359';
+UPDATE employees SET employee_code='459', card_number=NULL WHERE employee_code='TEMP_360';
+UPDATE employees SET employee_code='460', card_number=NULL WHERE employee_code='TEMP_361';
+UPDATE employees SET employee_code='177', card_number=NULL WHERE employee_code='TEMP_362';
+UPDATE employees SET employee_code='291', card_number=NULL WHERE employee_code='TEMP_363';
+UPDATE employees SET employee_code='17', card_number=NULL WHERE employee_code='TEMP_364';
+UPDATE employees SET employee_code='42', card_number=NULL WHERE employee_code='TEMP_365';
+UPDATE employees SET employee_code='346', card_number=NULL WHERE employee_code='TEMP_366';
+UPDATE employees SET employee_code='153', card_number=NULL WHERE employee_code='TEMP_367';
+UPDATE employees SET employee_code='407', card_number=NULL WHERE employee_code='TEMP_368';
+UPDATE employees SET employee_code='347', card_number=NULL WHERE employee_code='TEMP_369';
+UPDATE employees SET employee_code='458', card_number=NULL WHERE employee_code='TEMP_370';
+UPDATE employees SET employee_code='50', card_number=NULL WHERE employee_code='TEMP_371';
+UPDATE employees SET employee_code='303', card_number=NULL WHERE employee_code='TEMP_372';
+UPDATE employees SET employee_code='288', name='بلقاضي لمنور', card_number=NULL WHERE employee_code='TEMP_373';
+UPDATE employees SET employee_code='373', card_number=NULL WHERE employee_code='TEMP_374';
+UPDATE employees SET employee_code='370', card_number=NULL WHERE employee_code='TEMP_375';
+UPDATE employees SET employee_code='323', card_number=NULL WHERE employee_code='TEMP_376';
+UPDATE employees SET employee_code='89', card_number=NULL WHERE employee_code='TEMP_377';
+UPDATE employees SET employee_code='386', name='دهيمي عبد الحافظ', card_number=NULL WHERE employee_code='TEMP_378';
+UPDATE employees SET employee_code='301', card_number=NULL WHERE employee_code='TEMP_379';
+UPDATE employees SET employee_code='272', card_number=NULL WHERE employee_code='TEMP_380';
+UPDATE employees SET employee_code='355', card_number=NULL WHERE employee_code='TEMP_381';
+UPDATE employees SET employee_code='131', card_number=NULL WHERE employee_code='TEMP_382';
+UPDATE employees SET employee_code='443', card_number=NULL WHERE employee_code='TEMP_383';
+UPDATE employees SET employee_code='418', card_number=NULL WHERE employee_code='TEMP_384';
+UPDATE employees SET employee_code='29', card_number=NULL WHERE employee_code='TEMP_385';
+UPDATE employees SET employee_code='451', card_number=NULL WHERE employee_code='TEMP_386';
+UPDATE employees SET employee_code='84', card_number=NULL WHERE employee_code='TEMP_387';
+UPDATE employees SET employee_code='16', card_number=NULL WHERE employee_code='TEMP_388';
+UPDATE employees SET employee_code='439', card_number=NULL WHERE employee_code='TEMP_389';
+UPDATE employees SET employee_code='9', card_number=NULL WHERE employee_code='TEMP_390';
+UPDATE employees SET employee_code='400', card_number=NULL WHERE employee_code='TEMP_391';
+UPDATE employees SET employee_code='452', card_number=NULL WHERE employee_code='TEMP_392';
+UPDATE employees SET employee_code='453', card_number=NULL WHERE employee_code='TEMP_393';
+UPDATE employees SET employee_code='338', card_number=NULL WHERE employee_code='TEMP_394';
+UPDATE employees SET employee_code='174', card_number=NULL WHERE employee_code='TEMP_395';
+UPDATE employees SET employee_code='196', card_number=NULL WHERE employee_code='TEMP_396';
+UPDATE employees SET employee_code='14', card_number=NULL WHERE employee_code='TEMP_397';
+UPDATE employees SET employee_code='150', card_number=NULL WHERE employee_code='TEMP_398';
+UPDATE employees SET employee_code='161', card_number=NULL WHERE employee_code='TEMP_399';
+UPDATE employees SET employee_code='66', card_number=NULL WHERE employee_code='TEMP_400';
+UPDATE employees SET employee_code='146', card_number=NULL WHERE employee_code='TEMP_401';
+UPDATE employees SET employee_code='259', card_number=NULL WHERE employee_code='TEMP_402';
+UPDATE employees SET employee_code='114', card_number=NULL WHERE employee_code='TEMP_403';
+UPDATE employees SET employee_code='277', card_number=NULL WHERE employee_code='TEMP_404';
+UPDATE employees SET employee_code='160', card_number=NULL WHERE employee_code='TEMP_405';
+UPDATE employees SET employee_code='80', card_number=NULL WHERE employee_code='TEMP_406';
+UPDATE employees SET employee_code='398', card_number=NULL WHERE employee_code='TEMP_407';
+UPDATE employees SET employee_code='285', card_number=NULL WHERE employee_code='TEMP_408';
+UPDATE employees SET employee_code='343', card_number=NULL WHERE employee_code='TEMP_409';
+UPDATE employees SET employee_code='90', card_number=NULL WHERE employee_code='TEMP_410';
+UPDATE employees SET employee_code='385', card_number=NULL WHERE employee_code='TEMP_411';
+UPDATE employees SET employee_code='438', card_number=NULL WHERE employee_code='TEMP_412';
+UPDATE employees SET employee_code='176', card_number=NULL WHERE employee_code='TEMP_413';
+UPDATE employees SET employee_code='120', card_number=NULL WHERE employee_code='TEMP_414';
+UPDATE employees SET employee_code='446', card_number=NULL WHERE employee_code='TEMP_415';
+UPDATE employees SET employee_code='85', card_number=NULL WHERE employee_code='TEMP_416';
+UPDATE employees SET employee_code='136', card_number=NULL WHERE employee_code='TEMP_417';
+UPDATE employees SET employee_code='282', card_number=NULL WHERE employee_code='TEMP_418';
+UPDATE employees SET employee_code='181', card_number=NULL WHERE employee_code='TEMP_419';
 UPDATE employees SET employee_code='186', name='نسيب عرفات', card_number='0013138988' WHERE employee_code='TEMP_151';
 UPDATE employees SET employee_code='190', name='رقيق ايناس', card_number='0011309470' WHERE employee_code='TEMP_152';
 UPDATE employees SET employee_code='191', name='ربيعي سالم', card_number='0010070266' WHERE employee_code='TEMP_153';
@@ -297,15 +298,15 @@ UPDATE employees SET employee_code='357', name='طنش السعيد', card_numbe
 UPDATE employees SET employee_code='358', name='مهيش ميلود', card_number='0011134968' WHERE employee_code='TEMP_254';
 UPDATE employees SET employee_code='359', name='مسعي احمد البشير', card_number='0004500347' WHERE employee_code='TEMP_255';
 UPDATE employees SET employee_code='365', name='سعيد صالح', card_number='0010119520' WHERE employee_code='TEMP_256';
-UPDATE employees SET employee_code='419', name='??? ???? ???? ?????', card_number='0014333918' WHERE employee_code='TEMP_288';
-UPDATE employees SET employee_code='420', name='??????? ???? ????' WHERE employee_code='TEMP_289';
+UPDATE employees SET employee_code='419', card_number='0014333918' WHERE employee_code='TEMP_288';
+UPDATE employees SET employee_code='420', card_number=NULL WHERE employee_code='TEMP_289';
 UPDATE employees SET employee_code='421', name='رزيق محمد', card_number='0011110650' WHERE employee_code='TEMP_290';
 UPDATE employees SET employee_code='422', name='غريسي خليفة', card_number='0013178611' WHERE employee_code='TEMP_291';
-UPDATE employees SET employee_code='423', name='??? ??????', card_number='0005946343' WHERE employee_code='TEMP_292';
-UPDATE employees SET employee_code='424', name='??? ???? ???????', card_number='0004500359' WHERE employee_code='TEMP_293';
+UPDATE employees SET employee_code='423', card_number='0005946343' WHERE employee_code='TEMP_292';
+UPDATE employees SET employee_code='424', card_number='0004500359' WHERE employee_code='TEMP_293';
 UPDATE employees SET employee_code='425', name='عاشور الحاج سعد', card_number='0002420628' WHERE employee_code='TEMP_294';
 UPDATE employees SET employee_code='427', name='قرح زكية', card_number='0012938046' WHERE employee_code='TEMP_295';
-UPDATE employees SET employee_code='428', name='????? ??? ??????' WHERE employee_code='TEMP_296';
+UPDATE employees SET employee_code='428', card_number=NULL WHERE employee_code='TEMP_296';
 UPDATE employees SET employee_code='430', name='عسيلة ابراهيم', card_number='0011220517' WHERE employee_code='TEMP_297';
 UPDATE employees SET employee_code='431', name='فايزي فؤاد', card_number='0011135012' WHERE employee_code='TEMP_298';
 UPDATE employees SET employee_code='433', name='تجاني محمد الهادي', card_number='0014287886' WHERE employee_code='TEMP_299';
@@ -320,39 +321,39 @@ UPDATE employees SET employee_code='223', name='غالية الياس', card_num
 UPDATE employees SET employee_code='326', name='مشري عماد الدين', card_number='0014087651' WHERE employee_code='TEMP_323';
 UPDATE employees SET employee_code='440', name='تجاني محمد البشير', card_number='0012937386' WHERE employee_code='TEMP_324';
 UPDATE employees SET employee_code='93', name='طنش الطاهر', card_number='0012960068' WHERE employee_code='TEMP_325';
-UPDATE employees SET employee_code='225', name='thmer tu', card_number='0002551774' WHERE employee_code='TEMP_326';
-UPDATE employees SET employee_code='226', name='226' WHERE employee_code='TEMP_327';
-UPDATE employees SET employee_code='230', name='230' WHERE employee_code='TEMP_328';
-UPDATE employees SET employee_code='231', name='HOURI SL', card_number='0013139236' WHERE employee_code='TEMP_329';
-UPDATE employees SET employee_code='335', name='335' WHERE employee_code='TEMP_330';
-UPDATE employees SET employee_code='233', name='BOGT MOH', card_number='0002335833' WHERE employee_code='TEMP_331';
-UPDATE employees SET employee_code='235', name='zyr bchr', card_number='0001179889' WHERE employee_code='TEMP_332';
-UPDATE employees SET employee_code='238', name='238', card_number='0014331496' WHERE employee_code='TEMP_333';
-UPDATE employees SET employee_code='116', name='116' WHERE employee_code='TEMP_420';
-UPDATE employees SET employee_code='350', name='350' WHERE employee_code='TEMP_421';
-UPDATE employees SET employee_code='56', name='56' WHERE employee_code='TEMP_422';
-UPDATE employees SET employee_code='102', name='صوالح   حسين' WHERE employee_code='TEMP_423';
-UPDATE employees SET employee_code='127', name='127' WHERE employee_code='TEMP_424';
-UPDATE employees SET employee_code='367', name='367' WHERE employee_code='TEMP_425';
-UPDATE employees SET employee_code='280', name='280' WHERE employee_code='TEMP_426';
-UPDATE employees SET employee_code='393', name='393' WHERE employee_code='TEMP_427';
-UPDATE employees SET employee_code='434', name='434' WHERE employee_code='TEMP_428';
-UPDATE employees SET employee_code='149', name='149' WHERE employee_code='TEMP_429';
-UPDATE employees SET employee_code='155', name='155' WHERE employee_code='TEMP_430';
-UPDATE employees SET employee_code='437', name='437' WHERE employee_code='TEMP_431';
-UPDATE employees SET employee_code='466', name='466' WHERE employee_code='TEMP_432';
-UPDATE employees SET employee_code='316', name='316' WHERE employee_code='TEMP_433';
-UPDATE employees SET employee_code='313', name='313' WHERE employee_code='TEMP_434';
-UPDATE employees SET employee_code='390', name='390' WHERE employee_code='TEMP_435';
-UPDATE employees SET employee_code='187', name='187' WHERE employee_code='TEMP_436';
-UPDATE employees SET employee_code='354', name='354' WHERE employee_code='TEMP_437';
-UPDATE employees SET employee_code='19', name='19' WHERE employee_code='TEMP_438';
-UPDATE employees SET employee_code='106', name='106' WHERE employee_code='TEMP_439';
-UPDATE employees SET employee_code='462', name='462' WHERE employee_code='TEMP_440';
-UPDATE employees SET employee_code='320', name='320' WHERE employee_code='TEMP_441';
-UPDATE employees SET employee_code='429', name='429' WHERE employee_code='TEMP_442';
-UPDATE employees SET employee_code='476', name='476' WHERE employee_code='TEMP_443';
-UPDATE employees SET employee_code='475', name='475' WHERE employee_code='TEMP_444';
+UPDATE employees SET employee_code='225', card_number='0002551774' WHERE employee_code='TEMP_326';
+UPDATE employees SET employee_code='226', card_number=NULL WHERE employee_code='TEMP_327';
+UPDATE employees SET employee_code='230', card_number=NULL WHERE employee_code='TEMP_328';
+UPDATE employees SET employee_code='231', card_number='0013139236' WHERE employee_code='TEMP_329';
+UPDATE employees SET employee_code='335', card_number=NULL WHERE employee_code='TEMP_330';
+UPDATE employees SET employee_code='233', card_number='0002335833' WHERE employee_code='TEMP_331';
+UPDATE employees SET employee_code='235', card_number='0001179889' WHERE employee_code='TEMP_332';
+UPDATE employees SET employee_code='238', card_number='0014331496' WHERE employee_code='TEMP_333';
+UPDATE employees SET employee_code='116', card_number=NULL WHERE employee_code='TEMP_420';
+UPDATE employees SET employee_code='350', card_number=NULL WHERE employee_code='TEMP_421';
+UPDATE employees SET employee_code='56', card_number=NULL WHERE employee_code='TEMP_422';
+UPDATE employees SET employee_code='102', name='صوالح   حسين', card_number=NULL WHERE employee_code='TEMP_423';
+UPDATE employees SET employee_code='127', card_number=NULL WHERE employee_code='TEMP_424';
+UPDATE employees SET employee_code='367', card_number=NULL WHERE employee_code='TEMP_425';
+UPDATE employees SET employee_code='280', card_number=NULL WHERE employee_code='TEMP_426';
+UPDATE employees SET employee_code='393', card_number=NULL WHERE employee_code='TEMP_427';
+UPDATE employees SET employee_code='434', card_number=NULL WHERE employee_code='TEMP_428';
+UPDATE employees SET employee_code='149', card_number=NULL WHERE employee_code='TEMP_429';
+UPDATE employees SET employee_code='155', card_number=NULL WHERE employee_code='TEMP_430';
+UPDATE employees SET employee_code='437', card_number=NULL WHERE employee_code='TEMP_431';
+UPDATE employees SET employee_code='466', card_number=NULL WHERE employee_code='TEMP_432';
+UPDATE employees SET employee_code='316', card_number=NULL WHERE employee_code='TEMP_433';
+UPDATE employees SET employee_code='313', card_number=NULL WHERE employee_code='TEMP_434';
+UPDATE employees SET employee_code='390', card_number=NULL WHERE employee_code='TEMP_435';
+UPDATE employees SET employee_code='187', card_number=NULL WHERE employee_code='TEMP_436';
+UPDATE employees SET employee_code='354', card_number=NULL WHERE employee_code='TEMP_437';
+UPDATE employees SET employee_code='19', card_number=NULL WHERE employee_code='TEMP_438';
+UPDATE employees SET employee_code='106', card_number=NULL WHERE employee_code='TEMP_439';
+UPDATE employees SET employee_code='462', card_number=NULL WHERE employee_code='TEMP_440';
+UPDATE employees SET employee_code='320', card_number=NULL WHERE employee_code='TEMP_441';
+UPDATE employees SET employee_code='429', card_number=NULL WHERE employee_code='TEMP_442';
+UPDATE employees SET employee_code='476', card_number=NULL WHERE employee_code='TEMP_443';
+UPDATE employees SET employee_code='475', card_number=NULL WHERE employee_code='TEMP_444';
 UPDATE employees SET employee_code='210', name='نصبة ابراهيم', card_number='0010578597' WHERE employee_code='TEMP_166';
 UPDATE employees SET employee_code='211', name='حمدي ايمن', card_number='0014062359' WHERE employee_code='TEMP_167';
 UPDATE employees SET employee_code='214', name='لعوج حسن', card_number='0011177054' WHERE employee_code='TEMP_168';
@@ -419,14 +420,14 @@ UPDATE employees SET employee_code='397', name='عامر جلال', card_number=
 UPDATE employees SET employee_code='401', name='ديدة الطاهر', card_number='0002315174' WHERE employee_code='TEMP_276';
 UPDATE employees SET employee_code='402', name='بله عماد الدين', card_number='0010216785' WHERE employee_code='TEMP_277';
 UPDATE employees SET employee_code='404', name='سالم عبد السلام', card_number='0010065648' WHERE employee_code='TEMP_278';
-UPDATE employees SET employee_code='406', name='?? ??? ???? ???? ?????', card_number='0014316590' WHERE employee_code='TEMP_279';
-UPDATE employees SET employee_code='408', name='????? ???? ??????', card_number='0003772128' WHERE employee_code='TEMP_280';
+UPDATE employees SET employee_code='406', card_number='0014316590' WHERE employee_code='TEMP_279';
+UPDATE employees SET employee_code='408', card_number='0003772128' WHERE employee_code='TEMP_280';
 UPDATE employees SET employee_code='409', name='تجاني البشير', card_number='0013129561' WHERE employee_code='TEMP_281';
 UPDATE employees SET employee_code='411', name='يومبعي محمد العيد', card_number='0011220034' WHERE employee_code='TEMP_282';
 UPDATE employees SET employee_code='412', name='عية مراد', card_number='0013178600' WHERE employee_code='TEMP_283';
 UPDATE employees SET employee_code='413', name='بن يامة عبد العزيز', card_number='0010180834' WHERE employee_code='TEMP_284';
 UPDATE employees SET employee_code='415', name='عباسي السعيد', card_number='0004500309' WHERE employee_code='TEMP_285';
-UPDATE employees SET employee_code='416', name='????? ????', card_number='0011153151' WHERE employee_code='TEMP_286';
+UPDATE employees SET employee_code='416', card_number='0011153151' WHERE employee_code='TEMP_286';
 UPDATE employees SET employee_code='417', name='طنش عبد المالك', card_number='0011362446' WHERE employee_code='TEMP_287';
 UPDATE employees SET employee_code='450', name='دودو نور الدين', card_number='0002303381' WHERE employee_code='TEMP_303';
 UPDATE employees SET employee_code='454', name='قوبعة محمد', card_number='0011134990' WHERE employee_code='TEMP_304';
@@ -440,36 +441,39 @@ UPDATE employees SET employee_code='473', name='غننة عبد الحاكم', c
 UPDATE employees SET employee_code='474', name='رحالي السبتي', card_number='0008586331' WHERE employee_code='TEMP_312';
 UPDATE employees SET employee_code='305', name='مسعودي جمال', card_number='0011362128' WHERE employee_code='TEMP_313';
 UPDATE employees SET employee_code='328', name='بن عبد الله ايمن', card_number='0008609921' WHERE employee_code='TEMP_314';
-UPDATE employees SET employee_code='205', name='B HAMZA', card_number='0011111002' WHERE employee_code='TEMP_315';
+UPDATE employees SET employee_code='205', card_number='0011111002' WHERE employee_code='TEMP_315';
 UPDATE employees SET employee_code='207', name='غانم نبيل', card_number='0010047987' WHERE employee_code='TEMP_316';
 UPDATE employees SET employee_code='209', name='سلامة احمد البشير', card_number='0013091705' WHERE employee_code='TEMP_317';
-UPDATE employees SET employee_code='240', name='240', card_number='0010003883' WHERE employee_code='TEMP_334';
-UPDATE employees SET employee_code='241', name='241', card_number='0011308359' WHERE employee_code='TEMP_335';
-UPDATE employees SET employee_code='244', name='244', card_number='0008586517' WHERE employee_code='TEMP_336';
-UPDATE employees SET employee_code='252', name='252', card_number='0014336161' WHERE employee_code='TEMP_337';
-UPDATE employees SET employee_code='256', name='256' WHERE employee_code='TEMP_338';
-UPDATE employees SET employee_code='257', name='257' WHERE employee_code='TEMP_339';
-UPDATE employees SET employee_code='456', name='456' WHERE employee_code='TEMP_340';
-UPDATE employees SET employee_code='317', name='317' WHERE employee_code='TEMP_341';
-UPDATE employees SET employee_code='77', name='77' WHERE employee_code='TEMP_342';
-UPDATE employees SET employee_code='173', name='173' WHERE employee_code='TEMP_343';
-UPDATE employees SET employee_code='465', name='465' WHERE employee_code='TEMP_344';
-UPDATE employees SET employee_code='464', name='464' WHERE employee_code='TEMP_345';
-UPDATE employees SET employee_code='141', name='141' WHERE employee_code='TEMP_346';
-UPDATE employees SET employee_code='294', name='294' WHERE employee_code='TEMP_347';
-UPDATE employees SET employee_code='395', name='395' WHERE employee_code='TEMP_348';
-UPDATE employees SET employee_code='157', name='157' WHERE employee_code='TEMP_349';
-UPDATE employees SET employee_code='140', name='140' WHERE employee_code='TEMP_350';
+UPDATE employees SET employee_code='240', card_number='0010003883' WHERE employee_code='TEMP_334';
+UPDATE employees SET employee_code='241', card_number='0011308359' WHERE employee_code='TEMP_335';
+UPDATE employees SET employee_code='244', card_number='0008586517' WHERE employee_code='TEMP_336';
+UPDATE employees SET employee_code='252', card_number='0014336161' WHERE employee_code='TEMP_337';
+UPDATE employees SET employee_code='256', card_number=NULL WHERE employee_code='TEMP_338';
+UPDATE employees SET employee_code='257', card_number=NULL WHERE employee_code='TEMP_339';
+UPDATE employees SET employee_code='456', card_number=NULL WHERE employee_code='TEMP_340';
+UPDATE employees SET employee_code='317', card_number=NULL WHERE employee_code='TEMP_341';
+UPDATE employees SET employee_code='77', card_number=NULL WHERE employee_code='TEMP_342';
+UPDATE employees SET employee_code='173', card_number=NULL WHERE employee_code='TEMP_343';
+UPDATE employees SET employee_code='465', card_number=NULL WHERE employee_code='TEMP_344';
+UPDATE employees SET employee_code='464', card_number=NULL WHERE employee_code='TEMP_345';
+UPDATE employees SET employee_code='141', card_number=NULL WHERE employee_code='TEMP_346';
+UPDATE employees SET employee_code='294', card_number=NULL WHERE employee_code='TEMP_347';
+UPDATE employees SET employee_code='395', card_number=NULL WHERE employee_code='TEMP_348';
+UPDATE employees SET employee_code='157', card_number=NULL WHERE employee_code='TEMP_349';
+UPDATE employees SET employee_code='140', card_number=NULL WHERE employee_code='TEMP_350';
+
+-- فحص السلامة: يجب أن يكون الناتج 0 وإلا نتراجع
+-- إذا كان هناك أي TEMP_ متبقية فهناك USERID في DB غير موجود في MDB:
+SELECT COUNT(*) AS leftover_temp FROM employees WHERE employee_code LIKE 'TEMP_%';
+
+-- تنبيه: إذا كان leftover_temp > 0 شغّل ROLLBACK يدوياً:
+-- ROLLBACK;
 
 COMMIT;
 
 -- التحقق البعدي:
 SELECT COUNT(*) AS employees_after FROM employees;
--- يجب أن يكون 0 — أي TEMP_ متبقية تعني عدم مطابقة:
-SELECT COUNT(*) AS leftover_temp FROM employees WHERE employee_code LIKE 'TEMP_%';
--- عينة النتيجة الصحيحة:
+SELECT COUNT(*) AS leftover_temp_check FROM employees WHERE employee_code LIKE 'TEMP_%';
 SELECT employee_code, name, card_number FROM employees ORDER BY CAST(employee_code AS UNSIGNED) LIMIT 15;
--- التحقق من المثال: دهيمي عمار يجب أن يكون رقمه 7:
+-- التحقق من المثال (دهيمي عمار رقمه 7، بطاقته 0002345331):
 SELECT employee_code, name, card_number FROM employees WHERE employee_code = '7';
-
--- إحصائيات: 442 موظف | أسماء من الإكسل: 315 | من MDB: 127 | بدون بطاقة: 115
