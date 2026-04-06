@@ -82,6 +82,7 @@ export const deviceSettings = mysqlTable("device_settings", {
   isActive: boolean("is_active").notNull().default(true),
   lastSyncAt: text("last_sync_at"),
   workshopId: varchar("workshop_id", { length: 36 }),
+  serialNumber: varchar("serial_number", { length: 64 }),
 });
 
 export const appSettings = mysqlTable("app_settings", {
@@ -110,7 +111,7 @@ export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick
   lateMinutes: true, earlyLeaveMinutes: true, totalHours: true, penalty: true, notes: true,
 });
 export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pick({
-  name: true, ipAddress: true, port: true, isActive: true, lastSyncAt: true, workshopId: true,
+  name: true, ipAddress: true, port: true, isActive: true, lastSyncAt: true, workshopId: true, serialNumber: true,
 });
 export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({ key: true, value: true });
 

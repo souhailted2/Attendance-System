@@ -1216,12 +1216,13 @@ export async function registerRoutes(
       return res.send("OK");
     }
 
-    // Initial handshake — respond with ADMS config
+    // Initial handshake — respond with ADMS config (OK + stamp headers)
     res.setHeader("Content-Type", "text/plain");
-    const now = Math.floor(Date.now() / 1000);
     res.send(
-      `GET OPTION FROM SERVER\r\n` +
-      `Stamp=${now}\r\n` +
+      `OK\r\n` +
+      `ATTLOGStamp=9999999999\r\n` +
+      `OPERLOGStamp=9999999999\r\n` +
+      `ATTPHOTOStamp=9999999999\r\n` +
       `ErrorDelay=30\r\n` +
       `Delay=10\r\n` +
       `TransTimes=00:00;14:05\r\n` +
@@ -1229,13 +1230,7 @@ export async function registerRoutes(
       `TransFlag=111111111\r\n` +
       `TimeZone=0\r\n` +
       `Realtime=1\r\n` +
-      `Encrypt=None\r\n` +
-      `ServerVer=2.2.14\r\n` +
-      `PushProtVer=2.2.14\r\n` +
-      `PushOptionsFlag=1\r\n` +
-      `ATTLOGStamp=9999999999\r\n` +
-      `OPERLOGStamp=9999999999\r\n` +
-      `ATTPHOTOStamp=9999999999\r\n`
+      `Encrypt=None\r\n`
     );
   });
 

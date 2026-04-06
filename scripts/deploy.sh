@@ -58,7 +58,7 @@ else
 fi
 
 # ── Step 3: server pulls from GitHub ──────────────────────────────────────────
-echo "=== [3/4] Server pulling from GitHub ==="
+echo "=== [3/5] Server pulling from GitHub ==="
 ssh_run bash << REMOTE
   set -euo pipefail
   export NVM_DIR="\$HOME/.nvm"; source "\$NVM_DIR/nvm.sh"; nvm use 20 --silent
@@ -77,8 +77,26 @@ ssh_run bash << REMOTE
   echo "تم السحب من GitHub بنجاح"
 REMOTE
 
-# ── Step 4: restart PM2 ───────────────────────────────────────────────────────
-echo "=== [4/4] Restarting PM2 and verifying ==="
+# ── Step 4: deploy ADMS PHP proxy and .htaccess rule ─────────────────────────
+echo "=== [4/5] Deploying ADMS PHP proxy to public_html ==="
+PUBLIC_HTML="/home/u807293731/domains/allal.alllal.com/public_html"
+sshpass -f "$PASS_FILE" scp -P "$SSH_PORT" \
+  -o StrictHostKeyChecking=accept-new \
+  server-config/iclock.php "${SSH_USER}@${SSH_HOST}:${PUBLIC_HTML}/iclock.php"
+
+ssh_run bash << HTACCESS
+  HTFILE="${PUBLIC_HTML}/.htaccess"
+  RULE="RewriteRule ^iclock/(.*)\\$ /iclock.php [L,QSA,PT]"
+  if ! grep -qF "iclock.php" "\$HTFILE" 2>/dev/null; then
+    printf '\n# ZKTeco ADMS Push Receiver\nRewriteEngine On\n%s\n' "\$RULE" >> "\$HTFILE"
+    echo "تمت إضافة قاعدة .htaccess لـ ADMS"
+  else
+    echo ".htaccess — قاعدة ADMS موجودة مسبقاً"
+  fi
+HTACCESS
+
+# ── Step 5: restart PM2 ───────────────────────────────────────────────────────
+echo "=== [5/5] Restarting PM2 and verifying ==="
 ssh_run bash << 'REMOTE_RESTART'
   set -euo pipefail
   export NVM_DIR="$HOME/.nvm"; source "$NVM_DIR/nvm.sh"; nvm use 20 --silent
