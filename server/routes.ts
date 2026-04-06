@@ -148,7 +148,49 @@ async function processAttendanceLogs(
       imported++;
     } catch (e: any) {
       if (e.message?.includes("duplicate") || e.code === "23505" || e.errno === 1062) {
-        duplicates++;
+        // سجل موجود مسبقاً — ندمج الأوقات ونُحدِّث وقت الخروج إن لزم
+        try {
+          const existing = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
+          if (existing) {
+            const allTimes = [...new Set([
+              existing.checkIn,
+              existing.checkOut,
+              ...entry.times,
+            ].filter(Boolean) as string[])].sort();
+
+            const newCheckIn  = allTimes[0] || null;
+            const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
+
+            if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn) {
+              let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut };
+              if (workRule) {
+                const calc = calculateAttendanceDetails(
+                  newCheckIn, newCheckOut,
+                  workRule.workStartTime, workRule.workEndTime,
+                  workRule.lateGraceMinutes,
+                  workRule.latePenaltyPerMinute,
+                  workRule.earlyLeavePenaltyPerMinute,
+                  workRule.absencePenalty,
+                  "present"
+                );
+                updateData.lateMinutes = calc.lateMinutes;
+                updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
+                updateData.totalHours = String(calc.totalHours);
+                updateData.penalty = String(calc.penalty);
+                updateData.status = calc.status;
+              }
+              await storage.updateAttendance(existing.id, updateData);
+              imported++;
+            } else {
+              duplicates++;
+            }
+          } else {
+            duplicates++;
+          }
+        } catch (updateErr: any) {
+          errors.push(`${employee.name} - ${entry.date}: ${updateErr.message}`);
+          skipped++;
+        }
       } else {
         errors.push(`${employee.name} - ${entry.date}: ${e.message}`);
         skipped++;

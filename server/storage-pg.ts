@@ -184,6 +184,16 @@ export class PgStorage implements IStorage {
     );
   }
 
+  async getAttendanceByEmployeeAndDate(employeeId: string, date: string): Promise<AttendanceRecord | undefined> {
+    const [record] = await pgDb.select().from(schema.attendanceRecords).where(
+      and(
+        eq(schema.attendanceRecords.employeeId, employeeId),
+        eq(schema.attendanceRecords.date, date),
+      ),
+    );
+    return record;
+  }
+
   async createAttendance(data: InsertAttendance): Promise<AttendanceRecord> {
     const id = randomUUID();
     const [result] = await pgDb.insert(schema.attendanceRecords).values({ id, ...data }).returning();
