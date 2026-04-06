@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import { storage } from "./storage";
-import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insertWorkRuleSchema, insertEmployeeSchema, insertDeviceSettingsSchema } from "@shared/schema";
+import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insertWorkRuleSchema, insertEmployeeSchema, insertDeviceSettingsSchema, type InsertEmployee, type InsertAttendance } from "@shared/schema";
 import multer from "multer";
 import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
 import archiver from "archiver";
@@ -346,7 +346,7 @@ export async function registerRoutes(
       const finalCheckOut = checkOut !== undefined ? (checkOut || null) : existingRecords.checkOut;
       const finalStatus = status || existingRecords.status;
 
-      let updateData: any = {
+      const updateData: Partial<InsertAttendance> = {
         checkIn: finalCheckIn,
         checkOut: finalCheckOut,
         status: finalStatus,
@@ -636,12 +636,14 @@ export async function registerRoutes(
 
         const existing = await storage.getEmployeeByCode(code);
         if (existing) {
-          const updateData: any = {};
+          const updateData: Partial<InsertEmployee> = {};
           if (isGarbledName(existing.name) && !isGarbledName(name)) {
             updateData.name = name;
           }
-          if (cardNumber && existing.cardNumber !== cardNumber) {
-            updateData.cardNumber = cardNumber;
+          const normalizedIncoming = cardNumber || null;
+          const normalizedExisting = existing.cardNumber || null;
+          if (normalizedIncoming !== normalizedExisting) {
+            updateData.cardNumber = normalizedIncoming;
           }
           if (Object.keys(updateData).length > 0) {
             await storage.updateEmployee(existing.id, updateData);

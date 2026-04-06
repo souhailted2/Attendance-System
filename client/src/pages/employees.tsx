@@ -84,7 +84,7 @@ export default function Employees() {
     setEditingEmployee(emp);
     setName(emp.name);
     setEmployeeCode(emp.employeeCode);
-    setCardNumber((emp as any).cardNumber || "");
+    setCardNumber(emp.cardNumber || "");
     setPositionId(emp.positionId || "");
     setWorkRuleId(emp.workRuleId || "");
     setCompanyId(emp.companyId || "");
@@ -120,7 +120,7 @@ export default function Employees() {
   }
 
   const filtered = employees?.filter((e) =>
-    e.name.includes(search) || e.employeeCode.includes(search) || ((e as any).cardNumber || "").includes(search)
+    e.name.includes(search) || e.employeeCode.includes(search) || (e.cardNumber || "").includes(search)
   ) || [];
 
   return (
@@ -293,10 +293,10 @@ export default function Employees() {
                             <Hash className="h-3 w-3" />
                             {emp.employeeCode}
                           </span>
-                          {(emp as any).cardNumber && (
+                          {emp.cardNumber && (
                             <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-card-${emp.id}`}>
                               <CreditCard className="h-3 w-3" />
-                              {(emp as any).cardNumber}
+                              {emp.cardNumber}
                             </span>
                           )}
                         </div>
