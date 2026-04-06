@@ -1,0 +1,124 @@
+Microsoft Windows [Version 10.0.22621.4317]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Windows\System32>ssh -p 65002 u807293731@109.106.251.14
+u807293731@109.106.251.14's password:
+Last failed login: Sun Apr  5 14:12:09 UTC 2026 from 136.117.73.42 on ssh:notty
+There were 3 failed login attempts since the last successful login.
+
+   HHHH               HHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHHHHHHHHHHHHHH  HHHHH
+   HHHHHHHHHHHHHHHHHHHHHHHHH
+     HHHHHHHHHHHHHHHHHHHHHHHHH
+   HHHH  HHHHHHHHHHHHHHHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+       HHHH               HHHH
+
+Welcome back! The time now is 18:02 UTC
+Server load: 19.87, 18.71, 17.92
+
+Link to hPanel:
+https://hpanel.hostinger.com/
+
+[u807293731@us-imm-web485 ~]$ cd ~/attendance
+[u807293731@us-imm-web485 attendance]$ set -a && source .env && set +a
+[u807293731@us-imm-web485 attendance]$ pm2 start ecosystem.config.cjs
+[PM2] Spawning PM2 daemon with pm2_home=/home/u807293731/.pm2
+[PM2] PM2 Successfully daemonized
+[PM2][WARN] Applications attendance not running, starting...
+[PM2] App [attendance] launched (1 instances)
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ attendance         │ cluster  │ 0    │ online    │ 0%       │ 45.0mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[u807293731@us-imm-web485 attendance]$ pm2 save --force
+[PM2] Saving current process list...
+[PM2] Successfully saved in /home/u807293731/.pm2/dump.pm2
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance && git pull origin main
+remote: Enumerating objects: 62, done.
+remote: Counting objects: 100% (62/62), done.
+remote: Compressing objects: 100% (32/32), done.
+remote: Total 47 (delta 27), reused 35 (delta 15), pack-reused 0 (from 0)
+Unpacking objects: 100% (47/47), 150.97 KiB | 719.00 KiB/s, done.
+From https://github.com/souhailted2/Attendance-System
+ * branch            main       -> FETCH_HEAD
+   4bdf6a0..fb8176e  main       -> origin/main
+Updating 4bdf6a0..fb8176e
+error: Your local changes to the following files would be overwritten by merge:
+        agent/mdb-agent.js
+        dist/index.cjs
+        dist/public/index.html
+Please commit your changes or stash them before you merge.
+error: The following untracked working tree files would be overwritten by merge:
+        agent/auto.bat
+        dist/public/assets/index-0rTS_ZIA.js
+        dist/public/assets/index-CnwBywFq.css
+Please move or remove them before you merge.
+Aborting
+[u807293731@us-imm-web485 attendance]$ pm2 reload attendance --update-env && pm2 save --force
+[PM2] Applying action reloadProcessId on app [attendance](ids: [ 0 ])
+[PM2] [attendance](0) ✓
+[PM2] Saving current process list...
+[PM2] Successfully saved in /home/u807293731/.pm2/dump.pm2
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance && git stash && git pull origin main && pm2 reload attendance --update-env && pm2 save --forcecd ~/attendance && git stash && git pull origin main && pm2 reload attendance --update-env && pm2 save --force
+Saved working directory and index state WIP on master: 4bdf6a0 fix: إزالة wage من insertEmployeeSchema في schema-mysql.ts
+From https://github.com/souhailted2/Attendance-System
+ * branch            main       -> FETCH_HEAD
+Updating 4bdf6a0..fb8176e
+error: The following untracked working tree files would be overwritten by merge:
+        agent/auto.bat
+        dist/public/assets/index-0rTS_ZIA.js
+        dist/public/assets/index-CnwBywFq.css
+Please move or remove them before you merge.
+Aborting
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance && git stash && git pull origin main && pm2 reload attendance --update-env && pm2 save --force
+No local changes to save
+From https://github.com/souhailted2/Attendance-System
+ * branch            main       -> FETCH_HEAD
+Updating 4bdf6a0..fb8176e
+error: The following untracked working tree files would be overwritten by merge:
+        agent/auto.bat
+        dist/public/assets/index-0rTS_ZIA.js
+        dist/public/assets/index-CnwBywFq.css
+Please move or remove them before you merge.
+Aborting
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance && git clean -fd && git pull origin main && pm2 reload attendance --update-env && pm2 save --force
+Removing .env
+Removing agent/auto.bat
+Removing dist/public/assets/index-0rTS_ZIA.js
+Removing dist/public/assets/index-BZUcuKkm.js
+Removing dist/public/assets/index-CnwBywFq.css
+Removing ecosystem.config.cjs
+From https://github.com/souhailted2/Attendance-System
+ * branch            main       -> FETCH_HEAD
+Updating 4bdf6a0..fb8176e
+Fast-forward
+ agent/auto.bat                          |  16 ++++++
+ agent/mdb-agent.js                      |  15 ++++--
+ attached_assets/image_1775493307246.png | Bin 0 -> 652 bytes
+ client/src/pages/attendance.tsx         | 198 ++++++++++++++++++++++++++++++++----------------------------------------
+ dist/index.cjs                          |  52 +++++++++----------
+ dist/public/assets/index-0rTS_ZIA.js    |  58 +++++++++++++++++++++
+ dist/public/assets/index-B05VCgFh.js    |  58 ---------------------
+ dist/public/assets/index-BLUXtA8q.css   |   1 -
+ dist/public/assets/index-CnwBywFq.css   |   1 +
+ dist/public/index.html                  |   4 +-
+ server/routes.ts                        |   6 ++-
+ 11 files changed, 205 insertions(+), 204 deletions(-)
+ create mode 100644 agent/auto.bat
+ create mode 100644 attached_assets/image_1775493307246.png
+ create mode 100644 dist/public/assets/index-0rTS_ZIA.js
+ delete mode 100644 dist/public/assets/index-B05VCgFh.js
+ delete mode 100644 dist/public/assets/index-BLUXtA8q.css
+ create mode 100644 dist/public/assets/index-CnwBywFq.css
+[PM2] Applying action reloadProcessId on app [attendance](ids: [ 0 ])
+[PM2] [attendance](0) ✓
+[PM2] Saving current process list...
+[PM2] Successfully saved in /home/u807293731/.pm2/dump.pm2
+[u807293731@us-imm-web485 attendance]$
