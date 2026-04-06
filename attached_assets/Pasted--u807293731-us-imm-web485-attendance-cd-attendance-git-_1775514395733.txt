@@ -1,0 +1,42 @@
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance && git pull origin main
+From https://github.com/souhailted2/Attendance-System
+ * branch            main       -> FETCH_HEAD
+Updating 2c4ee97..5ed21df
+Fast-forward
+ ...icrosoft-Windows-Version-10-0-22621-4317-c-Microsoft-C_1775514261530.txt | 303 ++++++++++++++++++++++++++
+ ...rosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775511739486.txt | 423 ++++++++++++++++++++++++++++++++++++
+ ...rosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775511767798.txt | 423 ++++++++++++++++++++++++++++++++++++
+ ...rosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775514030357.txt | 423 ++++++++++++++++++++++++++++++++++++
+ ...rosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775514056862.txt | 423 ++++++++++++++++++++++++++++++++++++
+ scripts/run_fix.sh                                                          |  11 +
+ 6 files changed, 2006 insertions(+)
+ create mode 100644 attached_assets/Pasted-Microsoft-Windows-Version-10-0-22621-4317-c-Microsoft-C_1775514261530.txt
+ create mode 100644 attached_assets/Pasted-crosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775511739486.txt
+ create mode 100644 attached_assets/Pasted-crosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775511767798.txt
+ create mode 100644 attached_assets/Pasted-crosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775514030357.txt
+ create mode 100644 attached_assets/Pasted-crosoft-Windows-Version-10-0-22621-4317-c-Microsoft-Cor_1775514056862.txt
+ create mode 100644 scripts/run_fix.sh
+[u807293731@us-imm-web485 attendance]$ bash ~/attendance/scripts/run_fix.sh
+=== تشغيل الإصلاح ===
+مكررات
+0
+الإجمالي
+393
+--------------
+SELECT COUNT(*) AS 'تطابقات ناجحة مع users'
+FROM employees e
+JOIN users u ON CONVERT(e.card_number USING utf8mb4) COLLATE utf8mb4_general_ci
+             = CONVERT(u.card_no      USING utf8mb4) COLLATE utf8mb4_general_ci
+WHERE u.employee_id IS NOT NULL AND e.employee_code = u.employee_id
+--------------
+
+ERROR 1267 (HY000) at line 57: Illegal mix of collations (utf8mb4_uca1400_ai_ci,IMPLICIT) and (utf8mb4_general_ci,IMPLICIT) for operation '='
+
+=== النتيجة ===
+/home/u807293731/attendance/scripts/run_fix.sh: eval: line 9: syntax error near unexpected token `('
+/home/u807293731/attendance/scripts/run_fix.sh: eval: line 9: `mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert -e SELECT COUNT(*) AS total FROM employees;'
+/home/u807293731/attendance/scripts/run_fix.sh: eval: line 10: syntax error near unexpected token `('
+/home/u807293731/attendance/scripts/run_fix.sh: eval: line 10: `mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert -e SELECT employee_code, name FROM employees WHERE employee_code IN ('7','34','380') ORDER BY employee_code+0;'
+/home/u807293731/attendance/scripts/run_fix.sh: eval: line 11: syntax error near unexpected token `('
+/home/u807293731/attendance/scripts/run_fix.sh: eval: line 11: `mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert -e SELECT COUNT(*) AS matched FROM employees e JOIN users u ON CONVERT(e.card_number USING utf8mb4) COLLATE utf8mb4_general_ci = CONVERT(u.card_no USING utf8mb4) COLLATE utf8mb4_general_ci WHERE e.employee_code = u.employee_id;'
+[u807293731@us-imm-web485 attendance]$
