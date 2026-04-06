@@ -1037,6 +1037,67 @@ export async function registerRoutes(
     }
   });
 
+  // ── استقبال بيانات الحضور من الوكيل المحلي (Local Agent) ──────────────────
+  app.post("/api/sync/local-agent", async (req, res) => {
+    try {
+      const { serialNumber, deviceName, logs } = req.body as {
+        serialNumber?: string;
+        deviceName?: string;
+        logs: Array<{ uid: string; timestamp: string; status?: string }>;
+      };
+
+      if (!logs || !Array.isArray(logs) || logs.length === 0) {
+        return res.status(400).json({ message: "لا توجد سجلات للمعالجة" });
+      }
+
+      // البحث عن الجهاز بالرقم التسلسلي
+      const devices = await storage.getDeviceSettings();
+      const device = serialNumber
+        ? devices.find(d => d.serialNumber === serialNumber)
+        : null;
+
+      // تحويل السجلات لصيغة processAttendanceLogs
+      const grouped = new Map<string, Map<string, string[]>>();
+      for (const log of logs) {
+        const uid = String(log.uid).trim();
+        if (!uid || !log.timestamp) continue;
+        const dt = new Date(log.timestamp);
+        if (isNaN(dt.getTime())) continue;
+        const date = dt.toISOString().split("T")[0];
+        const time = dt.toTimeString().substring(0, 5);
+        if (!grouped.has(uid)) grouped.set(uid, new Map());
+        const byDate = grouped.get(uid)!;
+        if (!byDate.has(date)) byDate.set(date, []);
+        byDate.get(date)!.push(time);
+      }
+
+      const processedLogs: Array<{ uid: string; date: string; times: string[] }> = [];
+      for (const [uid, byDate] of grouped) {
+        for (const [date, times] of byDate) {
+          processedLogs.push({ uid, date, times });
+        }
+      }
+
+      const allEmployees = await storage.getEmployees();
+      const workshopId = device?.workshopId ?? null;
+      const source = deviceName || serialNumber || "الوكيل المحلي";
+
+      const { imported, skipped, duplicates, errors } = await processAttendanceLogs(
+        processedLogs, allEmployees, workshopId, source
+      );
+
+      if (device) {
+        await storage.updateDeviceSetting(device.id, { lastSyncAt: new Date().toISOString() });
+      }
+
+      console.log(`[LocalAgent] SN=${serialNumber} imported=${imported} duplicates=${duplicates} skipped=${skipped}`);
+      res.json({ imported, skipped, duplicates, errors, message: `تم استيراد ${imported} سجل` });
+    } catch (error: any) {
+      console.error("[LocalAgent] Error:", error.message);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // ── استيراد بيانات ZKTeco من جداول MySQL القديمة ──────────────────────────
   app.post("/api/sync/from-zk-mysql", async (req, res) => {
     try {
