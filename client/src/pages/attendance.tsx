@@ -11,14 +11,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays } from "lucide-react";
+import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 
 export default function Attendance() {
   const { toast } = useToast();
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [open, setOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
 
   const [employeeId, setEmployeeId] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -42,71 +41,45 @@ export default function Attendance() {
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/attendance/${id}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
-      toast({ title: "تم تحديث السجل" });
-      resetForm();
-      setOpen(false);
-    },
-    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
-  });
-
   function resetForm() {
     setEmployeeId(""); setCheckIn(""); setCheckOut(""); setStatus("present"); setNotes("");
-    setEditingRecord(null);
-  }
-
-  function openEdit(record: AttendanceRecord) {
-    setEditingRecord(record);
-    setEmployeeId(record.employeeId);
-    setCheckIn(record.checkIn || "");
-    setCheckOut(record.checkOut || "");
-    setStatus(record.status);
-    setNotes(record.notes || "");
-    setOpen(true);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (editingRecord) {
-      updateMutation.mutate({ id: editingRecord.id, data: { checkIn, checkOut, status, notes } });
-    } else {
-      createMutation.mutate({ employeeId, date, checkIn, checkOut, status, notes });
-    }
+    createMutation.mutate({ employeeId, date, checkIn, checkOut, status, notes });
   }
 
   const activeEmployees = employees?.filter((e) => e.isActive) || [];
 
-  const statusLabel = (s: string) => {
-    switch (s) {
-      case "present": return "حاضر";
-      case "late": return "متأخر";
-      case "absent": return "غائب";
-      case "leave": return "إجازة";
-      default: return s;
-    }
-  };
-
-  const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
-    switch (s) {
-      case "present": return "default";
-      case "late": return "secondary";
-      case "absent": return "destructive";
-      case "leave": return "outline";
-      default: return "secondary";
-    }
-  };
-
   const presentCount = attendance?.filter((r) => r.status === "present").length || 0;
-  const lateCount = attendance?.filter((r) => r.status === "late").length || 0;
-  const absentCount = attendance?.filter((r) => r.status === "absent").length || 0;
-  const leaveCount = attendance?.filter((r) => r.status === "leave").length || 0;
+  const lateCount    = attendance?.filter((r) => r.status === "late").length || 0;
+  const absentCount  = attendance?.filter((r) => r.status === "absent").length || 0;
+  const leaveCount   = attendance?.filter((r) => r.status === "leave").length || 0;
 
   const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("ar-SA", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
+
+  // توسيع كل سجل يومي إلى حركات فردية (دخول + خروج كصفين منفصلين)
+  const movements: Array<{ id: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" }> = [];
+
+  for (const record of attendance || []) {
+    const emp = employees?.find((e) => e.id === record.employeeId);
+    if (record.checkIn) {
+      movements.push({ id: `${record.id}-in`,  emp, date: record.date, time: record.checkIn,  type: "in"  });
+    }
+    if (record.checkOut && record.checkOut !== record.checkIn) {
+      movements.push({ id: `${record.id}-out`, emp, date: record.date, time: record.checkOut, type: "out" });
+    }
+    // إذا لم يوجد أي وقت، أظهر الصف بدون وقت
+    if (!record.checkIn && !record.checkOut) {
+      movements.push({ id: `${record.id}-none`, emp, date: record.date, time: "", type: "in" });
+    }
+  }
+
+  // ترتيب الحركات تصاعدياً بالوقت
+  movements.sort((a, b) => a.time.localeCompare(b.time));
 
   return (
     <div className="p-6 space-y-5">
@@ -133,22 +106,24 @@ export default function Attendance() {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingRecord ? "تعديل السجل" : "تسجيل حضور جديد"}</DialogTitle>
+                <DialogTitle>تسجيل حضور جديد</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {!editingRecord && (
-                  <div className="space-y-2">
-                    <Label>الموظف *</Label>
-                    <Select value={employeeId} onValueChange={setEmployeeId}>
-                      <SelectTrigger data-testid="select-employee"><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
-                      <SelectContent>
-                        {activeEmployees.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>{e.name} ({e.employeeCode})</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label>الموظف *</Label>
+                  <Select value={employeeId} onValueChange={setEmployeeId}>
+                    <SelectTrigger data-testid="select-employee">
+                      <SelectValue placeholder="اختر الموظف" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {activeEmployees.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.name} ({e.employeeCode})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>وقت الحضور</Label>
@@ -177,8 +152,12 @@ export default function Attendance() {
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="secondary" onClick={() => { setOpen(false); resetForm(); }}>إلغاء</Button>
-                  <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-attendance">
-                    {editingRecord ? "تحديث" : "تسجيل"}
+                  <Button
+                    type="submit"
+                    disabled={createMutation.isPending || !employeeId}
+                    data-testid="button-submit-attendance"
+                  >
+                    تسجيل
                   </Button>
                 </div>
               </form>
@@ -237,10 +216,10 @@ export default function Attendance() {
         </div>
       )}
 
-      {/* Table */}
+      {/* Movements table */}
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
-      ) : !attendance || attendance.length === 0 ? (
+      ) : movements.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <ClipboardCheck className="h-12 w-12 text-muted-foreground mb-3" />
@@ -254,54 +233,53 @@ export default function Attendance() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">الموظف</TableHead>
-                    <TableHead className="text-right">الحضور</TableHead>
-                    <TableHead className="text-right">الانصراف</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right">التأخير</TableHead>
-                    <TableHead className="text-right">الساعات</TableHead>
-                    <TableHead className="text-right">ملاحظات</TableHead>
-                    <TableHead className="text-right">إجراءات</TableHead>
+                    <TableHead className="text-right w-24">رقم الموظف</TableHead>
+                    <TableHead className="text-right">اسم الموظف</TableHead>
+                    <TableHead className="text-right w-32">رقم البطاقة</TableHead>
+                    <TableHead className="text-right w-32">التاريخ</TableHead>
+                    <TableHead className="text-right w-32">وقت الحركة</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {attendance.map((record) => {
-                    const emp = employees?.find((e) => e.id === record.employeeId);
-                    return (
-                      <TableRow key={record.id} data-testid={`row-attendance-${record.id}`}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-sm">{emp?.name || "غير معروف"}</p>
-                            <p className="text-xs text-muted-foreground">{emp?.employeeCode}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{record.checkIn || "-"}</TableCell>
-                        <TableCell className="font-mono text-sm">{record.checkOut || "-"}</TableCell>
-                        <TableCell>
-                          <Badge variant={statusVariant(record.status)}>
-                            {statusLabel(record.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {record.lateMinutes > 0
-                            ? <span className="text-chart-5 font-medium">{record.lateMinutes} د</span>
-                            : "-"}
-                        </TableCell>
-                        <TableCell>{record.totalHours || "0"}</TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{record.notes || "-"}</TableCell>
-                        <TableCell>
-                          <Button size="icon" variant="ghost" onClick={() => openEdit(record)} data-testid={`button-edit-attendance-${record.id}`}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {movements.map((mv) => (
+                    <TableRow key={mv.id} data-testid={`row-movement-${mv.id}`}>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {mv.emp?.employeeCode || "-"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-medium text-sm">{mv.emp?.name || "غير معروف"}</p>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {mv.emp?.cardNumber || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {mv.date}
+                      </TableCell>
+                      <TableCell>
+                        {mv.time ? (
+                          <span className="font-mono text-base font-semibold tabular-nums">
+                            {mv.time}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Total count */}
+      {movements.length > 0 && (
+        <p className="text-sm text-muted-foreground text-center">
+          إجمالي الحركات: <span className="font-semibold">{movements.length}</span>
+        </p>
       )}
     </div>
   );
