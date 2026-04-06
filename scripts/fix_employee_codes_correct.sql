@@ -462,14 +462,18 @@ UPDATE employees SET employee_code='395', card_number=NULL WHERE employee_code='
 UPDATE employees SET employee_code='157', card_number=NULL WHERE employee_code='TEMP_349';
 UPDATE employees SET employee_code='140', card_number=NULL WHERE employee_code='TEMP_350';
 
--- فحص السلامة: يجب أن يكون الناتج 0 وإلا نتراجع
--- إذا كان هناك أي TEMP_ متبقية فهناك USERID في DB غير موجود في MDB:
-SELECT COUNT(*) AS leftover_temp FROM employees WHERE employee_code LIKE 'TEMP_%';
+-- حارس السلامة الصارم: إذا بقي أي TEMP_ → تراجع تلقائي (لا commit)
+-- يُشغَّل داخل نفس الـ session قبل COMMIT
+SET @leftover = (SELECT COUNT(*) FROM employees WHERE employee_code LIKE 'TEMP_%');
+SELECT @leftover AS leftover_temp_rows,
+       IF(@leftover = 0, 'OK — جاهز للـ COMMIT', 'ERROR — سيتم ROLLBACK') AS status;
 
--- تنبيه: إذا كان leftover_temp > 0 شغّل ROLLBACK يدوياً:
--- ROLLBACK;
-
-COMMIT;
+-- ROLLBACK تلقائي إذا كان هناك أي TEMP_ متبقية
+-- (لن يُنفَّذ COMMIT إلا إذا @leftover = 0)
+SET @sql_action = IF(@leftover = 0, 'COMMIT', 'ROLLBACK');
+PREPARE guard_stmt FROM @sql_action;
+EXECUTE guard_stmt;
+DEALLOCATE PREPARE guard_stmt;
 
 -- التحقق البعدي:
 SELECT COUNT(*) AS employees_after FROM employees;
