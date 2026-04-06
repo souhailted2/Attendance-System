@@ -136,7 +136,10 @@ function loadLastSync() {
 
 function saveLastSync(date) {
   try {
-    fs.writeFileSync(LAST_SYNC_FILE, JSON.stringify({ lastSync: date.toISOString() }));
+    // نطرح دقيقتين كهامش أمان لتفادي فقدان الحركات الحدية (race condition)
+    const OVERLAP_MS = 2 * 60 * 1000;
+    const safeDate = new Date(date.getTime() - OVERLAP_MS);
+    fs.writeFileSync(LAST_SYNC_FILE, JSON.stringify({ lastSync: safeDate.toISOString() }));
   } catch (e) {
     log(`⚠️  تعذّر حفظ وقت آخر مزامنة: ${e.message}`);
   }
