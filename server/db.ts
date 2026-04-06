@@ -11,7 +11,9 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL must be set");
 }
 
-const url = process.env.DATABASE_URL;
+const rawUrl = process.env.DATABASE_URL;
+// Normalize mysql2:// → mysql:// for consistent parsing
+const url = rawUrl.startsWith("mysql2://") ? rawUrl.replace("mysql2://", "mysql://") : rawUrl;
 export const IS_MYSQL = url.startsWith("mysql://");
 
 export type AppDb = NodePgDatabase<typeof pgSchema> | MySql2Database<typeof mysqlSchema>;
