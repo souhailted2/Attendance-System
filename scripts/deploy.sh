@@ -84,15 +84,44 @@ sshpass -f "$PASS_FILE" scp -P "$SSH_PORT" \
   -o StrictHostKeyChecking=accept-new \
   server-config/iclock.php "${SSH_USER}@${SSH_HOST}:${PUBLIC_HTML}/iclock.php"
 
-ssh_run bash << HTACCESS
+sshpass -f "$PASS_FILE" scp -P "$SSH_PORT" \
+  -o StrictHostKeyChecking=accept-new \
+  server-config/proxy.php "${SSH_USER}@${SSH_HOST}:${PUBLIC_HTML}/proxy.php"
+
+ssh_run bash << 'HTACCESS'
+  PUBLIC_HTML="/home/u807293731/domains/allal.alllal.com/public_html"
   HTFILE="${PUBLIC_HTML}/.htaccess"
-  RULE="RewriteRule ^iclock/(.*)\\$ /iclock.php [L,QSA,PT]"
-  if ! grep -qF "iclock.php" "\$HTFILE" 2>/dev/null; then
-    printf '\n# ZKTeco ADMS Push Receiver\nRewriteEngine On\n%s\n' "\$RULE" >> "\$HTFILE"
-    echo "تمت إضافة قاعدة .htaccess لـ ADMS"
-  else
-    echo ".htaccess — قاعدة ADMS موجودة مسبقاً"
-  fi
+
+  cat > "${HTFILE}" << 'EOF'
+# Enable PHP
+AddHandler application/x-httpd-php .php
+
+# Directory Index
+DirectoryIndex index.php index.html
+
+# Security settings
+Options -Indexes
+ServerSignature Off
+
+RewriteEngine On
+
+# ZKTeco ADMS Push Receiver
+RewriteRule ^iclock/(.*)$ /iclock.php [L,QSA,PT]
+
+# Static assets → Node.js
+RewriteCond %{REQUEST_URI} \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|map)$ [NC]
+RewriteRule ^ /proxy.php [L,QSA]
+
+# API → Node.js
+RewriteCond %{REQUEST_URI} ^/api/ [NC]
+RewriteRule ^ /proxy.php [L,QSA]
+
+# SPA — everything not an actual file → Node.js
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ /proxy.php [L,QSA]
+EOF
+
+  echo "تم تحديث .htaccess"
 HTACCESS
 
 # ── Step 5: restart PM2 ───────────────────────────────────────────────────────
