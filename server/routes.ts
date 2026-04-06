@@ -558,14 +558,6 @@ export async function registerRoutes(
   // Agent push attendance endpoint
   app.post("/api/agent/push-attendance", async (req, res) => {
     try {
-      const authHeader = req.headers["authorization"] || "";
-      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-
-      const storedKey = await storage.getAppSetting(AGENT_API_KEY_SETTING);
-      if (!storedKey || !token || token !== storedKey.value) {
-        return res.status(401).json({ message: "مفتاح API غير صحيح أو غير موجود" });
-      }
-
       const { deviceName, workshopId, logs } = req.body;
       if (!Array.isArray(logs)) {
         return res.status(400).json({ message: "البيانات المرسلة غير صحيحة - logs يجب أن يكون مصفوفة" });
@@ -615,13 +607,6 @@ export async function registerRoutes(
 
   app.post("/api/agent/push-employees", async (req, res) => {
     try {
-      const authHeader = req.headers["authorization"] || "";
-      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-      const storedKey = await storage.getAppSetting(AGENT_API_KEY_SETTING);
-      if (!storedKey || !token || token !== storedKey.value) {
-        return res.status(401).json({ message: "مفتاح API غير صحيح أو غير موجود" });
-      }
-
       const { employees } = req.body;
       if (!Array.isArray(employees) || employees.length === 0) {
         return res.status(400).json({ message: "employees يجب أن يكون مصفوفة غير فارغة" });

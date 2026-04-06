@@ -44,8 +44,7 @@ const SYNC_EMPLOYEES = env.SYNC_EMPLOYEES !== "false";
 const INTERVAL_MINUTES = parseInt(env.INTERVAL_MINUTES || "30", 10);
 const LAST_SYNC_FILE = path.join(__dirname, "last-sync.json");
 
-if (!SERVER_URL)    { console.error("❌ SERVER_URL غير محدد في .env");    process.exit(1); }
-if (!AGENT_API_KEY) { console.error("❌ AGENT_API_KEY غير محدد في .env"); process.exit(1); }
+if (!SERVER_URL) { console.error("❌ SERVER_URL غير محدد في .env"); process.exit(1); }
 
 // ── دوال مساعدة ────────────────────────────────────────────────────────────
 
