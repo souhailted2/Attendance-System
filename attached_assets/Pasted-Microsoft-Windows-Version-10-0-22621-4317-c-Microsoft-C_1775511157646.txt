@@ -1,0 +1,69 @@
+Microsoft Windows [Version 10.0.22621.4317]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Windows\System32>ssh -p 65002 u807293731@109.106.251.14
+u807293731@109.106.251.14's password:
+Last failed login: Mon Apr  6 18:47:27 UTC 2026 from 197.205.80.114 on ssh:notty
+There were 4 failed login attempts since the last successful login.
+
+   HHHH               HHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHHHHHHHHHHHHHH  HHHHH
+   HHHHHHHHHHHHHHHHHHHHHHHHH
+     HHHHHHHHHHHHHHHHHHHHHHHHH
+   HHHH  HHHHHHHHHHHHHHHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+       HHHH               HHHH
+
+Welcome back! The time now is 21:32 UTC
+Server load: 16.77, 14.99, 14.27
+
+Link to hPanel:
+https://hpanel.hostinger.com/
+
+[u807293731@us-imm-web485 ~]$ mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert -e "
+> DESCRIBE users;
+> SELECT * FROM users LIMIT 5;
+> SELECT COUNT(*) AS total FROM users;
+> "
++------------------+----------------------------------------+------+-----+---------------------+-------------------------------+
+| Field            | Type                                   | Null | Key | Default             | Extra                         |
++------------------+----------------------------------------+------+-----+---------------------+-------------------------------+
+| id               | int(11)                                | NO   | PRI | NULL                | auto_increment                |
+| name             | varchar(100)                           | NO   |     | NULL                |                               |
+| pin              | varchar(4)                             | NO   | UNI | NULL                |                               |
+| employee_id      | varchar(20)                            | YES  | UNI | NULL                |                               |
+| card_no          | varchar(20)                            | YES  |     | NULL                |                               |
+| face_fingerprint | varchar(255)                           | YES  |     | NULL                |                               |
+| hand_fingerprint | varchar(255)                           | YES  |     | NULL                |                               |
+| password         | varchar(255)                           | NO   |     | NULL                |                               |
+| email            | varchar(100)                           | YES  |     | NULL                |                               |
+| phone            | varchar(20)                            | YES  |     | NULL                |                               |
+| department       | enum('IT','HR','Finance','Sales')      | YES  | MUL | IT                  |                               |
+| position         | varchar(100)                           | NO   |     | NULL                |                               |
+| role             | enum('employee','admin','super_admin') | YES  |     | employee            |                               |
+| status           | enum('active','inactive','suspended')  | YES  |     | active              |                               |
+| hire_date        | date                                   | YES  |     | NULL                |                               |
+| salary           | decimal(10,2)                          | YES  |     | NULL                |                               |
+| created_at       | timestamp                              | YES  |     | current_timestamp() |                               |
+| updated_at       | timestamp                              | YES  |     | current_timestamp() | on update current_timestamp() |
++------------------+----------------------------------------+------+-----+---------------------+-------------------------------+
++-----+-----------------------+------+-------------+------------+------------------+------------------+--------------------------------------------------------------+-----------------+-------+------------+-----------------------+-------------+--------+------------+--------+---------------------+---------------------+
+| id  | name                  | pin  | employee_id | card_no    | face_fingerprint | hand_fingerprint | password                                                     | email           | phone | department | position              | role        | status | hire_date  | salary | created_at          | updated_at          |
++-----+-----------------------+------+-------------+------------+------------------+------------------+--------------------------------------------------------------+-----------------+-------+------------+-----------------------+-------------+--------+------------+--------+---------------------+---------------------+
+| 525 | allal                 | alla | NULL        | NULL       | NULL             | NULL             | $2y$10$hoTgG92qe3laF/sb2lMGruktM4tlu7QiVxUiC.Vi22CcAHYntHmkW | allal@allal.com | NULL  | IT         | مدير النظام           | super_admin | active | 2026-03-25 |   0.00 | 2026-03-25 15:55:58 | 2026-03-25 15:55:58 |
+| 526 | مدير النظام           | 9999 | NULL        | NULL       | NULL             | NULL             | $2y$10$noH5ZBSiOGyzXH6rzR6cdO2OyQKI0lZSTLuIeMAh.FQsYn9m5VU66 | admin@allal.com | NULL  | IT         | مدير عام              | super_admin | active | 2026-03-25 |   0.00 | 2026-03-25 15:55:58 | 2026-03-25 15:55:58 |
+| 529 | زبيدي علي             | 100  | 100         | 0013140462 | NULL             | NULL             | $2y$10$fTZWoawxAXzIlDTAmITO4OE.wkfqxJr0gteAZOsI.7BUzOiLwQVVy |                 |       | IT         | موظف                  | employee    | active | NULL       |   NULL | 2026-03-25 18:10:59 | 2026-04-05 18:08:59 |
+| 530 | غربي جمال             | 101  | 101         | 0004494021 | NULL             | NULL             | $2y$10$LBLxZxqENPovm7acdNbd8uudiB1aT5gxpUB.iCMWtIzFDgIb.mRi. |                 |       | IT         | موظف                  | employee    | active | NULL       |   NULL | 2026-03-25 18:11:00 | 2026-04-05 18:08:59 |
+| 532 | غير معرف              | 103  | 103         | 0001305898 | NULL             | NULL             | $2y$10$jsbNHOpX5gvP3Yq9fodKD.aJhmylNXOvNZ6FIbaLhgu5rZ9w1945u |                 |       | IT         | موظف                  | employee    | active | NULL       |   NULL | 2026-03-25 18:11:00 | 2026-04-05 18:08:59 |
++-----+-----------------------+------+-------------+------------+------------------+------------------+--------------------------------------------------------------+-----------------+-------+------------+-----------------------+-------------+--------+------------+--------+---------------------+---------------------+
++-------+
+| total |
++-------+
+|   455 |
++-------+
+[u807293731@us-imm-web485 ~]$
