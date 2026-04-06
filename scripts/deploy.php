@@ -8,20 +8,31 @@ if (!isset($_GET['token']) || $_GET['token'] !== $secret) {
 $home = "/home/u807293731";
 $project = "$home/attendance";
 
-// إيجاد pm2
-$found = shell_exec("find $home/.nvm -name pm2 -type f 2>/dev/null | head -1");
-$pm2 = trim($found) ?: "pm2";
+$nvmDir = "$home/.nvm/versions/node";
+$nodeVer = trim(shell_exec("ls $nvmDir 2>/dev/null | sort -V | tail -1"));
+$nodeBin = "$nvmDir/$nodeVer/bin";
+$env     = "export HOME=$home PM2_HOME=$home/.pm2 PATH=$nodeBin:/usr/local/bin:/usr/bin:/bin";
 
-// node bin directory (في نفس بيئة NVM)
-$nodeBin = dirname(dirname($pm2)) . '/bin';
+// git: سحب آخر التحديثات
+$git = shell_exec("$env && cd $project && git fetch origin 2>&1 && git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/ 2>&1");
 
-$cmd = "export PATH=$nodeBin:$PATH && cd $project && git fetch origin 2>&1 && git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/ 2>&1 && export \$(grep -v '^#' $project/.env | xargs) 2>/dev/null; $pm2 reload attendance --update-env 2>&1 && $pm2 save --force 2>&1";
-
-$output = shell_exec($cmd);
+// إعادة تشغيل العملية عبر PID مباشرة (pm2 يُعيدها تلقائياً)
+$pidFile = "$home/.pm2/pids/attendance-0.pid";
+$restart = "";
+if (file_exists($pidFile)) {
+    $pid = (int)trim(file_get_contents($pidFile));
+    if ($pid > 0) {
+        shell_exec("kill -15 $pid 2>&1");
+        sleep(2);
+        $newPid = file_exists($pidFile) ? (int)trim(file_get_contents($pidFile)) : 0;
+        $restart = "قتل PID $pid ← pm2 أعاد التشغيل، PID الجديد: $newPid";
+    }
+} else {
+    $restart = "ملف PID غير موجود!";
+}
 
 echo "<pre style='direction:ltr;background:#111;color:#0f0;padding:20px;font-size:13px'>";
-echo "pm2: $pm2\n";
-echo "node bin: $nodeBin\n\n";
-echo htmlspecialchars($output ?: "(لا مخرجات — ربما الأمر نجح بصمت)");
+echo "=== git ===\n" . htmlspecialchars($git ?: "(لا تحديثات جديدة — الكود محدث)") . "\n\n";
+echo "=== restart ===\n" . htmlspecialchars($restart) . "\n";
 echo "</pre>";
-echo "<b style='color:green'>✓ تم تشغيل النشر</b>";
+echo "<b style='color:green'>✓ تم النشر</b>";
