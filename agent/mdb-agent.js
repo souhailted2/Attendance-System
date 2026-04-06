@@ -8,7 +8,8 @@
  *   node mdb-agent.js --watch      - تشغيل دوري كل INTERVAL_MINUTES دقيقة
  */
 
-const MDBReader = require("mdb-reader");
+const _mdbModule = require("mdb-reader");
+const MDBReader = _mdbModule.default || _mdbModule.MDBReader || _mdbModule;
 const https = require("https");
 const http = require("http");
 const fs = require("fs");
