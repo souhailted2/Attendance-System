@@ -124,28 +124,33 @@ EOF
   echo "تم تحديث .htaccess"
 HTACCESS
 
-# ── Step 5: restart PM2 ───────────────────────────────────────────────────────
-echo "=== [5/5] Restarting PM2 and verifying ==="
+# ── Step 5: reload PM2 (zero-downtime) ───────────────────────────────────────
+echo "=== [5/5] Reloading PM2 (zero-downtime) and verifying ==="
 ssh_run bash << 'REMOTE_RESTART'
   set -euo pipefail
   export NVM_DIR="$HOME/.nvm"; source "$NVM_DIR/nvm.sh"; nvm use 20 --silent
   cd "$HOME/attendance"
 
   if pm2 list 2>/dev/null | grep -q "attendance"; then
-    pm2 restart attendance --update-env
+    # reload = zero-downtime (يحافظ على الاتصالات الحالية)
+    pm2 reload attendance --update-env
   else
-    pm2 start ecosystem.config.cjs
-    pm2 save
+    # أول تشغيل أو بعد انقطاع كامل
+    pm2 resurrect 2>/dev/null || pm2 start ecosystem.config.cjs
+    pm2 save --force
   fi
 
-  sleep 5
+  # تسجيل الحالة الحالية دائماً
+  pm2 save --force
+
+  sleep 4
   STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/companies)
   if [[ "$STATUS" == "200" ]]; then
     echo "✓ النشر نجح — الموقع يعمل (HTTP $STATUS)"
     echo "✓ الموقع: https://allal.alllal.com"
   else
     echo "✗ تحذير: HTTP $STATUS" >&2
-    pm2 logs --nostream --lines 15 attendance 2>&1 | tail -15
+    pm2 logs --nostream --lines 20 attendance 2>&1 | tail -20
     exit 1
   fi
 REMOTE_RESTART
