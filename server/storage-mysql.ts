@@ -176,7 +176,6 @@ export class MysqlStorage implements IStorage {
       companyId: data.companyId ?? null,
       workshopId: data.workshopId ?? null,
       phone: data.phone ?? null,
-      wage: data.wage ?? "0",
       shift: data.shift ?? "morning",
       contractEndDate: data.contractEndDate ?? null,
       nonRenewalDate: data.nonRenewalDate ?? null,

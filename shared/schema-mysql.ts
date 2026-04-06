@@ -50,7 +50,6 @@ export const employees = mysqlTable("employees", {
   companyId: varchar("company_id", { length: 36 }),
   workshopId: varchar("workshop_id", { length: 36 }),
   phone: text("phone"),
-  wage: text("wage").default("0"),
   shift: text("shift").default("morning"),
   contractEndDate: text("contract_end_date"),
   nonRenewalDate: text("non_renewal_date"),

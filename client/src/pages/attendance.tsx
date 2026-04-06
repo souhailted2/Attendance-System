@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, ClipboardCheck } from "lucide-react";
+import { Plus, Pencil, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 
 export default function Attendance() {
@@ -71,10 +71,7 @@ export default function Attendance() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (editingRecord) {
-      updateMutation.mutate({
-        id: editingRecord.id,
-        data: { checkIn, checkOut, status, notes },
-      });
+      updateMutation.mutate({ id: editingRecord.id, data: { checkIn, checkOut, status, notes } });
     } else {
       createMutation.mutate({ employeeId, date, checkIn, checkOut, status, notes });
     }
@@ -92,20 +89,34 @@ export default function Attendance() {
     }
   };
 
-  const statusVariant = (s: string): "default" | "secondary" | "destructive" => {
+  const statusVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (s) {
       case "present": return "default";
       case "late": return "secondary";
       case "absent": return "destructive";
+      case "leave": return "outline";
       default: return "secondary";
     }
   };
 
+  const presentCount = attendance?.filter((r) => r.status === "present").length || 0;
+  const lateCount = attendance?.filter((r) => r.status === "late").length || 0;
+  const absentCount = attendance?.filter((r) => r.status === "absent").length || 0;
+  const leaveCount = attendance?.filter((r) => r.status === "leave").length || 0;
+
+  const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("ar-SA", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">سجل الحضور</h1>
-        <div className="flex items-center gap-3">
+    <div className="p-6 space-y-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold" data-testid="text-page-title">سجل الحضور</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{dateLabel}</p>
+        </div>
+        <div className="flex items-center gap-2">
           <Input
             type="date"
             value={date}
@@ -176,12 +187,63 @@ export default function Attendance() {
         </div>
       </div>
 
+      {/* Summary stats */}
+      {!isLoading && attendance && attendance.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <UserCheck className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">حاضر</p>
+                <p className="text-xl font-bold">{presentCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-md bg-chart-5/10 flex items-center justify-center flex-shrink-0">
+                <Clock className="h-4 w-4 text-chart-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">متأخر</p>
+                <p className="text-xl font-bold">{lateCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-md bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                <UserX className="h-4 w-4 text-destructive" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">غائب</p>
+                <p className="text-xl font-bold">{absentCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-9 w-9 rounded-md bg-chart-3/10 flex items-center justify-center flex-shrink-0">
+                <CalendarDays className="h-4 w-4 text-chart-3" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">إجازة</p>
+                <p className="text-xl font-bold">{leaveCount}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Table */}
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : !attendance || attendance.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <ClipboardCheck className="h-12 w-12 text-muted-foreground mb-4" />
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <ClipboardCheck className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground">لا توجد سجلات حضور لهذا التاريخ</p>
           </CardContent>
         </Card>
@@ -196,9 +258,9 @@ export default function Attendance() {
                     <TableHead className="text-right">الحضور</TableHead>
                     <TableHead className="text-right">الانصراف</TableHead>
                     <TableHead className="text-right">الحالة</TableHead>
-                    <TableHead className="text-right">التأخير (دقيقة)</TableHead>
-                    <TableHead className="text-right">ساعات العمل</TableHead>
-                    <TableHead className="text-right">الخصم</TableHead>
+                    <TableHead className="text-right">التأخير</TableHead>
+                    <TableHead className="text-right">الساعات</TableHead>
+                    <TableHead className="text-right">ملاحظات</TableHead>
                     <TableHead className="text-right">إجراءات</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -213,16 +275,20 @@ export default function Attendance() {
                             <p className="text-xs text-muted-foreground">{emp?.employeeCode}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{record.checkIn || "-"}</TableCell>
-                        <TableCell>{record.checkOut || "-"}</TableCell>
+                        <TableCell className="font-mono text-sm">{record.checkIn || "-"}</TableCell>
+                        <TableCell className="font-mono text-sm">{record.checkOut || "-"}</TableCell>
                         <TableCell>
                           <Badge variant={statusVariant(record.status)}>
                             {statusLabel(record.status)}
                           </Badge>
                         </TableCell>
-                        <TableCell>{record.lateMinutes > 0 ? record.lateMinutes : "-"}</TableCell>
+                        <TableCell>
+                          {record.lateMinutes > 0
+                            ? <span className="text-chart-5 font-medium">{record.lateMinutes} د</span>
+                            : "-"}
+                        </TableCell>
                         <TableCell>{record.totalHours || "0"}</TableCell>
-                        <TableCell>{parseFloat(record.penalty || "0") > 0 ? record.penalty : "-"}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{record.notes || "-"}</TableCell>
                         <TableCell>
                           <Button size="icon" variant="ghost" onClick={() => openEdit(record)} data-testid={`button-edit-attendance-${record.id}`}>
                             <Pencil className="h-4 w-4" />
