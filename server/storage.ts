@@ -49,6 +49,7 @@ export interface IStorage {
   getAttendanceByDate(date: string): Promise<AttendanceRecord[]>;
   getAttendanceByEmployee(employeeId: string, startDate: string, endDate: string): Promise<AttendanceRecord[]>;
   getAttendanceByDateRange(startDate: string, endDate: string): Promise<AttendanceRecord[]>;
+  getAttendanceByEmployeeAndDate(employeeId: string, date: string): Promise<AttendanceRecord | undefined>;
   createAttendance(data: InsertAttendance): Promise<AttendanceRecord>;
   updateAttendance(id: string, data: Partial<InsertAttendance>): Promise<AttendanceRecord | undefined>;
 
@@ -121,6 +122,7 @@ class LazyStorage implements IStorage {
   getAttendanceByDate(date: string) { return this.impl().then(s => s.getAttendanceByDate(date)); }
   getAttendanceByEmployee(empId: string, start: string, end: string) { return this.impl().then(s => s.getAttendanceByEmployee(empId, start, end)); }
   getAttendanceByDateRange(start: string, end: string) { return this.impl().then(s => s.getAttendanceByDateRange(start, end)); }
+  getAttendanceByEmployeeAndDate(empId: string, date: string) { return this.impl().then(s => s.getAttendanceByEmployeeAndDate(empId, date)); }
   createAttendance(d: InsertAttendance) { return this.impl().then(s => s.createAttendance(d)); }
   updateAttendance(id: string, d: Partial<InsertAttendance>) { return this.impl().then(s => s.updateAttendance(id, d)); }
 
