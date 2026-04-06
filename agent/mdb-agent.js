@@ -307,12 +307,75 @@ async function runSync() {
 // ── نقطة الدخول ─────────────────────────────────────────────────────────────
 
 const watchMode = process.argv.includes("--watch");
+const autoMode  = process.argv.includes("--auto");
 
-if (watchMode) {
+if (autoMode) {
+  // ── وضع المراقبة التلقائية: مزامنة فورية عند كل تغيير في الملف ──
+  if (!fs.existsSync(DB_PATH)) {
+    log(`❌ ملف قاعدة البيانات غير موجود في المسار:\n   ${DB_PATH}`);
+    process.exit(1);
+  }
+
+  log("════════════════════════════════════════════════");
+  log("👁️  وضع المراقبة التلقائية للملف");
+  log(`📂 يراقب: ${DB_PATH}`);
+  log("🔄 سيتم المزامنة فوراً عند أي تغيير في الملف");
+  log("⏹️  اضغط Ctrl+C لإيقاف المراقبة");
+  log("════════════════════════════════════════════════");
+
+  // مزامنة أولية عند التشغيل
+  runSync();
+
+  let debounceTimer = null;
+  let isSyncing     = false;
+
+  // احتفظ بآخر حجم ووقت تعديل لاكتشاف التغييرات الحقيقية
+  let lastMtime = 0;
+  let lastSize  = 0;
+  try {
+    const stat = fs.statSync(DB_PATH);
+    lastMtime = stat.mtimeMs;
+    lastSize  = stat.size;
+  } catch {}
+
+  // استطلاع الملف كل 5 ثوانٍ (أكثر موثوقية على Windows من fs.watch)
+  const POLL_MS = 5000;
+  setInterval(() => {
+    try {
+      const stat = fs.statSync(DB_PATH);
+      const changed = stat.mtimeMs !== lastMtime || stat.size !== lastSize;
+      if (!changed) return;
+
+      lastMtime = stat.mtimeMs;
+      lastSize  = stat.size;
+
+      log("📡 تم اكتشاف تغيير في الملف — جارٍ التحضير للمزامنة...");
+
+      // debounce: انتظر 4 ثوانٍ قبل التنفيذ لتجميع التغييرات المتتالية
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        if (isSyncing) {
+          log("⏳ مزامنة جارية بالفعل — سيتم الانتظار...");
+          return;
+        }
+        isSyncing = true;
+        try {
+          await runSync();
+        } finally {
+          isSyncing = false;
+        }
+      }, 4000);
+    } catch {}
+  }, POLL_MS);
+
+} else if (watchMode) {
+  // ── وضع التوقيت: مزامنة دورية كل N دقيقة ──
   log(`⏱️  وضع المراقبة: مزامنة كل ${INTERVAL_MINUTES} دقيقة`);
   runSync();
   setInterval(runSync, INTERVAL_MINUTES * 60 * 1000);
+
 } else {
+  // ── تشغيل مرة واحدة ──
   runSync()
     .then(() => process.exit(0))
     .catch((err) => {

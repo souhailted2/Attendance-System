@@ -888,6 +888,36 @@ export async function registerRoutes(
         `pause`,
       ].join("\r\n");
 
+      const autoBat = [
+        `@echo off`,
+        `chcp 65001 > nul`,
+        `echo ════════════════════════════════════════════`,
+        `echo    مراقبة تلقائية - مزامنة فورية عند أي تغيير`,
+        `echo ════════════════════════════════════════════`,
+        `echo.`,
+        `echo سيتم رصد ملف ZKTeco تلقائياً.`,
+        `echo عند أي تغيير (حضور جديد - موظف جديد - تعديل) ستبدأ المزامنة فوراً.`,
+        `echo.`,
+        ``,
+        `where node >nul 2>&1`,
+        `if errorlevel 1 (`,
+        `  echo خطأ: Node.js غير مثبت.`,
+        `  echo حمّل Node.js من: https://nodejs.org`,
+        `  pause`,
+        `  exit /b 1`,
+        `)`,
+        ``,
+        `if not exist node_modules (`,
+        `  echo جارٍ تثبيت المكتبات...`,
+        `  npm install --loglevel=error`,
+        `)`,
+        ``,
+        `echo اضغط Ctrl+C لإيقاف المراقبة.`,
+        `echo.`,
+        `node mdb-agent.js --auto`,
+        `pause`,
+      ].join("\r\n");
+
       const instructions = [
         `نظام مزامنة الحضور - ZKTeco MDB Agent`,
         `========================================`,
@@ -910,9 +940,13 @@ export async function registerRoutes(
         `  - انقر مرتين على: run.bat`,
         `  - سيقرأ البرنامج بيانات الحضور ويرسلها للموقع`,
         ``,
-        `الخطوة 3 (مزامنة تلقائية):`,
+        `الخطوة 3 (مراقبة تلقائية - موصى به):`,
+        `  - انقر مرتين على: auto.bat  ← الأفضل`,
+        `  - سيراقب الملف باستمرار ويزامن فوراً عند أي تغيير`,
+        `  - يكتشف: حضور جديد، موظف جديد، تعديل الاسم، تغيير رقم البطاقة`,
+        ``,
+        `الخطوة 3 (بديل - مزامنة كل 30 دقيقة):`,
         `  - انقر مرتين على: watch.bat`,
-        `  - سيعمل البرنامج باستمرار ويزامن كل 30 دقيقة`,
         ``,
         `ملاحظات:`,
         `  - إذا كان مسار ملف قاعدة البيانات مختلفاً، عدّل DB_PATH في ملف .env`,
@@ -939,6 +973,7 @@ export async function registerRoutes(
       zip.append(getMdbPackageJson(), { name: "package.json" });
       zip.append(envContent,          { name: ".env" });
       zip.append(runBat,              { name: "run.bat" });
+      zip.append(autoBat,             { name: "auto.bat" });
       zip.append(watchBat,            { name: "watch.bat" });
       zip.append(instructions,        { name: "تعليمات.txt" });
 
