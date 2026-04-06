@@ -1,0 +1,77 @@
+Microsoft Windows [Version 10.0.22621.4317]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Windows\System32>ssh -p 65002 u807293731@109.106.251.14
+u807293731@109.106.251.14's password:
+Last failed login: Mon Apr  6 18:47:27 UTC 2026 from 197.205.80.114 on ssh:notty
+There were 4 failed login attempts since the last successful login.
+
+   HHHH               HHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHHHHHHHHHHHHHH  HHHHH
+   HHHHHHHHHHHHHHHHHHHHHHHHH
+     HHHHHHHHHHHHHHHHHHHHHHHHH
+   HHHH  HHHHHHHHHHHHHHHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+       HHHH               HHHH
+
+Welcome back! The time now is 21:10 UTC
+Server load: 15.71, 14.89, 14.35
+
+Link to hPanel:
+https://hpanel.hostinger.com/
+
+[u807293731@us-imm-web485 ~]$ # 1. سحب السكريبت الجديد
+[u807293731@us-imm-web485 ~]$ cd ~/attendance && git pull
+.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert < scripts/fix_employees_v2.sql
+
+# 3. التحقق من النتيجة
+mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert -e "
+SELECT COUNT(*) AS 'مكررات' FROM (SELECT employee_code, COUNT(*) c FROM employees GROUP BY employee_code HAVING c > 1) x;
+SELECT COUNT(*) AS 'موظف بدون اسم' FROM employees WHERE name = employee_code OR name REGEXP '^[0-9]+$';
+SELECT COUNT(*) AS 'الإجمالي' FROM employees;
+"There is no tracking information for the current branch.
+Please specify which branch you want to merge with.
+See git-pull(1) for details.
+
+    git pull <remote> <branch>
+
+If you wish to set tracking information for this branch you can do so with:
+
+    git branch --set-upstream-to=origin/<branch> master
+
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # 2. تشغيل SQL على قاعدة البيانات
+[u807293731@us-imm-web485 attendance]$ mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert < scripts/fix_employees_v2.sql
+--------------
+UPDATE attendance SET employee_id = @new_id WHERE employee_id = @old_id AND @old_id IS NOT NULL AND @new_id IS NOT NULL
+--------------
+
+ERROR 1452 (23000) at line 157: Cannot add or update a child row: a foreign key constraint fails (`u807293731_insert`.`attendance`, CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`employee_id`) REFERENCES `users` (`id`))
+[u807293731@us-imm-web485 attendance]$
+[u807293731@us-imm-web485 attendance]$ # 3. التحقق من النتيجة
+[u807293731@us-imm-web485 attendance]$ mysql -h127.0.0.1 -uu807293731_insert -p'Taher96+++.com' u807293731_insert -e "
+> SELECT COUNT(*) AS 'مكررات' FROM (SELECT employee_code, COUNT(*) c FROM employees GROUP BY employee_code HAVING c > 1) x;
+> SELECT COUNT(*) AS 'موظف بدون اسم' FROM employees WHERE name = employee_code OR name REGEXP '^[0-9]+$';
+> SELECT COUNT(*) AS 'الإجمالي' FROM employees;
+> "
++--------------+
+| مكررات       |
++--------------+
+|            0 |
++--------------+
++--------------------------+
+| موظف بدون اسم            |
++--------------------------+
+|                       65 |
++--------------------------+
++------------------+
+| الإجمالي         |
++------------------+
+|              471 |
++------------------+
+[u807293731@us-imm-web485 attendance]$
