@@ -81,11 +81,10 @@ async function processAttendanceLogs(
   allEmployees: Awaited<ReturnType<typeof storage.getEmployees>>,
   workshopId: string | null | undefined,
   sourceName: string
-): Promise<{ imported: number; skipped: number; duplicates: number; updated: number; errors: string[] }> {
+): Promise<{ imported: number; skipped: number; duplicates: number; errors: string[] }> {
   let imported = 0;
   let skipped = 0;
   let duplicates = 0;
-  let updated = 0;
   const errors: string[] = [];
 
   const eligibleEmployees = workshopId
@@ -149,49 +148,7 @@ async function processAttendanceLogs(
       imported++;
     } catch (e: any) {
       if (e.message?.includes("duplicate") || e.code === "23505" || e.errno === 1062) {
-        // بدلاً من التجاهل الصامت — ادمج الأوقات وحدِّث السجل الموجود
-        try {
-          const existing = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
-          if (existing) {
-            const allTimes = [...new Set([
-              existing.checkIn,
-              existing.checkOut,
-              ...entry.times,
-            ].filter(Boolean) as string[])].sort();
-
-            const newCheckIn  = allTimes[0] ?? null;
-            const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
-
-            if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn) {
-              let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut };
-              if (workRule && (newCheckIn || newCheckOut)) {
-                const calc = calculateAttendanceDetails(
-                  newCheckIn, newCheckOut,
-                  workRule.workStartTime, workRule.workEndTime,
-                  workRule.lateGraceMinutes,
-                  workRule.latePenaltyPerMinute,
-                  workRule.earlyLeavePenaltyPerMinute,
-                  workRule.absencePenalty,
-                  "present"
-                );
-                updateData.lateMinutes = calc.lateMinutes;
-                updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
-                updateData.totalHours = String(calc.totalHours);
-                updateData.penalty = String(calc.penalty);
-                updateData.status = calc.status;
-              }
-              await storage.updateAttendance(existing.id, updateData);
-              updated++;
-            } else {
-              duplicates++;
-            }
-          } else {
-            duplicates++;
-          }
-        } catch (ue: any) {
-          errors.push(`${employee.name} - ${entry.date} (تحديث): ${ue.message}`);
-          skipped++;
-        }
+        duplicates++;
       } else {
         errors.push(`${employee.name} - ${entry.date}: ${e.message}`);
         skipped++;
@@ -199,7 +156,7 @@ async function processAttendanceLogs(
     }
   }
 
-  return { imported, skipped, duplicates, updated, errors };
+  return { imported, skipped, duplicates, errors };
 }
 
 export async function registerRoutes(
@@ -545,7 +502,7 @@ export async function registerRoutes(
         }
       }
 
-      const { imported, skipped, duplicates, updated, errors } = await processAttendanceLogs(
+      const { imported, skipped, duplicates, errors } = await processAttendanceLogs(
         flatLogs,
         allEmployees,
         setting.workshopId,
@@ -558,10 +515,9 @@ export async function registerRoutes(
         imported,
         skipped,
         duplicates,
-        updated,
         total: result.logs.length,
         errors,
-        message: `تمت المزامنة: ${imported} سجل جديد، ${updated} محدَّث، ${duplicates} مكرر، ${skipped} متخطى`,
+        message: `تمت المزامنة: ${imported} سجل جديد، ${duplicates} مكرر، ${skipped} متخطى`,
       });
     } catch (error: any) {
       res.status(500).json({ message: `خطأ في المزامنة: ${error.message}` });
@@ -630,7 +586,7 @@ export async function registerRoutes(
       // logs format: [{ uid, date, times }] where times is array of HH:MM strings
       const allEmployees = await storage.getEmployees();
 
-      const { imported, skipped, duplicates, updated, errors } = await processAttendanceLogs(
+      const { imported, skipped, duplicates, errors } = await processAttendanceLogs(
         logs,
         allEmployees,
         workshopId || null,
@@ -641,10 +597,9 @@ export async function registerRoutes(
         imported,
         skipped,
         duplicates,
-        updated,
         total: logs.length,
         errors,
-        message: `تم استيراد ${imported} سجل، تحديث ${updated}، ${duplicates} مكرر، ${skipped} متخطى`,
+        message: `تم استيراد ${imported} سجل، ${duplicates} مكرر، ${skipped} متخطى`,
       });
     } catch (error: any) {
       res.status(500).json({ message: `خطأ في استيراد البيانات: ${error.message}` });
@@ -1180,7 +1135,7 @@ export async function registerRoutes(
       const workshopId = device?.workshopId ?? null;
       const source = deviceName || serialNumber || "الوكيل المحلي";
 
-      const { imported, skipped, duplicates, updated, errors } = await processAttendanceLogs(
+      const { imported, skipped, duplicates, errors } = await processAttendanceLogs(
         processedLogs, allEmployees, workshopId, source
       );
 
@@ -1188,8 +1143,8 @@ export async function registerRoutes(
         await storage.updateDeviceSetting(device.id, { lastSyncAt: new Date().toISOString() });
       }
 
-      console.log(`[LocalAgent] SN=${serialNumber} imported=${imported} updated=${updated} duplicates=${duplicates} skipped=${skipped}`);
-      res.json({ imported, skipped, duplicates, updated, errors, message: `تم استيراد ${imported} سجل، تحديث ${updated}` });
+      console.log(`[LocalAgent] SN=${serialNumber} imported=${imported} duplicates=${duplicates} skipped=${skipped}`);
+      res.json({ imported, skipped, duplicates, errors, message: `تم استيراد ${imported} سجل` });
     } catch (error: any) {
       console.error("[LocalAgent] Error:", error.message);
       res.status(500).json({ message: error.message });
@@ -1454,7 +1409,7 @@ export async function registerRoutes(
       }
 
       const allEmployees = await storage.getEmployees();
-      const { imported, skipped, duplicates, updated } = await processAttendanceLogs(
+      const { imported, skipped, duplicates } = await processAttendanceLogs(
         flatLogs,
         allEmployees,
         device.workshopId,
@@ -1463,7 +1418,7 @@ export async function registerRoutes(
 
       await storage.updateDeviceSetting(device.id, { lastSyncAt: new Date().toISOString() });
 
-      console.log(`[ADMS] SN=${sn} imported=${imported} updated=${updated} duplicates=${duplicates} skipped=${skipped} total=${lines.length}`);
+      console.log(`[ADMS] SN=${sn} imported=${imported} duplicates=${duplicates} skipped=${skipped} total=${lines.length}`);
       res.send("OK");
     } catch (error: any) {
       console.error(`[ADMS] Error processing ATTLOG from SN=${sn}:`, error.message);

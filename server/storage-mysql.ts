@@ -219,16 +219,6 @@ export class MysqlStorage implements IStorage {
     ) as Promise<AttendanceRecord[]>;
   }
 
-  async getAttendanceByEmployeeAndDate(employeeId: string, date: string): Promise<AttendanceRecord | undefined> {
-    const [record] = await mysqlDb.select().from(schema.attendanceRecords).where(
-      and(
-        eq(schema.attendanceRecords.employeeId, employeeId),
-        eq(schema.attendanceRecords.date, date),
-      ),
-    );
-    return record as AttendanceRecord | undefined;
-  }
-
   async createAttendance(data: InsertAttendance): Promise<AttendanceRecord> {
     const id = randomUUID();
     await mysqlDb.insert(schema.attendanceRecords).values({
