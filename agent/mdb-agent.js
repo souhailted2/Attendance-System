@@ -239,7 +239,7 @@ async function runSync() {
 
   for (const user of users) {
     const uid      = String(user.USERID      || user.UserID      || "").trim();
-    const badge    = String(user.BADGENUMBER  || user.BadgeNumber  || user.PIN    || uid).trim();
+    const badge    = String(user.Badgenumber   || user.BADGENUMBER  || user.BadgeNumber  || user.PIN    || uid).trim();
     const rawName  = user.NAME || user.Name || `موظف ${badge}`;
     const name     = decodeMdbName(rawName);
     const cardNo   = String(user.CARDNO       || user.CardNo       || user.CARD_NO || "").trim();
