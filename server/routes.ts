@@ -644,7 +644,7 @@ export async function registerRoutes(
         updated,
         total: logs.length,
         errors,
-        message: `تم استيراد ${imported} سجل، ${duplicates} مكرر، ${skipped} متخطى`,
+        message: `تم استيراد ${imported} سجل، تحديث ${updated}، ${duplicates} مكرر، ${skipped} متخطى`,
       });
     } catch (error: any) {
       res.status(500).json({ message: `خطأ في استيراد البيانات: ${error.message}` });
