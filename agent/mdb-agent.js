@@ -266,36 +266,57 @@ async function runSync() {
     return;
   }
 
-  // ── إرسال الحضور للموقع ──
-  log("📤 إرسال سجلات الحضور للموقع...");
-  try {
-    const resp = await postJson(
-      `${SERVER_URL}/api/agent/push-attendance`,
-      { deviceName: "ZKTeco MDB", logs: logsToSend },
-      AGENT_API_KEY
-    );
+  // ── إرسال الحضور للموقع (على دُفعات) ──
+  const BATCH_SIZE = 500;
+  const totalBatches = Math.ceil(logsToSend.length / BATCH_SIZE);
+  log(`📤 إرسال ${logsToSend.length} سجل على ${totalBatches} دُفعة...`);
 
-    if (resp.status === 200 || resp.status === 201) {
-      const d = resp.data;
-      log(`✅ مستورد ${d.imported}، مكرر ${d.duplicates}، متخطى ${d.skipped}`);
-      if (d.errors && d.errors.length > 0) {
-        d.errors.slice(0, 5).forEach((e) => log(`   ⚠️  ${e}`));
-        if (d.errors.length > 5) log(`   ... و ${d.errors.length - 5} أخطاء أخرى`);
+  let totalImported = 0, totalDuplicates = 0, totalSkipped = 0;
+  let allErrors = [];
+  let syncFailed = false;
+
+  for (let i = 0; i < logsToSend.length; i += BATCH_SIZE) {
+    const batch = logsToSend.slice(i, i + BATCH_SIZE);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    if (totalBatches > 1) log(`   📦 دُفعة ${batchNum}/${totalBatches} (${batch.length} سجل)...`);
+
+    try {
+      const resp = await postJson(
+        `${SERVER_URL}/api/agent/push-attendance`,
+        { deviceName: "ZKTeco MDB", logs: batch },
+        AGENT_API_KEY
+      );
+
+      if (resp.status === 200 || resp.status === 201) {
+        totalImported   += resp.data.imported   || 0;
+        totalDuplicates += resp.data.duplicates || 0;
+        totalSkipped    += resp.data.skipped    || 0;
+        if (resp.data.errors) allErrors.push(...resp.data.errors);
+      } else {
+        log(`❌ خطأ من السيرفر (${resp.status}): ${JSON.stringify(resp.data)}`);
+        syncFailed = true;
+        break;
       }
-      saveLastSync(new Date());
-    } else if (resp.status === 401) {
-      log("❌ مفتاح API خاطئ — تحقق من AGENT_API_KEY في .env");
-    } else {
-      log(`❌ خطأ من السيرفر (${resp.status}): ${JSON.stringify(resp.data)}`);
+    } catch (err) {
+      if (err.message.includes("timeout")) {
+        log("❌ انتهت مهلة الاتصال بالسيرفر — تأكد من الإنترنت");
+      } else if (err.message.includes("ECONNREFUSED")) {
+        log("❌ تعذّر الاتصال بالسيرفر");
+      } else {
+        log(`❌ ${err.message}`);
+      }
+      syncFailed = true;
+      break;
     }
-  } catch (err) {
-    if (err.message.includes("timeout")) {
-      log("❌ انتهت مهلة الاتصال بالسيرفر — تأكد من الإنترنت");
-    } else if (err.message.includes("ECONNREFUSED")) {
-      log("❌ تعذّر الاتصال بالسيرفر");
-    } else {
-      log(`❌ ${err.message}`);
+  }
+
+  if (!syncFailed) {
+    log(`✅ مستورد ${totalImported}، مكرر ${totalDuplicates}، متخطى ${totalSkipped}`);
+    if (allErrors.length > 0) {
+      allErrors.slice(0, 5).forEach((e) => log(`   ⚠️  ${e}`));
+      if (allErrors.length > 5) log(`   ... و ${allErrors.length - 5} أخطاء أخرى`);
     }
+    saveLastSync(new Date());
   }
 
   log("═══════════════════════════════════════════════");
