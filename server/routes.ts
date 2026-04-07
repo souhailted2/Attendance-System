@@ -550,31 +550,49 @@ export async function registerRoutes(
           totalWorkDayMinutes = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
         }
 
-        const lateGrace = workRule?.lateGraceMinutes ?? 0;
+        const earlyArrivalGrace = workRule?.earlyArrivalGraceMinutes ?? 0;
+        const lateArrivalGrace = workRule?.lateGraceMinutes ?? 0;
         const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
+        const lateLeaveGrace = workRule?.lateLeaveGraceMinutes ?? 0;
+
+        function normalizeTime(rawTime: string | null, canonicalTime: string, graceBeforeMin: number, graceAfterMin: number): string {
+          if (!rawTime) return canonicalTime;
+          const [rh, rm] = rawTime.split(":").map(Number);
+          const [ch, cm] = canonicalTime.split(":").map(Number);
+          const rawTotal = rh * 60 + rm;
+          const canonTotal = ch * 60 + cm;
+          const diff = rawTotal - canonTotal;
+          if (diff >= -graceBeforeMin && diff <= graceAfterMin) return canonicalTime;
+          return rawTime;
+        }
 
         let attendanceScore = 0;
         const dailyRecords = empRecords.map(rec => {
-          const effectiveLate = Math.max(0, rec.lateMinutes - lateGrace);
-          const effectiveEarlyLeave = Math.max(0, rec.earlyLeaveMinutes - earlyLeaveGrace);
+          const normalizedCheckIn = normalizeTime(
+            rec.checkIn, workRule?.workStartTime ?? "08:00", earlyArrivalGrace, lateArrivalGrace,
+          );
+          const normalizedCheckOut = normalizeTime(
+            rec.checkOut, workRule?.workEndTime ?? "16:00", earlyLeaveGrace, lateLeaveGrace,
+          );
+
           let dailyScore = 0;
           if (rec.status === "absent") {
             dailyScore = 0;
           } else if (rec.status === "leave") {
             dailyScore = 1;
           } else {
-            dailyScore = Math.max(0, 1 - (effectiveLate + effectiveEarlyLeave) / totalWorkDayMinutes);
+            dailyScore = Math.max(0, 1 - (rec.lateMinutes + rec.earlyLeaveMinutes) / totalWorkDayMinutes);
           }
           attendanceScore += dailyScore;
           return {
             date: rec.date,
             checkIn: rec.checkIn,
             checkOut: rec.checkOut,
+            normalizedCheckIn,
+            normalizedCheckOut,
             status: rec.status,
             lateMinutes: rec.lateMinutes,
             earlyLeaveMinutes: rec.earlyLeaveMinutes,
-            effectiveLateMinutes: effectiveLate,
-            effectiveEarlyLeaveMinutes: effectiveEarlyLeave,
             totalHours: rec.totalHours,
             dailyScore: Math.round(dailyScore * 100) / 100,
           };

@@ -153,7 +153,7 @@ export default function Reports() {
   }
 
   const totalScore = useMemo(() => reportData.reduce((s: number, r: any) => s + (r.attendanceScore || 0), 0), [reportData]);
-  const maxScore = reportData.length;
+  const maxScore = useMemo(() => reportData.reduce((s: number, r: any) => s + (r.totalDays || 0), 0), [reportData]);
 
   const breadcrumb = selectedWorkshop
     ? `${selectedRule?.name} ← ${selectedWorkshop.name}`
