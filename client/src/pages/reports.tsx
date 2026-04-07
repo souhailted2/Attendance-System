@@ -30,6 +30,7 @@ interface DailyRecord {
   effectiveEarlyLeaveMinutes: number;
   totalHours: string | null;
   dailyScore: number;
+  pending?: boolean;
 }
 
 interface EmployeeReport {
@@ -542,6 +543,13 @@ export default function Reports() {
                             {allDates.map((d) => {
                               const rec = byDate?.get(d);
                               if (!rec) return <TableCell key={d} className="text-center text-muted-foreground text-xs">—</TableCell>;
+                              if (rec.pending) {
+                                return (
+                                  <TableCell key={d} className="text-center px-1">
+                                    <span className="text-xs text-amber-500 dark:text-amber-400 font-semibold" title={`في انتظار تسجيل الخروج | دخول: ${rec.checkIn}`}>؟</span>
+                                  </TableCell>
+                                );
+                              }
                               const s = rec.dailyScore;
                               const cls = s >= 0.95
                                 ? "text-green-600 dark:text-green-400 font-semibold"

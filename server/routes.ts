@@ -621,6 +621,7 @@ export async function registerRoutes(
             effectiveEarlyLeaveMinutes,
             totalHours: rec.totalHours,
             dailyScore: roundedScore,
+            pending: rec.checkIn !== null && rec.checkOut === null,
           };
         });
 
