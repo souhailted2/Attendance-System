@@ -608,6 +608,13 @@ export async function registerRoutes(
           }
           const roundedScore = Math.round(dailyScore * 100) / 100;
           attendanceScore += roundedScore;
+
+          const earlyOT = (checkInMin !== null && checkInMin < workStartMin)
+            ? workStartMin - checkInMin : 0;
+          const lateOT = (checkOutMin !== null && checkOutMin > workEndMin + lateLeaveGrace)
+            ? checkOutMin - (workEndMin + lateLeaveGrace) : 0;
+          const overtimeHours = Math.round((earlyOT + lateOT) / 60 * 10) / 10;
+
           return {
             date: rec.date,
             checkIn: rec.checkIn,
@@ -622,6 +629,7 @@ export async function registerRoutes(
             totalHours: rec.totalHours,
             dailyScore: roundedScore,
             pending: rec.checkIn !== null && rec.checkOut === null,
+            overtimeHours,
           };
         });
 

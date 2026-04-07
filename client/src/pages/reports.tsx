@@ -31,6 +31,7 @@ interface DailyRecord {
   totalHours: string | null;
   dailyScore: number;
   pending?: boolean;
+  overtimeHours: number;
 }
 
 interface EmployeeReport {
@@ -91,6 +92,7 @@ export default function Reports() {
 
   const [selectedRule, setSelectedRule] = useState<WorkRule | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
+  const [viewMode, setViewMode] = useState<"shifts" | "overtime">("shifts");
 
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [graceForm, setGraceForm] = useState({
@@ -117,6 +119,17 @@ export default function Reports() {
       if (!reportKey) return [];
       const res = await fetch(reportKey);
       if (!res.ok) throw new Error("فشل تحميل التقرير");
+      return res.json();
+    },
+  });
+
+  const overtimeQueryKey = `/api/reports/range?from=${dateFrom}&to=${dateTo}`;
+  const { data: overtimeData = [], isLoading: overtimeLoading } = useQuery<EmployeeReport[]>({
+    queryKey: ["/api/reports/range", dateFrom, dateTo, "overtime"],
+    enabled: viewMode === "overtime",
+    queryFn: async () => {
+      const res = await fetch(overtimeQueryKey);
+      if (!res.ok) throw new Error("فشل تحميل تقرير الساعات الإضافية");
       return res.json();
     },
   });
@@ -203,6 +216,30 @@ export default function Reports() {
     return map;
   }, [reportData]);
 
+  const employeesWithOvertime = useMemo(() =>
+    overtimeData.filter(emp => emp.dailyRecords.some(r => r.overtimeHours > 0)),
+    [overtimeData]);
+
+  const allOvertimeDates = useMemo(() => {
+    const dateSet = new Set<string>();
+    for (const emp of employeesWithOvertime) {
+      for (const rec of emp.dailyRecords) {
+        if (rec.overtimeHours > 0) dateSet.add(rec.date);
+      }
+    }
+    return [...dateSet].sort();
+  }, [employeesWithOvertime]);
+
+  const overtimeDayMap = useMemo(() => {
+    const map = new Map<string, Map<string, DailyRecord>>();
+    for (const emp of overtimeData) {
+      const byDate = new Map<string, DailyRecord>();
+      for (const rec of emp.dailyRecords) byDate.set(rec.date, rec);
+      map.set(emp.employeeId, byDate);
+    }
+    return map;
+  }, [overtimeData]);
+
   const breadcrumb = selectedWorkshop
     ? `${selectedRule?.name} ← ${selectedWorkshop.name}`
     : selectedRule
@@ -262,7 +299,7 @@ export default function Reports() {
       </div>
 
       {/* ======================== LEVEL 1: Work Rule Cards ======================== */}
-      {!selectedRule && (
+      {!selectedRule && viewMode === "shifts" && (
         rulesLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Skeleton className="h-44 w-full" /><Skeleton className="h-44 w-full" />
@@ -394,8 +431,123 @@ export default function Reports() {
                 </Card>
               );
             })}
+            {/* Overtime card */}
+            <Card
+              className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all bg-indigo-50/40 dark:bg-indigo-950/20"
+              onClick={() => { setViewMode("overtime"); setSelectedRule(null); setSelectedWorkshop(null); }}
+              data-testid="card-overtime"
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
+                  <Clock className="h-4 w-4" />
+                  الساعات الإضافية
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">عرض العمال الذين عملوا ساعات إضافية خارج فترتهم في النطاق الزمني المحدد.</p>
+              </CardContent>
+            </Card>
           </div>
         )
+      )}
+
+      {/* ======================== OVERTIME VIEW ======================== */}
+      {!selectedRule && viewMode === "overtime" && (
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setViewMode("shifts")} data-testid="button-back-to-shifts">
+            <ChevronLeft className="h-4 w-4 rotate-180" />
+            العودة للفترات
+          </Button>
+
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Clock className="h-5 w-5 text-indigo-600" />
+            تقرير الساعات الإضافية
+          </h2>
+
+          {overtimeLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : employeesWithOvertime.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+                <Clock className="h-12 w-12 mb-3 opacity-30" />
+                <p>لا يوجد موظفون عملوا ساعات إضافية في هذه الفترة</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="sticky right-0 bg-muted/50 z-10 text-right font-bold">الموظف</TableHead>
+                    <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
+                    {allOvertimeDates.map(d => (
+                      <TableHead key={d} className="text-center text-xs font-medium min-w-[52px]">
+                        {d.slice(5).replace("-", "/")}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-center font-bold">المجموع (س)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {employeesWithOvertime.map(r => {
+                    const byDate = overtimeDayMap.get(r.employeeId);
+                    const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
+                    return (
+                      <TableRow key={r.employeeId} data-testid={`row-overtime-${r.employeeId}`}>
+                        <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
+                        {allOvertimeDates.map(d => {
+                          const rec = byDate?.get(d);
+                          const ot = rec?.overtimeHours ?? 0;
+                          return (
+                            <TableCell key={d} className="text-center px-1">
+                              {ot > 0 ? (
+                                <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
+                                  title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
+                                  {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-bold">
+                          <span className="text-sm text-indigo-700 dark:text-indigo-400">
+                            {Math.round(totalOT * 10) / 10}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {/* Totals row */}
+                  <TableRow className="bg-muted/50 font-bold border-t-2">
+                    <TableCell className="sticky right-0 bg-muted/50 z-10 font-bold">المجموع</TableCell>
+                    <TableCell />
+                    {allOvertimeDates.map(d => {
+                      const dayTotal = employeesWithOvertime.reduce((s, emp) => {
+                        const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
+                        return s + (rec?.overtimeHours ?? 0);
+                      }, 0);
+                      return (
+                        <TableCell key={d} className="text-center text-xs font-bold">
+                          {dayTotal > 0 ? (
+                            <span className="text-indigo-700 dark:text-indigo-400">
+                              {Math.round(dayTotal * 10) / 10}
+                            </span>
+                          ) : "—"}
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400">
+                      {Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* ======================== LEVEL 2: Workshops in a Rule ======================== */}
