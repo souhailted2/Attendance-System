@@ -635,7 +635,7 @@ export async function registerRoutes(
           lateDays: empRecords.filter(r => r.status === "late").length,
           absentDays: empRecords.filter(r => r.status === "absent").length,
           leaveDays: empRecords.filter(r => r.status === "leave").length,
-          totalLateMinutes: empRecords.reduce((s, r) => s + r.lateMinutes, 0),
+          totalLateMinutes: dailyRecords.reduce((s, r) => s + r.lateMinutes, 0),
           totalHours: empRecords.reduce((s, r) => s + parseFloat(r.totalHours || "0"), 0),
           attendanceScore: Math.round(attendanceScore * 100) / 100,
           dailyRecords,
