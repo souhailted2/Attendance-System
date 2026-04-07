@@ -74,9 +74,19 @@ export default function Attendance() {
   const absentCount  = attendance?.filter((r) => r.status === "absent").length || 0;
   const leaveCount   = attendance?.filter((r) => r.status === "leave").length || 0;
 
-  const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("ar-SA", {
+  const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("ar-DZ", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
+
+  // تنسيق التاريخ: "2026-04-07" → "الثلاثاء 07/04/2026"
+  function formatArabicDate(dateStr: string) {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const [year, month, day] = parts.map(Number);
+    const d = new Date(year, month - 1, day);
+    const dayName = d.toLocaleDateString("ar-DZ", { weekday: "long" });
+    return `${dayName} ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
+  }
 
   // توسيع كل سجل يومي إلى حركات فردية (دخول + خروج كصفين منفصلين)
   const movements: Array<{ id: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" }> = [];
@@ -287,7 +297,7 @@ export default function Attendance() {
                         {mv.emp?.cardNumber || "-"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {mv.date}
+                        {formatArabicDate(mv.date)}
                       </TableCell>
                       <TableCell>
                         {mv.time ? (
