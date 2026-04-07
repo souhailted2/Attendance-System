@@ -52,6 +52,7 @@ export interface IStorage {
   getAttendanceByEmployeeAndDate(employeeId: string, date: string): Promise<AttendanceRecord | undefined>;
   createAttendance(data: InsertAttendance): Promise<AttendanceRecord>;
   updateAttendance(id: string, data: Partial<InsertAttendance>): Promise<AttendanceRecord | undefined>;
+  deleteAttendance(id: string): Promise<void>;
 
   getDeviceSettings(): Promise<DeviceSettings[]>;
   getDeviceSetting(id: string): Promise<DeviceSettings | undefined>;
@@ -125,6 +126,7 @@ class LazyStorage implements IStorage {
   getAttendanceByEmployeeAndDate(empId: string, date: string) { return this.impl().then(s => s.getAttendanceByEmployeeAndDate(empId, date)); }
   createAttendance(d: InsertAttendance) { return this.impl().then(s => s.createAttendance(d)); }
   updateAttendance(id: string, d: Partial<InsertAttendance>) { return this.impl().then(s => s.updateAttendance(id, d)); }
+  deleteAttendance(id: string) { return this.impl().then(s => s.deleteAttendance(id)); }
 
   getDeviceSettings() { return this.impl().then(s => s.getDeviceSettings()); }
   getDeviceSetting(id: string) { return this.impl().then(s => s.getDeviceSetting(id)); }

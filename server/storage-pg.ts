@@ -205,6 +205,10 @@ export class PgStorage implements IStorage {
     return result;
   }
 
+  async deleteAttendance(id: string): Promise<void> {
+    await pgDb.delete(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
+  }
+
   async getDeviceSettings(): Promise<DeviceSettings[]> {
     return pgDb.select().from(schema.deviceSettings);
   }

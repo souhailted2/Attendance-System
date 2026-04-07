@@ -444,6 +444,17 @@ export async function registerRoutes(
     }
   });
 
+  app.delete("/api/attendance/:id", async (req, res) => {
+    try {
+      const existing = await storage.getAttendanceById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Record not found" });
+      await storage.deleteAttendance(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/reports/monthly", async (req, res) => {
     try {
       const month = req.query.month as string;

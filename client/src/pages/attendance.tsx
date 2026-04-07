@@ -8,16 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio } from "lucide-react";
+import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 
 export default function Attendance() {
   const { toast } = useToast();
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [employeeId, setEmployeeId] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -58,6 +60,15 @@ export default function Attendance() {
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/attendance/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      toast({ title: "تم حذف السجل بنجاح" });
+    },
+    onError: (err: Error) => toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" }),
+  });
+
   function resetForm() {
     setEmployeeId(""); setCheckIn(""); setCheckOut(""); setStatus("present"); setNotes("");
   }
@@ -89,24 +100,34 @@ export default function Attendance() {
   }
 
   // توسيع كل سجل يومي إلى حركات فردية (دخول + خروج كصفين منفصلين)
-  const movements: Array<{ id: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" }> = [];
+  const allMovements: Array<{ id: string; recordId: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" }> = [];
 
   for (const record of attendance || []) {
     const emp = employees?.find((e) => e.id === record.employeeId);
     if (record.checkIn) {
-      movements.push({ id: `${record.id}-in`,  emp, date: record.date, time: record.checkIn,  type: "in"  });
+      allMovements.push({ id: `${record.id}-in`,  recordId: record.id, emp, date: record.date, time: record.checkIn,  type: "in"  });
     }
     if (record.checkOut && record.checkOut !== record.checkIn) {
-      movements.push({ id: `${record.id}-out`, emp, date: record.date, time: record.checkOut, type: "out" });
+      allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out" });
     }
     // إذا لم يوجد أي وقت، أظهر الصف بدون وقت
     if (!record.checkIn && !record.checkOut) {
-      movements.push({ id: `${record.id}-none`, emp, date: record.date, time: "", type: "in" });
+      allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in" });
     }
   }
 
   // ترتيب الحركات تنازلياً (الأحدث أولاً)
-  movements.sort((a, b) => b.time.localeCompare(a.time));
+  allMovements.sort((a, b) => b.time.localeCompare(a.time));
+
+  // تصفية البحث بالاسم أو رقم الموظف
+  const q = searchQuery.trim().toLowerCase();
+  const movements = q
+    ? allMovements.filter((mv) =>
+        mv.emp?.name?.toLowerCase().includes(q) ||
+        mv.emp?.employeeCode?.toLowerCase().includes(q) ||
+        mv.emp?.cardNumber?.toLowerCase().includes(q)
+      )
+    : allMovements;
 
   return (
     <div className="p-6 space-y-5">
@@ -258,14 +279,35 @@ export default function Attendance() {
         </div>
       )}
 
+      {/* Search box */}
+      {!isLoading && allMovements.length > 0 && (
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="بحث بالاسم أو رقم الموظف أو رقم البطاقة..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pr-9"
+            data-testid="input-search-attendance"
+          />
+        </div>
+      )}
+
       {/* Movements table */}
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
-      ) : movements.length === 0 ? (
+      ) : movements.length === 0 && allMovements.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <ClipboardCheck className="h-12 w-12 text-muted-foreground mb-3" />
             <p className="text-muted-foreground">لا توجد سجلات حضور لهذا التاريخ</p>
+          </CardContent>
+        </Card>
+      ) : movements.length === 0 && q ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <Search className="h-12 w-12 text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">لا توجد نتائج للبحث عن "{searchQuery}"</p>
           </CardContent>
         </Card>
       ) : (
@@ -280,6 +322,7 @@ export default function Attendance() {
                     <TableHead className="text-right w-32">رقم البطاقة</TableHead>
                     <TableHead className="text-right w-32">التاريخ</TableHead>
                     <TableHead className="text-right w-32">وقت الحركة</TableHead>
+                    <TableHead className="w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -308,6 +351,39 @@ export default function Attendance() {
                           <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </TableCell>
+                      <TableCell>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              data-testid={`button-delete-${mv.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>حذف السجل</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                هل أنت متأكد من حذف سجل الحضور للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
+                                <br />
+                                لا يمكن التراجع عن هذا الإجراء.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteMutation.mutate(mv.recordId)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                حذف
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -318,9 +394,11 @@ export default function Attendance() {
       )}
 
       {/* Total count */}
-      {movements.length > 0 && (
+      {allMovements.length > 0 && (
         <p className="text-sm text-muted-foreground text-center">
-          إجمالي الحركات: <span className="font-semibold">{movements.length}</span>
+          {q && movements.length !== allMovements.length
+            ? `${movements.length} من ${allMovements.length} حركة`
+            : `إجمالي الحركات: ${allMovements.length}`}
         </p>
       )}
     </div>

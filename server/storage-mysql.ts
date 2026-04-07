@@ -254,6 +254,10 @@ export class MysqlStorage implements IStorage {
     return result as AttendanceRecord | undefined;
   }
 
+  async deleteAttendance(id: string): Promise<void> {
+    await mysqlDb.delete(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
+  }
+
   async getDeviceSettings(): Promise<DeviceSettings[]> {
     return mysqlDb.select().from(schema.deviceSettings) as Promise<DeviceSettings[]>;
   }
