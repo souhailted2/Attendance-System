@@ -85,6 +85,19 @@ function notifyAttendanceUpdate() {
   }
 }
 
+// فلترة البصمات المتكررة: إزالة أي بصمة في خلال N دقيقة من السابقة
+function filterDuplicateSwipes(times: string[], minGapMinutes: number): string[] {
+  const result: string[] = [];
+  for (const t of times) {
+    if (result.length === 0) { result.push(t); continue; }
+    const prev = result[result.length - 1];
+    const [ph, pm] = prev.split(":").map(Number);
+    const [th, tm] = t.split(":").map(Number);
+    if ((th * 60 + tm) - (ph * 60 + pm) >= minGapMinutes) result.push(t);
+  }
+  return result;
+}
+
 async function processAttendanceLogs(
   logs: Array<{ uid: string; date: string; times: string[] }>,
   allEmployees: Awaited<ReturnType<typeof storage.getEmployees>>,
@@ -119,8 +132,9 @@ async function processAttendanceLogs(
 
     const workRule = await getWorkRuleForEmployee(employee.id);
     entry.times.sort();
-    const checkIn = entry.times[0] || null;
-    const checkOut = entry.times.length > 1 ? entry.times[entry.times.length - 1] : null;
+    const filteredTimes = filterDuplicateSwipes(entry.times, 5);
+    const checkIn = filteredTimes[0] || null;
+    const checkOut = filteredTimes.length > 1 ? filteredTimes[filteredTimes.length - 1] : null;
 
     let attendanceData: any = {
       employeeId: employee.id,
@@ -161,11 +175,14 @@ async function processAttendanceLogs(
         try {
           const existing = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
           if (existing) {
-            const allTimes = [...new Set([
-              existing.checkIn,
-              existing.checkOut,
-              ...entry.times,
-            ].filter(Boolean) as string[])].sort();
+            const allTimes = filterDuplicateSwipes(
+              [...new Set([
+                existing.checkIn,
+                existing.checkOut,
+                ...entry.times,
+              ].filter(Boolean) as string[])].sort(),
+              5
+            );
 
             const newCheckIn  = allTimes[0] || null;
             const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
