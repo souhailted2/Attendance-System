@@ -33,7 +33,7 @@ export default function Attendance() {
   const { data: employees } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: attendance, isLoading, dataUpdatedAt } = useQuery<AttendanceRecord[]>({
     queryKey: ["/api/attendance", `?date=${date}`],
-    refetchInterval: isToday ? 30000 : false,
+    refetchInterval: isToday ? 5000 : false,
     refetchIntervalInBackground: true,
   });
 
