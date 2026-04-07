@@ -26,6 +26,8 @@ interface DailyRecord {
   status: string;
   lateMinutes: number;
   earlyLeaveMinutes: number;
+  effectiveLateMinutes: number;
+  effectiveEarlyLeaveMinutes: number;
   totalHours: string | null;
   dailyScore: number;
 }
@@ -181,6 +183,24 @@ export default function Reports() {
 
   const totalScore = useMemo(() => reportData.reduce((s, r) => s + (r.attendanceScore || 0), 0), [reportData]);
   const maxScore = useMemo(() => reportData.reduce((s, r) => s + (r.totalDays || 0), 0), [reportData]);
+
+  const allDates = useMemo(() => {
+    const dateSet = new Set<string>();
+    for (const emp of reportData) {
+      for (const rec of emp.dailyRecords) dateSet.add(rec.date);
+    }
+    return [...dateSet].sort();
+  }, [reportData]);
+
+  const empDayMap = useMemo(() => {
+    const map = new Map<string, Map<string, DailyRecord>>();
+    for (const emp of reportData) {
+      const byDate = new Map<string, DailyRecord>();
+      for (const rec of emp.dailyRecords) byDate.set(rec.date, rec);
+      map.set(emp.employeeId, byDate);
+    }
+    return map;
+  }, [reportData]);
 
   const breadcrumb = selectedWorkshop
     ? `${selectedRule?.name} ← ${selectedWorkshop.name}`
@@ -501,49 +521,74 @@ export default function Reports() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-right sticky right-0 bg-background">الموظف</TableHead>
-                        <TableHead className="text-right">الرقم</TableHead>
-                        <TableHead className="text-right">أيام العمل</TableHead>
-                        <TableHead className="text-right">حضور</TableHead>
-                        <TableHead className="text-right">تأخير</TableHead>
-                        <TableHead className="text-right">غياب</TableHead>
-                        <TableHead className="text-right">دق. التأخير</TableHead>
-                        <TableHead className="text-right">النقطة</TableHead>
+                      <TableRow className="border-b-2">
+                        <TableHead className="text-right sticky right-0 bg-background z-10 min-w-[120px]">الموظف</TableHead>
+                        <TableHead className="text-right min-w-[72px]">الرقم</TableHead>
+                        {allDates.map((d) => (
+                          <TableHead key={d} className="text-center min-w-[70px] text-xs px-1">
+                            <div>{d.slice(5)}</div>
+                          </TableHead>
+                        ))}
+                        <TableHead className="text-center min-w-[80px] font-bold">الإجمالي</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {reportData.map((r) => (
-                        <TableRow key={r.employeeId} data-testid={`row-report-${r.employeeId}`}>
-                          <TableCell className="font-medium sticky right-0 bg-background">{r.employeeName}</TableCell>
-                          <TableCell className="text-muted-foreground">{r.employeeCode}</TableCell>
-                          <TableCell>{r.totalDays}</TableCell>
-                          <TableCell><span className="text-green-600 dark:text-green-400 font-medium">{r.presentDays}</span></TableCell>
-                          <TableCell><span className={r.lateDays > 0 ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>{r.lateDays || "-"}</span></TableCell>
-                          <TableCell><span className={r.absentDays > 0 ? "text-destructive font-medium" : ""}>{r.absentDays || "-"}</span></TableCell>
-                          <TableCell>{r.totalLateMinutes || "-"}</TableCell>
-                          <TableCell>
-                            <span className={`text-sm ${scoreColor(r.attendanceScore, r.totalDays)}`} data-testid={`score-${r.employeeId}`}>
-                              {r.attendanceScore.toFixed(2)}
-                            </span>
-                            <span className="text-xs text-muted-foreground mr-1">/ {r.totalDays}</span>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {reportData.map((r) => {
+                        const byDate = empDayMap.get(r.employeeId);
+                        return (
+                          <TableRow key={r.employeeId} data-testid={`row-report-${r.employeeId}`}>
+                            <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs">{r.employeeCode}</TableCell>
+                            {allDates.map((d) => {
+                              const rec = byDate?.get(d);
+                              if (!rec) return <TableCell key={d} className="text-center text-muted-foreground text-xs">—</TableCell>;
+                              const s = rec.dailyScore;
+                              const cls = s >= 0.95
+                                ? "text-green-600 dark:text-green-400 font-semibold"
+                                : s >= 0.80
+                                ? "text-amber-600 dark:text-amber-400 font-semibold"
+                                : s > 0
+                                ? "text-red-600 dark:text-red-400 font-semibold"
+                                : "text-muted-foreground";
+                              return (
+                                <TableCell key={d} className="text-center px-1">
+                                  <span className={`text-xs ${cls}`} title={`${rec.status} | دخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}>
+                                    {s.toFixed(2)}
+                                  </span>
+                                </TableCell>
+                              );
+                            })}
+                            <TableCell className="text-center font-bold">
+                              <span className={`text-sm ${scoreColor(r.attendanceScore, r.totalDays)}`} data-testid={`score-${r.employeeId}`}>
+                                {r.attendanceScore.toFixed(2)}
+                              </span>
+                              <span className="text-xs text-muted-foreground mr-1">/{r.totalDays}</span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                       {/* Totals row */}
                       <TableRow className="bg-muted/50 font-bold border-t-2">
-                        <TableCell className="sticky right-0 bg-muted/50">المجموع</TableCell>
+                        <TableCell className="sticky right-0 bg-muted/50 z-10">المجموع</TableCell>
                         <TableCell />
-                        <TableCell>{reportData.reduce((s, r) => s + r.totalDays, 0)}</TableCell>
-                        <TableCell className="text-green-600 dark:text-green-400">{reportData.reduce((s, r) => s + r.presentDays, 0)}</TableCell>
-                        <TableCell className="text-amber-600 dark:text-amber-400">{reportData.reduce((s, r) => s + r.lateDays, 0)}</TableCell>
-                        <TableCell className="text-destructive">{reportData.reduce((s, r) => s + r.absentDays, 0)}</TableCell>
-                        <TableCell>{reportData.reduce((s, r) => s + r.totalLateMinutes, 0)}</TableCell>
-                        <TableCell>
+                        {allDates.map((d) => {
+                          const dayTotal = reportData.reduce((s, r) => {
+                            const rec = empDayMap.get(r.employeeId)?.get(d);
+                            return s + (rec?.dailyScore ?? 0);
+                          }, 0);
+                          return (
+                            <TableCell key={d} className="text-center text-xs px-1">
+                              <span className={scoreColor(dayTotal, reportData.length)}>
+                                {dayTotal.toFixed(2)}
+                              </span>
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center">
                           <span className={`text-sm ${scoreColor(totalScore, maxScore)}`}>
                             {totalScore.toFixed(2)}
                           </span>
-                          <span className="text-xs text-muted-foreground mr-1">/ {maxScore}</span>
+                          <span className="text-xs text-muted-foreground mr-1">/{maxScore}</span>
                         </TableCell>
                       </TableRow>
                     </TableBody>

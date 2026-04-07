@@ -578,13 +578,16 @@ export async function registerRoutes(
             rec.checkOut, workRule?.workEndTime ?? "16:00", earlyLeaveGrace, lateLeaveGrace,
           );
 
+          const effectiveLateMinutes = Math.max(0, rec.lateMinutes - lateArrivalGrace);
+          const effectiveEarlyLeaveMinutes = Math.max(0, rec.earlyLeaveMinutes - earlyLeaveGrace);
+
           let dailyScore = 0;
           if (rec.status === "absent") {
             dailyScore = 0;
           } else if (rec.status === "leave") {
             dailyScore = 1;
           } else {
-            dailyScore = Math.max(0, 1 - (rec.lateMinutes + rec.earlyLeaveMinutes) / totalWorkDayMinutes);
+            dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes) / totalWorkDayMinutes);
           }
           attendanceScore += dailyScore;
           return {
@@ -596,6 +599,8 @@ export async function registerRoutes(
             status: rec.status,
             lateMinutes: rec.lateMinutes,
             earlyLeaveMinutes: rec.earlyLeaveMinutes,
+            effectiveLateMinutes,
+            effectiveEarlyLeaveMinutes,
             totalHours: rec.totalHours,
             dailyScore: Math.round(dailyScore * 100) / 100,
           };
