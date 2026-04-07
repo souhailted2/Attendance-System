@@ -520,6 +520,72 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/reports/range", async (req, res) => {
+    try {
+      const from = req.query.from as string;
+      const to = req.query.to as string;
+      const workRuleId = req.query.workRuleId as string | undefined;
+      const workshopId = req.query.workshopId as string | undefined;
+
+      if (!from || !to) return res.status(400).json({ message: "from and to dates required" });
+
+      const allEmployees = await storage.getEmployees();
+      const allWorkshops = await storage.getWorkshops();
+      const allWorkRules = await storage.getWorkRules();
+      const records = await storage.getAttendanceByDateRange(from, to);
+
+      let filteredEmployees = allEmployees.filter(e => e.isActive);
+      if (workRuleId) filteredEmployees = filteredEmployees.filter(e => e.workRuleId === workRuleId);
+      if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
+
+      const report = filteredEmployees.map(emp => {
+        const workRule = allWorkRules.find(r => r.id === emp.workRuleId) || allWorkRules.find(r => r.isDefault) || allWorkRules[0];
+        const workshop = allWorkshops.find(w => w.id === emp.workshopId);
+        const empRecords = records.filter(r => r.employeeId === emp.id);
+
+        let totalWorkDayMinutes = 480;
+        if (workRule) {
+          const [startH, startM] = workRule.workStartTime.split(":").map(Number);
+          const [endH, endM] = workRule.workEndTime.split(":").map(Number);
+          totalWorkDayMinutes = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
+        }
+
+        let attendanceScore = 0;
+        for (const rec of empRecords) {
+          if (rec.status === "absent") {
+            attendanceScore += 0;
+          } else if (rec.status === "leave") {
+            attendanceScore += 1;
+          } else {
+            const deduction = (rec.lateMinutes + rec.earlyLeaveMinutes) / totalWorkDayMinutes;
+            attendanceScore += Math.max(0, 1 - deduction);
+          }
+        }
+
+        return {
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeCode: emp.employeeCode,
+          workshopId: emp.workshopId || "",
+          workshopName: workshop?.name || "",
+          workRuleId: emp.workRuleId || "",
+          totalDays: empRecords.length,
+          presentDays: empRecords.filter(r => r.status === "present").length,
+          lateDays: empRecords.filter(r => r.status === "late").length,
+          absentDays: empRecords.filter(r => r.status === "absent").length,
+          leaveDays: empRecords.filter(r => r.status === "leave").length,
+          totalLateMinutes: empRecords.reduce((s, r) => s + r.lateMinutes, 0),
+          totalHours: empRecords.reduce((s, r) => s + parseFloat(r.totalHours || "0"), 0),
+          attendanceScore: Math.round(attendanceScore * 100) / 100,
+        };
+      });
+
+      res.json(report);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.get("/api/device-settings", async (_req, res) => {
     const data = await storage.getDeviceSettings();
     res.json(data);

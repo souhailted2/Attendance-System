@@ -30,7 +30,7 @@ const mainItems = [
   { title: "لوحة التحكم", url: "/", icon: LayoutDashboard },
   { title: "الموظفين", url: "/employees", icon: Users },
   { title: "سجل الحضور", url: "/attendance", icon: ClipboardCheck },
-  { title: "التقارير الشهرية", url: "/reports", icon: BarChart3 },
+  { title: "التقارير", url: "/reports", icon: BarChart3 },
 ];
 
 const settingsItems = [
