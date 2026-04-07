@@ -547,9 +547,7 @@ export default function Reports() {
                                 ? "text-green-600 dark:text-green-400 font-semibold"
                                 : s >= 0.80
                                 ? "text-amber-600 dark:text-amber-400 font-semibold"
-                                : s > 0
-                                ? "text-red-600 dark:text-red-400 font-semibold"
-                                : "text-muted-foreground";
+                                : "text-red-600 dark:text-red-400 font-semibold";
                               return (
                                 <TableCell key={d} className="text-center px-1">
                                   <span className={`text-xs ${cls}`} title={`${rec.status} | دخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}>
