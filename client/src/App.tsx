@@ -17,6 +17,7 @@ import Devices from "@/pages/devices";
 import ImportData from "@/pages/import-data";
 import CrudPage from "@/pages/crud-page";
 import AgentSettings from "@/pages/agent-settings";
+import Shifts from "@/pages/shifts";
 import { Building2, Wrench, Briefcase } from "lucide-react";
 
 function Router() {
@@ -59,6 +60,7 @@ function Router() {
           ]}
         />
       </Route>
+      <Route path="/shifts" component={Shifts} />
       <Route path="/work-rules" component={WorkRules} />
       <Route path="/devices" component={Devices} />
       <Route path="/import" component={ImportData} />

@@ -11,6 +11,7 @@ import {
   Fingerprint,
   Upload,
   Bot,
+  CalendarClock,
 } from "lucide-react";
 import {
   Sidebar,
@@ -33,6 +34,7 @@ const mainItems = [
 ];
 
 const settingsItems = [
+  { title: "الفترات", url: "/shifts", icon: CalendarClock },
   { title: "الشركات", url: "/companies", icon: Building2 },
   { title: "الورش", url: "/workshops", icon: Wrench },
   { title: "المناصب", url: "/positions", icon: Briefcase },
