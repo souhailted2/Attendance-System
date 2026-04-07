@@ -550,17 +550,35 @@ export async function registerRoutes(
           totalWorkDayMinutes = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
         }
 
+        const lateGrace = workRule?.lateGraceMinutes ?? 0;
+        const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
+
         let attendanceScore = 0;
-        for (const rec of empRecords) {
+        const dailyRecords = empRecords.map(rec => {
+          const effectiveLate = Math.max(0, rec.lateMinutes - lateGrace);
+          const effectiveEarlyLeave = Math.max(0, rec.earlyLeaveMinutes - earlyLeaveGrace);
+          let dailyScore = 0;
           if (rec.status === "absent") {
-            attendanceScore += 0;
+            dailyScore = 0;
           } else if (rec.status === "leave") {
-            attendanceScore += 1;
+            dailyScore = 1;
           } else {
-            const deduction = (rec.lateMinutes + rec.earlyLeaveMinutes) / totalWorkDayMinutes;
-            attendanceScore += Math.max(0, 1 - deduction);
+            dailyScore = Math.max(0, 1 - (effectiveLate + effectiveEarlyLeave) / totalWorkDayMinutes);
           }
-        }
+          attendanceScore += dailyScore;
+          return {
+            date: rec.date,
+            checkIn: rec.checkIn,
+            checkOut: rec.checkOut,
+            status: rec.status,
+            lateMinutes: rec.lateMinutes,
+            earlyLeaveMinutes: rec.earlyLeaveMinutes,
+            effectiveLateMinutes: effectiveLate,
+            effectiveEarlyLeaveMinutes: effectiveEarlyLeave,
+            totalHours: rec.totalHours,
+            dailyScore: Math.round(dailyScore * 100) / 100,
+          };
+        });
 
         return {
           employeeId: emp.id,
@@ -577,6 +595,7 @@ export async function registerRoutes(
           totalLateMinutes: empRecords.reduce((s, r) => s + r.lateMinutes, 0),
           totalHours: empRecords.reduce((s, r) => s + parseFloat(r.totalHours || "0"), 0),
           attendanceScore: Math.round(attendanceScore * 100) / 100,
+          dailyRecords,
         };
       });
 

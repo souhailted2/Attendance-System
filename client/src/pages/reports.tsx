@@ -128,10 +128,10 @@ export default function Reports() {
   function startEditGrace(rule: WorkRule) {
     setEditingRuleId(rule.id);
     setGraceForm({
-      earlyArrivalGraceMinutes: (rule as any).earlyArrivalGraceMinutes ?? 0,
+      earlyArrivalGraceMinutes: rule.earlyArrivalGraceMinutes ?? 0,
       lateGraceMinutes: rule.lateGraceMinutes ?? 0,
-      earlyLeaveGraceMinutes: (rule as any).earlyLeaveGraceMinutes ?? 0,
-      lateLeaveGraceMinutes: (rule as any).lateLeaveGraceMinutes ?? 0,
+      earlyLeaveGraceMinutes: rule.earlyLeaveGraceMinutes ?? 0,
+      lateLeaveGraceMinutes: rule.lateLeaveGraceMinutes ?? 0,
     });
   }
 
@@ -230,10 +230,10 @@ export default function Reports() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {workRules.map((rule) => {
               const isEditing = editingRuleId === rule.id;
-              const earlyArr = isEditing ? graceForm.earlyArrivalGraceMinutes : ((rule as any).earlyArrivalGraceMinutes ?? 0);
+              const earlyArr = isEditing ? graceForm.earlyArrivalGraceMinutes : (rule.earlyArrivalGraceMinutes ?? 0);
               const lateArr = isEditing ? graceForm.lateGraceMinutes : (rule.lateGraceMinutes ?? 0);
-              const earlyLv = isEditing ? graceForm.earlyLeaveGraceMinutes : ((rule as any).earlyLeaveGraceMinutes ?? 0);
-              const lateLv = isEditing ? graceForm.lateLeaveGraceMinutes : ((rule as any).lateLeaveGraceMinutes ?? 0);
+              const earlyLv = isEditing ? graceForm.earlyLeaveGraceMinutes : (rule.earlyLeaveGraceMinutes ?? 0);
+              const lateLv = isEditing ? graceForm.lateLeaveGraceMinutes : (rule.lateLeaveGraceMinutes ?? 0);
 
               const arrivalFrom = addMinutesToTime(rule.workStartTime, -earlyArr);
               const arrivalTo = addMinutesToTime(rule.workStartTime, lateArr);

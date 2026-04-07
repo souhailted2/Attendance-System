@@ -34,6 +34,9 @@ export const workRules = mysqlTable("work_rules", {
   workStartTime: text("work_start_time").notNull().default("08:00"),
   workEndTime: text("work_end_time").notNull().default("16:00"),
   lateGraceMinutes: int("late_grace_minutes").notNull().default(0),
+  earlyArrivalGraceMinutes: int("early_arrival_grace_minutes").notNull().default(0),
+  earlyLeaveGraceMinutes: int("early_leave_grace_minutes").notNull().default(0),
+  lateLeaveGraceMinutes: int("late_leave_grace_minutes").notNull().default(0),
   latePenaltyPerMinute: text("late_penalty_per_minute").notNull().default("0"),
   earlyLeavePenaltyPerMinute: text("early_leave_penalty_per_minute").notNull().default("0"),
   absencePenalty: text("absence_penalty").notNull().default("0"),
@@ -98,7 +101,9 @@ export const insertCompanySchema = createInsertSchema(companies).pick({ name: tr
 export const insertWorkshopSchema = createInsertSchema(workshops).pick({ name: true, description: true });
 export const insertPositionSchema = createInsertSchema(positions).pick({ name: true, description: true });
 export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
-  name: true, workStartTime: true, workEndTime: true, lateGraceMinutes: true,
+  name: true, workStartTime: true, workEndTime: true,
+  lateGraceMinutes: true, earlyArrivalGraceMinutes: true,
+  earlyLeaveGraceMinutes: true, lateLeaveGraceMinutes: true,
   latePenaltyPerMinute: true, earlyLeavePenaltyPerMinute: true, absencePenalty: true, isDefault: true,
 });
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
