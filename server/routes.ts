@@ -537,6 +537,28 @@ export async function registerRoutes(
       const allWorkRules = await storage.getWorkRules();
       const records = await storage.getAttendanceByDateRange(from, to);
 
+      // Load weekly off days
+      const offDaySetting = await storage.getAppSetting("weeklyOffDays");
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
+
+      // Build full date range list
+      const allDatesInRange: string[] = [];
+      const curDate = new Date(from + "T00:00:00");
+      const endDate = new Date(to + "T00:00:00");
+      while (curDate <= endDate) {
+        allDatesInRange.push(curDate.toISOString().slice(0, 10));
+        curDate.setDate(curDate.getDate() + 1);
+      }
+      // Set of dates that are holidays (day-of-week in weeklyOffDays)
+      const holidayDateSet = new Set<string>(
+        weeklyOffDays.length > 0
+          ? allDatesInRange.filter(d => {
+              const dow = new Date(d + "T00:00:00").getDay();
+              return weeklyOffDays.includes(dow);
+            })
+          : []
+      );
+
       let filteredEmployees = allEmployees.filter(e => e.isActive);
       if (workRuleId) filteredEmployees = filteredEmployees.filter(e => e.workRuleId === workRuleId);
       if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
@@ -633,6 +655,47 @@ export async function registerRoutes(
           };
         });
 
+        // --- Holiday injection ---
+        // Override existing records on holiday dates, and add synthetic records for missing dates
+        for (const date of holidayDateSet) {
+          const existing = dailyRecords.find(r => r.date === date);
+          if (existing) {
+            // Override status and score; keep checkIn/checkOut for reference
+            existing.status = "holiday";
+            existing.dailyScore = 1.00;
+            existing.lateMinutes = 0;
+            existing.earlyLeaveMinutes = 0;
+            existing.effectiveLateMinutes = 0;
+            existing.effectiveEarlyLeaveMinutes = 0;
+            existing.overtimeHours = 0;
+          } else {
+            // Inject synthetic holiday record
+            dailyRecords.push({
+              date,
+              checkIn: null,
+              checkOut: null,
+              normalizedCheckIn: null,
+              normalizedCheckOut: null,
+              status: "holiday",
+              lateMinutes: 0,
+              earlyLeaveMinutes: 0,
+              effectiveLateMinutes: 0,
+              effectiveEarlyLeaveMinutes: 0,
+              totalHours: null,
+              dailyScore: 1.00,
+              pending: false,
+              overtimeHours: 0,
+            });
+          }
+        }
+        // Re-sort by date after injection
+        dailyRecords.sort((a, b) => a.date.localeCompare(b.date));
+
+        // Recompute attendanceScore from final dailyRecords
+        attendanceScore = dailyRecords.reduce((s, r) => s + r.dailyScore, 0);
+
+        const holidayDays = dailyRecords.filter(r => r.status === "holiday").length;
+
         return {
           employeeId: emp.id,
           employeeName: emp.name,
@@ -640,11 +703,12 @@ export async function registerRoutes(
           workshopId: emp.workshopId || "",
           workshopName: workshop?.name || "",
           workRuleId: emp.workRuleId || "",
-          totalDays: empRecords.length,
-          presentDays: empRecords.filter(r => r.status === "present").length,
-          lateDays: empRecords.filter(r => r.status === "late").length,
-          absentDays: empRecords.filter(r => r.status === "absent").length,
-          leaveDays: empRecords.filter(r => r.status === "leave").length,
+          totalDays: dailyRecords.length,
+          presentDays: dailyRecords.filter(r => r.status === "present").length,
+          lateDays: dailyRecords.filter(r => r.status === "late").length,
+          absentDays: dailyRecords.filter(r => r.status === "absent").length,
+          leaveDays: dailyRecords.filter(r => r.status === "leave").length,
+          holidayDays,
           totalLateMinutes: dailyRecords.reduce((s, r) => s + r.lateMinutes, 0),
           totalHours: empRecords.reduce((s, r) => s + parseFloat(r.totalHours || "0"), 0),
           attendanceScore: Math.round(attendanceScore * 100) / 100,
@@ -762,6 +826,29 @@ export async function registerRoutes(
       res.json(result);
     } catch (error: any) {
       res.json({ success: false, message: `خطأ: ${error.message}` });
+    }
+  });
+
+  // Weekly off days settings
+  app.get("/api/settings/weekly-off-days", async (_req, res) => {
+    try {
+      const setting = await storage.getAppSetting("weeklyOffDays");
+      const days: number[] = setting ? JSON.parse(setting.value) : [];
+      res.json({ days });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/settings/weekly-off-days", async (req, res) => {
+    try {
+      const { days } = req.body;
+      if (!Array.isArray(days) || days.some(d => typeof d !== "number" || d < 0 || d > 6))
+        return res.status(400).json({ message: "days must be an array of integers 0–6" });
+      await storage.setAppSetting("weeklyOffDays", JSON.stringify(days));
+      res.json({ days });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 
