@@ -606,7 +606,8 @@ export async function registerRoutes(
           } else {
             dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes) / totalWorkDayMinutes);
           }
-          attendanceScore += dailyScore;
+          const roundedScore = Math.round(dailyScore * 100) / 100;
+          attendanceScore += roundedScore;
           return {
             date: rec.date,
             checkIn: rec.checkIn,
@@ -619,7 +620,7 @@ export async function registerRoutes(
             effectiveLateMinutes,
             effectiveEarlyLeaveMinutes,
             totalHours: rec.totalHours,
-            dailyScore: Math.round(dailyScore * 100) / 100,
+            dailyScore: roundedScore,
           };
         });
 
