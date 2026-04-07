@@ -36,7 +36,7 @@ const mainItems = [
 const settingsItems = [
   { title: "الفترات", url: "/shifts", icon: CalendarClock },
   { title: "الشركات", url: "/companies", icon: Building2 },
-  { title: "الورش", url: "/workshops", icon: Wrench },
+  { title: "الورشات", url: "/workshops", icon: Wrench },
   { title: "المناصب", url: "/positions", icon: Briefcase },
   { title: "قواعد العمل", url: "/work-rules", icon: Scale },
 ];

@@ -18,6 +18,7 @@ import ImportData from "@/pages/import-data";
 import CrudPage from "@/pages/crud-page";
 import AgentSettings from "@/pages/agent-settings";
 import Shifts from "@/pages/shifts";
+import Workshops from "@/pages/workshops";
 import { Building2, Wrench, Briefcase } from "lucide-react";
 
 function Router() {
@@ -38,17 +39,7 @@ function Router() {
           ]}
         />
       </Route>
-      <Route path="/workshops">
-        <CrudPage
-          title="الورش"
-          apiPath="/api/workshops"
-          icon={Wrench}
-          fields={[
-            { key: "name", label: "اسم الورشة", required: true },
-            { key: "description", label: "الوصف" },
-          ]}
-        />
-      </Route>
+      <Route path="/workshops" component={Workshops} />
       <Route path="/positions">
         <CrudPage
           title="المناصب"
