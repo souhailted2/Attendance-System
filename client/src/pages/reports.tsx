@@ -221,14 +221,16 @@ export default function Reports() {
     [overtimeData]);
 
   const allOvertimeDates = useMemo(() => {
-    const dateSet = new Set<string>();
-    for (const emp of employeesWithOvertime) {
-      for (const rec of emp.dailyRecords) {
-        if (rec.overtimeHours > 0) dateSet.add(rec.date);
-      }
+    if (!dateFrom || !dateTo) return [];
+    const dates: string[] = [];
+    const cur = new Date(dateFrom);
+    const end = new Date(dateTo);
+    while (cur <= end) {
+      dates.push(cur.toISOString().slice(0, 10));
+      cur.setDate(cur.getDate() + 1);
     }
-    return [...dateSet].sort();
-  }, [employeesWithOvertime]);
+    return dates;
+  }, [dateFrom, dateTo]);
 
   const overtimeDayMap = useMemo(() => {
     const map = new Map<string, Map<string, DailyRecord>>();
@@ -305,12 +307,29 @@ export default function Reports() {
             <Skeleton className="h-44 w-full" /><Skeleton className="h-44 w-full" />
           </div>
         ) : workRules.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
-              <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
-              <p>لا توجد فترات عمل مُعرَّفة. أضف فترات من صفحة قواعد العمل.</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
+                <p>لا توجد فترات عمل مُعرَّفة. أضف فترات من صفحة قواعد العمل.</p>
+              </CardContent>
+            </Card>
+            <Card
+              className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all bg-indigo-50/40 dark:bg-indigo-950/20"
+              onClick={() => { setViewMode("overtime"); setSelectedRule(null); setSelectedWorkshop(null); }}
+              data-testid="card-overtime-empty"
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
+                  <Clock className="h-4 w-4" />
+                  الساعات الإضافية
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">عرض تقرير الساعات الإضافية لجميع الموظفين.</p>
+              </CardContent>
+            </Card>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {workRules.map((rule) => {
