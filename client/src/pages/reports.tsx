@@ -356,12 +356,12 @@ export default function Reports() {
               </CardContent>
             </Card>
             <Card
-              className="border-2 border-dashed border-emerald-300 dark:border-emerald-700 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all bg-emerald-50/40 dark:bg-emerald-950/20"
+              className="border-2 border-dashed border-blue-300 dark:border-blue-700 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all bg-blue-50/40 dark:bg-blue-950/20"
               onClick={() => { setViewMode("holidays"); setSelectedRule(null); setSelectedWorkshop(null); }}
               data-testid="card-holidays-empty"
             >
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-emerald-700 dark:text-emerald-400">
+                <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-400">
                   <Calendar className="h-4 w-4" />
                   العطل الأسبوعية
                 </CardTitle>
@@ -509,12 +509,12 @@ export default function Reports() {
             </Card>
             {/* Holidays card */}
             <Card
-              className="border-2 border-dashed border-emerald-300 dark:border-emerald-700 cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all bg-emerald-50/40 dark:bg-emerald-950/20"
+              className="border-2 border-dashed border-blue-300 dark:border-blue-700 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all bg-blue-50/40 dark:bg-blue-950/20"
               onClick={() => { setViewMode("holidays"); setSelectedRule(null); setSelectedWorkshop(null); }}
               data-testid="card-holidays"
             >
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-emerald-700 dark:text-emerald-400">
+                <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-400">
                   <Calendar className="h-4 w-4" />
                   العطل الأسبوعية
                 </CardTitle>
@@ -635,7 +635,7 @@ export default function Reports() {
           </Button>
 
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-emerald-600" />
+            <Calendar className="h-5 w-5 text-blue-600" />
             إعداد العطل الأسبوعية
           </h2>
 
@@ -664,13 +664,13 @@ export default function Reports() {
                           key={dow}
                           className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all
                             ${checked
-                              ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400"
-                              : "border-border hover:border-emerald-300"}`}
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400"
+                              : "border-border hover:border-blue-300"}`}
                           data-testid={`checkbox-day-${dow}`}
                         >
                           <input
                             type="checkbox"
-                            className="accent-emerald-600"
+                            className="accent-blue-600"
                             checked={checked}
                             onChange={() => {
                               setSelectedOffDays(prev =>
@@ -687,7 +687,7 @@ export default function Reports() {
                     <Button
                       onClick={() => saveOffDaysMutation.mutate(selectedOffDays)}
                       disabled={saveOffDaysMutation.isPending}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
                       data-testid="button-save-off-days"
                     >
                       {saveOffDaysMutation.isPending ? "جاري الحفظ..." : "حفظ التغييرات"}
@@ -847,8 +847,8 @@ export default function Reports() {
                               if (!rec) return <TableCell key={d} className="text-center text-muted-foreground text-xs">—</TableCell>;
                               if (rec.status === "holiday") {
                                 return (
-                                  <TableCell key={d} className="text-center px-1 bg-emerald-50/60 dark:bg-emerald-950/20">
-                                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold" title="يوم عطلة أسبوعية">★</span>
+                                  <TableCell key={d} className="text-center px-1 bg-blue-50/60 dark:bg-blue-950/20">
+                                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold" title="يوم عطلة أسبوعية">★</span>
                                   </TableCell>
                                 );
                               }
