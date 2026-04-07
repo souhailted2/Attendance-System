@@ -853,6 +853,24 @@ export default function Reports() {
                                 );
                               }
                               if (rec.pending) {
+                                if (rec.overtimeHours > 0) {
+                                  const s = rec.dailyScore;
+                                  const cls = s >= 0.95
+                                    ? "text-green-600 dark:text-green-400 font-semibold"
+                                    : s >= 0.80
+                                    ? "text-amber-600 dark:text-amber-400 font-semibold"
+                                    : "text-red-600 dark:text-red-400 font-semibold";
+                                  return (
+                                    <TableCell key={d} className="text-center px-1">
+                                      <span
+                                        className={`text-xs ${cls}`}
+                                        title={`دخول: ${rec.checkIn} | س.إضافية: ${rec.overtimeHours} | لم يسجل الخروج بعد`}
+                                      >
+                                        {s.toFixed(2)}<span className="text-amber-400 mr-0.5">+</span>
+                                      </span>
+                                    </TableCell>
+                                  );
+                                }
                                 return (
                                   <TableCell key={d} className="text-center px-1">
                                     <span className="text-xs text-amber-500 dark:text-amber-400 font-semibold" title={`في انتظار تسجيل الخروج | دخول: ${rec.checkIn}`}>؟</span>

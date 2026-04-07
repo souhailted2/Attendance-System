@@ -631,8 +631,9 @@ export async function registerRoutes(
           const roundedScore = Math.round(dailyScore * 100) / 100;
           attendanceScore += roundedScore;
 
-          const earlyOT = (checkInMin !== null && checkInMin < workStartMin)
-            ? workStartMin - checkInMin : 0;
+          const earlyGraceCutoff = workStartMin - earlyArrivalGrace;
+          const earlyOT = (checkInMin !== null && checkInMin < earlyGraceCutoff)
+            ? earlyGraceCutoff - checkInMin : 0;
           const lateOT = (checkOutMin !== null && checkOutMin > workEndMin + lateLeaveGrace)
             ? checkOutMin - (workEndMin + lateLeaveGrace) : 0;
           const overtimeHours = Math.round((earlyOT + lateOT) / 60 * 10) / 10;
