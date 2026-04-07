@@ -1,0 +1,61 @@
+[u807293731@us-imm-web485 attendance]$ pm2 restart attendance && pm2 logs attendance --lines 30
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [attendance](ids: [ 0 ])
+[PM2] [attendance](0) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ attendance         │ fork     │ 1    │ online    │ 0%       │ 22.5mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[TAILING] Tailing last 30 lines for [attendance] process (change the value with --lines option)
+/home/u807293731/.pm2/logs/attendance-out.log last 30 lines:
+0|attendan | 2:32:25 PM [express] serving on port 3000
+0|attendan | 4:47:25 PM [express] serving on port 3000
+0|attendan | 4:47:27 PM [express] GET /api/workshops 200 in 7ms
+0|attendan | 4:47:27 PM [express] GET /api/companies 200 in 15ms
+0|attendan | 4:47:27 PM [express] GET /api/employees 200 in 29ms
+0|attendan | 4:47:27 PM [express] GET /api/attendance/ 200 in 53ms
+
+/home/u807293731/.pm2/logs/attendance-error.log last 30 lines:
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:80:119486
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendan |     at Object.<anonymous> (/home/u807293731/attendance/dist/index.cjs:96:24479)
+0|attendan |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|attendan |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|attendan |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|attendan |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|attendan |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+0|attendan | Error: DATABASE_URL must be set
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:80:109492
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:80:119468
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendan |     at Object.<anonymous> (/home/u807293731/attendance/dist/index.cjs:96:24479)
+0|attendan |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|attendan |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|attendan |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|attendan |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|attendan |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+0|attendan | Error: DATABASE_URL must be set
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:80:109495
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:80:119923
+0|attendan |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendan |     at Object.<anonymous> (/home/u807293731/attendance/dist/index.cjs:96:24479)
+0|attendan |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|attendan |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|attendan |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|attendan |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|attendan |     at cjsLoader (node:internal/modules/esm/translators:298:15)
+
+0|attendance  | Error: DATABASE_URL must be set
+0|attendance  |     at /home/u807293731/attendance/dist/index.cjs:80:109495
+0|attendance  |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendance  |     at /home/u807293731/attendance/dist/index.cjs:80:119923
+0|attendance  |     at /home/u807293731/attendance/dist/index.cjs:1:230
+0|attendance  |     at Object.<anonymous> (/home/u807293731/attendance/dist/index.cjs:96:24479)
+0|attendance  |     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+0|attendance  |     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+0|attendance  |     at Module.load (node:internal/modules/cjs/loader:1266:32)
+0|attendance  |     at Module._load (node:internal/modules/cjs/loader:1091:12)
+0|attendance  |     at cjsLoader (node:internal/modules/esm/translators:298:15)

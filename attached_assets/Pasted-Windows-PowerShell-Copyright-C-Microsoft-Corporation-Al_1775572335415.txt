@@ -1,0 +1,110 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
+PS C:\Users\ounz> ssh -p 65002 u807293731@109.106.251.14
+u807293731@109.106.251.14's password:
+Permission denied, please try again.
+u807293731@109.106.251.14's password:
+Last failed login: Tue Apr  7 14:25:40 UTC 2026 from 197.205.0.153 on ssh:notty
+There were 5 failed login attempts since the last successful login.
+
+   HHHH               HHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHHHHHHHHHHHHHH  HHHHH
+   HHHHHHHHHHHHHHHHHHHHHHHHH
+     HHHHHHHHHHHHHHHHHHHHHHHHH
+   HHHH  HHHHHHHHHHHHHHHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+   HHHHHHHH           HHHHHHHH
+       HHHH               HHHH
+
+Welcome back! The time now is 14:25 UTC
+Server load: 17.24, 17.20, 17.08
+
+Link to hPanel:
+https://hpanel.hostinger.com/
+
+[u807293731@us-imm-web485 ~]$ pm2 restart attendance --update-env && curl -s http://localhost:3000/api/employees | head -c 100
+[PM2] Applying action restartProcessId on app [attendance](ids: [ 0 ])
+[PM2] [attendance](0) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ attendance         │ fork     │ 2    │ online    │ 0%       │ 20.3mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[u807293731@us-imm-web485 ~]$ cd ~/attendance
+node -e "
+const fs = require('fs');
+const env = {};
+fs.readFileSync('.env','utf8').split('\n').forEach(line=>{
+  line=line.trim();
+  if(line && !line.startsWith('#')){
+    const i=line.indexOf('=');
+    if(i>0) env[line.slice(0,i).trim()]=line.slice(i+1).trim();
+  }
+});
+fs.writeFileSync('ecosystem.config.js',\`module.exports={apps:[{name:'attendance',script:'dist/index.cjs',env:\${JSON.stringify(env,null,2)}}]};\`);
+console.log('تم إنشاء ecosystem.config.js');
+"
+-bash: !line.startsWith: event not found
+[eval]:8
+  }
+  ^
+
+SyntaxError: missing ) after argument list
+    at makeContextifyScript (node:internal/vm:185:14)
+    at node:internal/process/execution:107:22
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:101:62)
+    at evalScript (node:internal/process/execution:133:3)
+    at node:internal/main/eval_string:51:3
+
+Node.js v20.20.2
+[u807293731@us-imm-web485 attendance]$ pm2 delete attendance
+pm2 start ecosystem.config.js
+pm2 save
+[PM2] Applying action deleteProcessId on app [attendance](ids: [ 0 ])
+[PM2] [attendance](0) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[PM2][ERROR] File ecosystem.config.js not found
+[PM2] Saving current process list...
+[PM2][WARN] PM2 is not managing any process, skipping save...
+[PM2][WARN] To force saving use: pm2 save --force
+[u807293731@us-imm-web485 attendance]$ cd ~/attendance
+node << 'EOF'
+const fs = require('fs');
+const env = {};
+const lines = fs.readFileSync('.env', 'utf8').split('\n');
+for (const line of lines) {
+  const t = line.trim();
+  if (t && t[0] !== '#') {
+    const i = t.indexOf('=');
+    if (i > 0) env[t.slice(0,i).trim()] = t.slice(i+1).trim();
+  }
+}
+fs.writeFileSync('ecosystem.config.js', 'module.exports={apps:[{name:"attendance",script:"dist/index.cjs",env:' + JSON.stringify(env,null,2) + '}]};');
+console.log('تم إنشاء ecosystem.config.js');
+EOF
+تم إنشاء ecosystem.config.js
+[u807293731@us-imm-web485 attendance]$ pm2 start ecosystem.config.js && pm2 save
+[PM2][ERROR] File ecosystem.config.js malformated
+ReferenceError: module is not defined in ES module scope
+This file is being treated as an ES module because it has a '.js' file extension and '/home/u807293731/attendance/package.json' contains "type": "module". To treat it as a CommonJS script, rename it to use the '.cjs' file extension.
+    at file:///home/u807293731/attendance/ecosystem.config.js:1:1
+    at ModuleJobSync.runSync (node:internal/modules/esm/module_job:437:37)
+    at ModuleLoader.importSyncForRequire (node:internal/modules/esm/loader:389:47)
+    at loadESMFromCJS (node:internal/modules/cjs/loader:1363:24)
+    at Module._compile (node:internal/modules/cjs/loader:1503:5)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+[u807293731@us-imm-web485 attendance]$

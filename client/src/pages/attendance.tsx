@@ -61,10 +61,16 @@ export default function Attendance() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/attendance/${id}`),
+    mutationFn: ({ recordId, type }: { recordId: string; type: "in" | "out" | "none" }) => {
+      if (type === "none") {
+        return apiRequest("DELETE", `/api/attendance/${recordId}`);
+      }
+      const patch = type === "in" ? { checkIn: null } : { checkOut: null };
+      return apiRequest("PATCH", `/api/attendance/${recordId}`, patch);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
-      toast({ title: "تم حذف السجل بنجاح" });
+      toast({ title: "تم حذف الوقت بنجاح" });
     },
     onError: (err: Error) => toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" }),
   });
@@ -367,15 +373,15 @@ export default function Attendance() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>حذف السجل</AlertDialogTitle>
                               <AlertDialogDescription>
-                                هل أنت متأكد من حذف سجل الحضور للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
+                                هل أنت متأكد من حذف وقت <strong>{mv.type === "in" ? "الدخول" : "الخروج"}</strong> للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
                                 <br />
-                                لا يمكن التراجع عن هذا الإجراء.
+                                سيُمسح هذا الوقت فقط دون حذف بقية بيانات اليوم.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>إلغاء</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => deleteMutation.mutate(mv.recordId)}
+                                onClick={() => deleteMutation.mutate({ recordId: mv.recordId, type: mv.type })}
                                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                               >
                                 حذف
