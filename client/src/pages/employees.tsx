@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Users as UsersIcon, RefreshCw, Download, Hash, CreditCard, SlidersHorizontal } from "lucide-react";
+import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 
 export default function Employees() {
@@ -50,18 +50,6 @@ export default function Employees() {
       setOpen(false);
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
-  });
-
-  const zkImportMutation = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/sync/from-zk-mysql"),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      toast({
-        title: "اكتمل الاستيراد",
-        description: `${data.employees.created} موظف جديد، ${data.attendance.created} سجل حضور`,
-      });
-    },
-    onError: (err: Error) => toast({ title: "فشل الاستيراد", description: err.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -147,17 +135,6 @@ export default function Employees() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => zkImportMutation.mutate()}
-            disabled={zkImportMutation.isPending}
-            data-testid="button-import-from-zk"
-          >
-            {zkImportMutation.isPending
-              ? <RefreshCw className="h-4 w-4 ml-2 animate-spin" />
-              : <Download className="h-4 w-4 ml-2" />}
-            {zkImportMutation.isPending ? "جارٍ الاستيراد..." : "استيراد من ZKTeco"}
-          </Button>
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-employee">

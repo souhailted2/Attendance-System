@@ -8,8 +8,6 @@ import {
   Wrench,
   Briefcase,
   Scale,
-  Fingerprint,
-  Upload,
   Bot,
   CalendarClock,
 } from "lucide-react";
@@ -42,8 +40,6 @@ const settingsItems = [
 ];
 
 const toolsItems = [
-  { title: "أجهزة البصمة", url: "/devices", icon: Fingerprint },
-  { title: "استيراد البيانات", url: "/import", icon: Upload },
   { title: "Agent المصنع", url: "/agent-settings", icon: Bot },
 ];
 
