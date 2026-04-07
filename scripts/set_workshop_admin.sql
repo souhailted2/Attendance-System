@@ -14,12 +14,12 @@ UPDATE employees e
 JOIN workshops w ON w.name = 'الإدارة'
 SET e.workshop_id = w.id
 WHERE e.employee_code IN ('1','2','3','4','5','6','7','8','9','10',
-                           '11','12','13','15','319','380','368','37','94');
+                           '11','12','13','15','55','319','380','368','37','94');
 
 -- تحقق من النتيجة
 SELECT e.employee_code, e.name, w.name AS workshop
 FROM employees e
 LEFT JOIN workshops w ON w.id = e.workshop_id
 WHERE e.employee_code IN ('1','2','3','4','5','6','7','8','9','10',
-                           '11','12','13','15','319','380','368','37','94')
+                           '11','12','13','15','55','319','380','368','37','94')
 ORDER BY CAST(e.employee_code AS UNSIGNED);
