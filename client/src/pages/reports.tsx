@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   BarChart3, Clock, Users, ChevronLeft, Pencil, Check, X,
@@ -17,6 +16,37 @@ import {
 import type { WorkRule, Workshop, Employee } from "@shared/schema";
 
 type DateMode = "day" | "week" | "month" | "year";
+
+interface DailyRecord {
+  date: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  normalizedCheckIn: string;
+  normalizedCheckOut: string;
+  status: string;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  totalHours: string | null;
+  dailyScore: number;
+}
+
+interface EmployeeReport {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  workshopId: string;
+  workshopName: string;
+  workRuleId: string;
+  totalDays: number;
+  presentDays: number;
+  lateDays: number;
+  absentDays: number;
+  leaveDays: number;
+  totalLateMinutes: number;
+  totalHours: number;
+  attendanceScore: number;
+  dailyRecords: DailyRecord[];
+}
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -35,12 +65,9 @@ function lastDayOfMonth() {
 
 function addMinutesToTime(time: string, mins: number): string {
   const [h, m] = time.split(":").map(Number);
-  const total = h * 60 + m + mins;
-  const hh = Math.floor(Math.abs(total) / 60) % 24;
-  const mm = Math.abs(total) % 60;
-  const sign = total < 0 ? -1 : 1;
-  const fh = sign < 0 ? (24 - hh) % 24 : hh;
-  return `${String(fh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+  const totalMins = h * 60 + m + mins;
+  const wrapped = ((totalMins % 1440) + 1440) % 1440;
+  return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
 }
 
 function scoreColor(score: number, max: number): string {
@@ -80,7 +107,7 @@ export default function Reports() {
     ? `/api/reports/range?from=${dateFrom}&to=${dateTo}&workRuleId=${selectedRule.id}${selectedWorkshop ? `&workshopId=${selectedWorkshop.id}` : ""}`
     : null;
 
-  const { data: reportData = [], isLoading: reportLoading } = useQuery<any[]>({
+  const { data: reportData = [], isLoading: reportLoading } = useQuery<EmployeeReport[]>({
     queryKey: reportKey ? ["/api/reports/range", dateFrom, dateTo, selectedRule?.id, selectedWorkshop?.id] : ["noop"],
     enabled: !!reportKey && !!selectedRule,
     queryFn: async () => {
@@ -92,7 +119,7 @@ export default function Reports() {
   });
 
   const updateRuleMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) =>
+    mutationFn: ({ id, data }: { id: string; data: Partial<Record<string, number | boolean | string>> }) =>
       apiRequest("PATCH", `/api/work-rules/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/work-rules"] });
@@ -152,8 +179,8 @@ export default function Reports() {
     return activeEmployees.filter((e) => e.workRuleId === rule.id).length;
   }
 
-  const totalScore = useMemo(() => reportData.reduce((s: number, r: any) => s + (r.attendanceScore || 0), 0), [reportData]);
-  const maxScore = useMemo(() => reportData.reduce((s: number, r: any) => s + (r.totalDays || 0), 0), [reportData]);
+  const totalScore = useMemo(() => reportData.reduce((s, r) => s + (r.attendanceScore || 0), 0), [reportData]);
+  const maxScore = useMemo(() => reportData.reduce((s, r) => s + (r.totalDays || 0), 0), [reportData]);
 
   const breadcrumb = selectedWorkshop
     ? `${selectedRule?.name} ← ${selectedWorkshop.name}`
@@ -430,7 +457,7 @@ export default function Reports() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">أيام الحضور</p>
-                    <p className="text-xl font-bold">{reportData.reduce((s: number, r: any) => s + r.presentDays + r.lateDays, 0)}</p>
+                    <p className="text-xl font-bold">{reportData.reduce((s, r) => s + r.presentDays + r.lateDays, 0)}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -441,7 +468,7 @@ export default function Reports() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">أيام التأخير</p>
-                    <p className="text-xl font-bold">{reportData.reduce((s: number, r: any) => s + r.lateDays, 0)}</p>
+                    <p className="text-xl font-bold">{reportData.reduce((s, r) => s + r.lateDays, 0)}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -452,7 +479,7 @@ export default function Reports() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">أيام الغياب</p>
-                    <p className="text-xl font-bold">{reportData.reduce((s: number, r: any) => s + r.absentDays, 0)}</p>
+                    <p className="text-xl font-bold">{reportData.reduce((s, r) => s + r.absentDays, 0)}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -486,7 +513,7 @@ export default function Reports() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {reportData.map((r: any) => (
+                      {reportData.map((r) => (
                         <TableRow key={r.employeeId} data-testid={`row-report-${r.employeeId}`}>
                           <TableCell className="font-medium sticky right-0 bg-background">{r.employeeName}</TableCell>
                           <TableCell className="text-muted-foreground">{r.employeeCode}</TableCell>
@@ -507,11 +534,11 @@ export default function Reports() {
                       <TableRow className="bg-muted/50 font-bold border-t-2">
                         <TableCell className="sticky right-0 bg-muted/50">المجموع</TableCell>
                         <TableCell />
-                        <TableCell>{reportData.reduce((s: number, r: any) => s + r.totalDays, 0)}</TableCell>
-                        <TableCell className="text-green-600 dark:text-green-400">{reportData.reduce((s: number, r: any) => s + r.presentDays, 0)}</TableCell>
-                        <TableCell className="text-amber-600 dark:text-amber-400">{reportData.reduce((s: number, r: any) => s + r.lateDays, 0)}</TableCell>
-                        <TableCell className="text-destructive">{reportData.reduce((s: number, r: any) => s + r.absentDays, 0)}</TableCell>
-                        <TableCell>{reportData.reduce((s: number, r: any) => s + r.totalLateMinutes, 0)}</TableCell>
+                        <TableCell>{reportData.reduce((s, r) => s + r.totalDays, 0)}</TableCell>
+                        <TableCell className="text-green-600 dark:text-green-400">{reportData.reduce((s, r) => s + r.presentDays, 0)}</TableCell>
+                        <TableCell className="text-amber-600 dark:text-amber-400">{reportData.reduce((s, r) => s + r.lateDays, 0)}</TableCell>
+                        <TableCell className="text-destructive">{reportData.reduce((s, r) => s + r.absentDays, 0)}</TableCell>
+                        <TableCell>{reportData.reduce((s, r) => s + r.totalLateMinutes, 0)}</TableCell>
                         <TableCell>
                           <span className={`text-sm ${scoreColor(totalScore, maxScore)}`}>
                             {totalScore.toFixed(2)}

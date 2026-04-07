@@ -528,6 +528,9 @@ export async function registerRoutes(
       const workshopId = req.query.workshopId as string | undefined;
 
       if (!from || !to) return res.status(400).json({ message: "from and to dates required" });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
+        return res.status(400).json({ message: "dates must be in YYYY-MM-DD format" });
+      if (from > to) return res.status(400).json({ message: "from date must be before or equal to to date" });
 
       const allEmployees = await storage.getEmployees();
       const allWorkshops = await storage.getWorkshops();
