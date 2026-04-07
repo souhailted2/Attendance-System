@@ -558,12 +558,19 @@ export async function registerRoutes(
         const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
         const lateLeaveGrace = workRule?.lateLeaveGraceMinutes ?? 0;
 
+        function timeToMin(t: string | null): number | null {
+          if (!t) return null;
+          const [h, m] = t.split(":").map(Number);
+          return h * 60 + m;
+        }
+
+        const workStartMin = timeToMin(workRule?.workStartTime ?? "08:00")!;
+        const workEndMin = timeToMin(workRule?.workEndTime ?? "16:00")!;
+
         function normalizeTime(rawTime: string | null, canonicalTime: string, graceBeforeMin: number, graceAfterMin: number): string {
           if (!rawTime) return canonicalTime;
-          const [rh, rm] = rawTime.split(":").map(Number);
-          const [ch, cm] = canonicalTime.split(":").map(Number);
-          const rawTotal = rh * 60 + rm;
-          const canonTotal = ch * 60 + cm;
+          const rawTotal = timeToMin(rawTime)!;
+          const canonTotal = timeToMin(canonicalTime)!;
           const diff = rawTotal - canonTotal;
           if (diff >= -graceBeforeMin && diff <= graceAfterMin) return canonicalTime;
           return rawTime;
@@ -578,8 +585,18 @@ export async function registerRoutes(
             rec.checkOut, workRule?.workEndTime ?? "16:00", earlyLeaveGrace, lateLeaveGrace,
           );
 
-          const effectiveLateMinutes = Math.max(0, rec.lateMinutes - lateArrivalGrace);
-          const effectiveEarlyLeaveMinutes = Math.max(0, rec.earlyLeaveMinutes - earlyLeaveGrace);
+          const checkInMin = timeToMin(rec.checkIn);
+          const checkOutMin = timeToMin(rec.checkOut);
+
+          const rawLateMinutes = checkInMin !== null
+            ? Math.max(0, checkInMin - workStartMin)
+            : 0;
+          const rawEarlyLeaveMinutes = checkOutMin !== null
+            ? Math.max(0, workEndMin - checkOutMin)
+            : 0;
+
+          const effectiveLateMinutes = Math.max(0, rawLateMinutes - lateArrivalGrace);
+          const effectiveEarlyLeaveMinutes = Math.max(0, rawEarlyLeaveMinutes - earlyLeaveGrace);
 
           let dailyScore = 0;
           if (rec.status === "absent") {
@@ -597,8 +614,8 @@ export async function registerRoutes(
             normalizedCheckIn,
             normalizedCheckOut,
             status: rec.status,
-            lateMinutes: rec.lateMinutes,
-            earlyLeaveMinutes: rec.earlyLeaveMinutes,
+            lateMinutes: rawLateMinutes,
+            earlyLeaveMinutes: rawEarlyLeaveMinutes,
             effectiveLateMinutes,
             effectiveEarlyLeaveMinutes,
             totalHours: rec.totalHours,
