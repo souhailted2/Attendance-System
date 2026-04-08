@@ -114,7 +114,7 @@ function notifyAttendanceUpdate() {
 // حساب دقائق الغياب الوسيطة: مجموع الفجوات بين أزواج البصمات التي تتجاوز مدة السماح
 // مثال: [08:00, 10:00, 10:40, 12:00] → فجوة 40 دقيقة > 15 → middleAbsenceMinutes = 40
 const MIDDLE_ABSENCE_GRACE_MINUTES = 15;
-function calculateMiddleAbsenceMinutes(filteredTimes: string[]): number {
+function calculateMiddleAbsenceMinutes(filteredTimes: string[], graceMinutes: number = MIDDLE_ABSENCE_GRACE_MINUTES): number {
   if (filteredTimes.length <= 2) return 0;
   let totalAbsence = 0;
   // الأزواج: (t[0],t[1]), (t[2],t[3])... الفجوات: t[1]→t[2], t[3]→t[4]...
@@ -124,7 +124,7 @@ function calculateMiddleAbsenceMinutes(filteredTimes: string[]): number {
     const [outH, outM] = outTime.split(":").map(Number);
     const [inH,  inM ] = inTime.split(":").map(Number);
     const gapMin = (inH * 60 + inM) - (outH * 60 + outM);
-    if (gapMin > MIDDLE_ABSENCE_GRACE_MINUTES) {
+    if (gapMin > graceMinutes) {
       totalAbsence += gapMin;
     }
   }
@@ -571,7 +571,7 @@ export async function registerRoutes(
         checkOut: finalCheckOut,
         status: finalStatus,
         notes: notes !== undefined ? notes : existingRecords.notes,
-        middleAbsenceMinutes: 0,
+        middleAbsenceMinutes: existingRecords.middleAbsenceMinutes ?? 0,
       };
 
       if (workRule) {
