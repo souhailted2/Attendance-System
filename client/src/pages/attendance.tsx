@@ -88,8 +88,9 @@ export default function Attendance() {
 
   const presentCount = attendance?.filter((r) => r.status === "present").length || 0;
   const lateCount    = attendance?.filter((r) => r.status === "late").length || 0;
-  const absentCount  = attendance?.filter((r) => r.status === "absent").length || 0;
   const leaveCount   = attendance?.filter((r) => r.status === "leave").length || 0;
+  // الغياب = إجمالي الموظفين النشطين ناقص (حاضر + متأخر + إجازة) — الموظف الغائب لا يملك سجلاً
+  const absentCount  = Math.max(0, activeEmployees.length - presentCount - lateCount - leaveCount);
 
   const dateLabel = new Date(date + "T00:00:00").toLocaleDateString("ar-DZ", {
     weekday: "long", year: "numeric", month: "long", day: "numeric",

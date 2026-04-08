@@ -24,7 +24,9 @@ export default function Dashboard() {
   });
 
   const activeEmployees = employees?.filter((e) => e.isActive) || [];
-  const presentToday = attendance?.length || 0;
+  // الحاضرون = من لديهم سجل بحالة حاضر أو متأخر (الغائب لا يملك سجلاً)
+  const presentToday = attendance?.filter((a: any) => a.status === "present" || a.status === "late").length || 0;
+  const absentToday  = Math.max(0, activeEmployees.length - presentToday);
 
   const expiringContracts = activeEmployees.filter((emp) => {
     if (!emp.contractEndDate) return false;
