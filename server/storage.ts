@@ -71,6 +71,7 @@ export interface IStorage {
   getActivityLog(id: string): Promise<ActivityLog | undefined>;
   getActivityLogs(limit?: number): Promise<ActivityLog[]>;
   revertActivityLog(id: string, revertedBy: string): Promise<void>;
+  deleteActivityLog(id: string): Promise<void>;
   initActivityLogs(): Promise<void>;
 
   isRecordLocked(employeeId: string, recordDate: string): Promise<boolean>;
@@ -160,6 +161,7 @@ class LazyStorage implements IStorage {
   getActivityLog(id: string) { return this.impl().then(s => s.getActivityLog(id)); }
   getActivityLogs(limit?: number) { return this.impl().then(s => s.getActivityLogs(limit)); }
   revertActivityLog(id: string, by: string) { return this.impl().then(s => s.revertActivityLog(id, by)); }
+  deleteActivityLog(id: string) { return this.impl().then(s => s.deleteActivityLog(id)); }
   initActivityLogs() { return this.impl().then(s => s.initActivityLogs()); }
 
   isRecordLocked(empId: string, date: string) { return this.impl().then(s => s.isRecordLocked(empId, date)); }

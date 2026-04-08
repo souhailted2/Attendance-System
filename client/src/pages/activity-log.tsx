@@ -5,8 +5,18 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ActivityLog } from "@shared/schema";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const ADMIN_USERNAME = "bachir tedjani";
 
@@ -109,6 +119,7 @@ export default function ActivityLogPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && user.username !== ADMIN_USERNAME) setLocation("/");
@@ -133,9 +144,26 @@ export default function ActivityLogPage() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (logId: string) => apiRequest("DELETE", `/api/activity-logs/${logId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
+      toast({ title: "تم الحذف", description: "تم حذف السجل بنجاح" });
+      setDeleteConfirmId(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "خطأ", description: err.message ?? "تعذّر الحذف", variant: "destructive" });
+      setDeleteConfirmId(null);
+    },
+  });
+
   function handleRevert(log: ActivityLog) {
     setRevertingId(log.id);
     revertMutation.mutate(log.id);
+  }
+
+  function handleDeleteConfirm() {
+    if (deleteConfirmId) deleteMutation.mutate(deleteConfirmId);
   }
 
   const canRevert = (log: ActivityLog) =>
@@ -192,23 +220,57 @@ export default function ActivityLogPage() {
                   </p>
                 ) : null}
               </div>
-              {canRevert(log) ? (
+              <div className="flex items-center gap-1 shrink-0">
+                {canRevert(log) ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs gap-1"
+                    disabled={revertingId === log.id}
+                    onClick={() => handleRevert(log)}
+                    data-testid={`button-revert-${log.id}`}
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    رجوع
+                  </Button>
+                ) : null}
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="shrink-0 text-xs gap-1"
-                  disabled={revertingId === log.id}
-                  onClick={() => handleRevert(log)}
-                  data-testid={`button-revert-${log.id}`}
+                  className="text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                  disabled={deleteMutation.isPending && deleteConfirmId === log.id}
+                  onClick={() => setDeleteConfirmId(log.id)}
+                  data-testid={`button-delete-log-${log.id}`}
                 >
-                  <RotateCcw className="h-3 w-3" />
-                  رجوع
+                  <Trash2 className="h-4 w-4" />
                 </Button>
-              ) : null}
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={open => { if (!open) setDeleteConfirmId(null); }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا السجل؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogCancel data-testid="button-delete-cancel">إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+              data-testid="button-delete-confirm"
+            >
+              {deleteMutation.isPending ? "جارٍ الحذف..." : "حذف"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

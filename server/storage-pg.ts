@@ -287,6 +287,10 @@ export class PgStorage implements IStorage {
       .where(eq(schema.activityLogs.id, id));
   }
 
+  async deleteActivityLog(id: string): Promise<void> {
+    await pgDb.delete(schema.activityLogs).where(eq(schema.activityLogs.id, id));
+  }
+
   async isRecordLocked(employeeId: string, recordDate: string): Promise<boolean> {
     const results = await pgDb
       .select()

@@ -454,6 +454,21 @@ export async function registerRoutes(
     }
   });
 
+  // حذف سجل نشاط — المسؤول فقط
+  app.delete("/api/activity-logs/:id", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح بالوصول" });
+    }
+    try {
+      const log = await storage.getActivityLog(req.params.id);
+      if (!log) return res.status(404).json({ message: "السجل غير موجود" });
+      await storage.deleteActivityLog(req.params.id);
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   // تسجيل عملية أرشيف مع وصف عربي مفصّل — يستخدمه نظام تأكيد التغييرات
   app.post("/api/archive-action", async (req, res) => {
     if (req.session.username !== "bachir tedjani") {
