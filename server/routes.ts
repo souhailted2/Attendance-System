@@ -19,7 +19,7 @@ function requireAuth(req: Request, res: Response, next: NextFunction) {
     req.path === "/api/login" ||
     req.path === "/api/logout" ||
     req.path === "/api/auth/me" ||
-    req.path.startsWith("/api/agent/")
+    req.path.startsWith("/agent/")
   ) {
     return next();
   }
