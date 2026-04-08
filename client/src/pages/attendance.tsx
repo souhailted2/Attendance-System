@@ -107,15 +107,16 @@ export default function Attendance() {
   }
 
   // توسيع كل سجل يومي إلى حركات فردية (دخول + خروج كصفين منفصلين)
-  const allMovements: Array<{ id: string; recordId: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" }> = [];
+  const allMovements: Array<{ id: string; recordId: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out"; middleAbsenceMinutes?: number }> = [];
 
   for (const record of attendance || []) {
     const emp = employees?.find((e) => e.id === record.employeeId);
+    const recMiddle = record.middleAbsenceMinutes;
     if (record.checkIn) {
       allMovements.push({ id: `${record.id}-in`,  recordId: record.id, emp, date: record.date, time: record.checkIn,  type: "in"  });
     }
     if (record.checkOut && record.checkOut !== record.checkIn) {
-      allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out" });
+      allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle });
     }
     // إذا لم يوجد أي وقت، أظهر الصف بدون وقت
     if (!record.checkIn && !record.checkOut) {
@@ -342,6 +343,11 @@ export default function Attendance() {
                       </TableCell>
                       <TableCell>
                         <p className="font-medium text-sm">{mv.emp?.name || "غير معروف"}</p>
+                        {mv.middleAbsenceMinutes && mv.middleAbsenceMinutes > 0 ? (
+                          <span className="inline-block text-[10px] font-medium text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded mt-0.5" data-testid={`badge-middle-absence-${mv.id}`}>
+                            غياب وسط الفترة: {mv.middleAbsenceMinutes} دقيقة
+                          </span>
+                        ) : null}
                       </TableCell>
                       <TableCell className="font-mono text-sm text-muted-foreground">
                         {mv.emp?.cardNumber || "-"}

@@ -233,7 +233,8 @@ async function processAttendanceLogs(
       const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
       const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes);
 
-      if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn) {
+      const existingMiddle = (existing as { middleAbsenceMinutes?: number }).middleAbsenceMinutes ?? 0;
+      if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn || newMiddleAbsenceMinutes !== existingMiddle) {
         let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes };
         if (workRule) {
           const calc = calculateAttendanceDetails(
@@ -570,6 +571,7 @@ export async function registerRoutes(
         checkOut: finalCheckOut,
         status: finalStatus,
         notes: notes !== undefined ? notes : existingRecords.notes,
+        middleAbsenceMinutes: 0,
       };
 
       if (workRule) {
@@ -787,7 +789,7 @@ export async function registerRoutes(
           const effectiveLateMinutes = Math.max(0, rawLateMinutes - lateArrivalGrace);
           const effectiveEarlyLeaveMinutes = Math.max(0, rawEarlyLeaveMinutes - earlyLeaveGrace);
 
-          const middleAbsenceMin = (rec as any).middleAbsenceMinutes ?? 0;
+          const middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
 
           let dailyScore = 0;
           if (rec.status === "absent") {
