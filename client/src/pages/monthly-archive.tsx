@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar, Search, X,
+  ChevronRight, ChevronLeft,
 } from "lucide-react";
 import type { WorkRule, Workshop } from "@shared/schema";
 
@@ -110,13 +111,16 @@ function monthBounds(monthStr: string): { from: string; to: string } {
   };
 }
 
+const MONTH_NAMES = [
+  "جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان",
+  "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+];
+
+const PAGE_SIZE = 5;
+
 function arabicMonthName(monthStr: string): string {
-  const MONTHS = [
-    "جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان",
-    "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
-  ];
   const [y, m] = monthStr.split("-").map(Number);
-  return `${MONTHS[m - 1]} ${y}`;
+  return `${MONTH_NAMES[m - 1]} ${y}`;
 }
 
 export default function MonthlyArchive() {
@@ -130,9 +134,24 @@ export default function MonthlyArchive() {
     }
   }, [user, navigate]);
 
-  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr());
+  const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear());
+  const [selectedMonthNum, setSelectedMonthNum] = useState(() => new Date().getMonth() + 1);
+  const selectedMonth = `${selectedYear}-${String(selectedMonthNum).padStart(2, "0")}`;
   const { from: dateFrom, to: dateTo } = useMemo(() => monthBounds(selectedMonth), [selectedMonth]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(0);
+
+  const currentYear = new Date().getFullYear();
+  const years = useMemo(() => Array.from({ length: currentYear - 2020 + 2 }, (_, i) => 2020 + i), [currentYear]);
+
+  function prevMonth() {
+    if (selectedMonthNum === 1) { setSelectedMonthNum(12); setSelectedYear(y => y - 1); }
+    else setSelectedMonthNum(m => m - 1);
+  }
+  function nextMonth() {
+    if (selectedMonthNum === 12) { setSelectedMonthNum(1); setSelectedYear(y => y + 1); }
+    else setSelectedMonthNum(m => m + 1);
+  }
 
   const [editCell, setEditCell] = useState<EditCell | null>(null);
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
@@ -259,6 +278,31 @@ export default function MonthlyArchive() {
       })
       .filter((g) => g.workshops.length > 0);
   }, [grouped, searchTerm]);
+
+  useEffect(() => { setPage(0); }, [searchTerm, selectedMonth]);
+
+  const flatTables = useMemo(() =>
+    filtered.flatMap(({ rule, workshops }) =>
+      workshops.map((ws: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => ({
+        rule,
+        workshop: ws.workshop,
+        emps: ws.emps,
+      }))
+    ),
+    [filtered]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(flatTables.length / PAGE_SIZE));
+  const pageSlice = flatTables.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const pageGrouped = useMemo(() => {
+    const map = new Map<string, { rule: WorkRule; tables: { workshop: Workshop | undefined; emps: EmployeeReport[] }[] }>();
+    for (const item of pageSlice) {
+      if (!map.has(item.rule.id)) map.set(item.rule.id, { rule: item.rule, tables: [] });
+      map.get(item.rule.id)!.tables.push({ workshop: item.workshop, emps: item.emps });
+    }
+    return Array.from(map.values());
+  }, [pageSlice]);
 
   function renderTable(emps: EmployeeReport[], ruleName: string, workshopName: string) {
     const tableTotal = emps.reduce((s, r) => s + r.attendanceScore, 0);
@@ -425,21 +469,48 @@ export default function MonthlyArchive() {
         {/* Controls: month picker + search */}
         <div className="flex flex-wrap items-stretch gap-3">
           <Card className="shadow-sm">
-            <CardContent className="p-3 flex items-center gap-3">
+            <CardContent className="p-3 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-primary shrink-0" />
-              <div className="space-y-0.5">
-                <Label className="text-xs text-muted-foreground">اختيار الشهر</Label>
-                <input
-                  type="month"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  className="block h-8 rounded-md border border-input bg-background px-3 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                  data-testid="input-month"
-                />
-              </div>
-              <Badge variant="secondary" className="text-xs font-medium">
-                {arabicMonthName(selectedMonth)}
-              </Badge>
+              <Button
+                variant="ghost" size="icon" className="h-7 w-7"
+                onClick={prevMonth} title="الشهر السابق"
+                data-testid="button-prev-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Select
+                value={String(selectedMonthNum)}
+                onValueChange={(v) => setSelectedMonthNum(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-28 text-sm" data-testid="select-month">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTH_NAMES.map((name, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={String(selectedYear)}
+                onValueChange={(v) => setSelectedYear(Number(v))}
+              >
+                <SelectTrigger className="h-8 w-20 text-sm" data-testid="select-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map(y => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="ghost" size="icon" className="h-7 w-7"
+                onClick={nextMonth} title="الشهر التالي"
+                data-testid="button-next-month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
             </CardContent>
           </Card>
 
@@ -502,7 +573,7 @@ export default function MonthlyArchive() {
         </Card>
       ) : (
         <div className="space-y-8">
-          {filtered.map(({ rule, workshops: wsGroups }) => (
+          {pageGrouped.map(({ rule, tables }) => (
             <div key={rule.id} className="space-y-1">
               {/* Work rule header */}
               <div className="flex items-center gap-3 mb-3">
@@ -521,13 +592,45 @@ export default function MonthlyArchive() {
               </div>
 
               {/* Workshop tables */}
-              {wsGroups.map((wsGroup: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => (
-                <div key={wsGroup.workshop?.id ?? "unknown"}>
-                  {renderTable(wsGroup.emps, rule.name, wsGroup.workshop?.name ?? "ورشة غير محددة")}
+              {tables.map(({ workshop, emps }: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => (
+                <div key={workshop?.id ?? "unknown"}>
+                  {renderTable(emps, rule.name, workshop?.name ?? "ورشة غير محددة")}
                 </div>
               ))}
             </div>
           ))}
+
+          {/* Pagination bar */}
+          {flatTables.length > PAGE_SIZE && (
+            <div className="flex items-center justify-center gap-3 py-4 border-t mt-4" data-testid="pagination-bar">
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPage(p => p - 1)}
+                disabled={page === 0}
+                className="gap-1"
+                data-testid="button-prev-page"
+              >
+                <ChevronRight className="h-4 w-4" />
+                السابق
+              </Button>
+              <span className="text-sm text-muted-foreground text-center">
+                <span className="font-medium text-foreground">صفحة {page + 1}</span> من {totalPages}
+                <span className="text-xs block text-muted-foreground">
+                  (جدول {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, flatTables.length)} من {flatTables.length})
+                </span>
+              </span>
+              <Button
+                variant="outline" size="sm"
+                onClick={() => setPage(p => p + 1)}
+                disabled={page >= totalPages - 1}
+                className="gap-1"
+                data-testid="button-next-page"
+              >
+                التالي
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
