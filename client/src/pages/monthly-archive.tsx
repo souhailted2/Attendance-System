@@ -448,13 +448,16 @@ export default function MonthlyArchive() {
 
     const opsCopy = [...pendingOps];
     let failed = false;
+    let processedCount = 0;
 
     for (const op of opsCopy) {
       try {
         await op.execute();
-        try {
-          await apiRequest("POST", "/api/archive-action", { description: op.description });
-        } catch {}
+        // Remove this op from queue immediately so a retry won't re-run it
+        setPendingOps(prev => prev.slice(1));
+        processedCount++;
+        // Log the action (non-critical — fire and forget, don't block or fail on log error)
+        apiRequest("POST", "/api/archive-action", { description: op.description }).catch(() => {});
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "خطأ غير معروف";
         toast({ title: "خطأ في التنفيذ", description: msg, variant: "destructive" });
@@ -464,15 +467,20 @@ export default function MonthlyArchive() {
     }
 
     if (!failed) {
-      toast({ title: "تم تطبيق التغييرات", description: `تم تنفيذ ${opsCopy.length} عملية وتسجيلها بنجاح` });
+      toast({ title: "تم تطبيق التغييرات", description: `تم تنفيذ ${processedCount} عملية بنجاح` });
       setLocalCellOverrides(new Map());
       setLocalFreezeOverrides(new Map());
-      setPendingOps([]);
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
-      queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
+    } else if (processedCount > 0) {
+      toast({
+        title: "تطبيق جزئي",
+        description: `تم تنفيذ ${processedCount} من ${opsCopy.length} عملية. التغييرات المتبقية لا تزال في القائمة.`,
+        variant: "destructive",
+      });
     }
 
+    queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
+    queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
     setIsConfirming(false);
   }
 
