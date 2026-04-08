@@ -166,3 +166,9 @@ export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+
+export const insertFrozenArchiveSchema = createInsertSchema(frozenArchives).pick({
+  month: true, workshopId: true, workRuleId: true, frozenAt: true, frozenBy: true, reportJson: true,
+});
+export type InsertFrozenArchive = z.infer<typeof insertFrozenArchiveSchema>;
+export type FrozenArchiveMysql = typeof frozenArchives.$inferSelect;

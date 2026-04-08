@@ -31,6 +31,7 @@ interface FrozenArchiveMeta {
   workRuleId: string;
   frozenAt: string;
   frozenBy: string;
+  reportJson: string;
 }
 
 interface DailyRecord {

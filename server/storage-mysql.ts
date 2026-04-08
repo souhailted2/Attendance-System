@@ -354,19 +354,12 @@ export class MysqlStorage implements IStorage {
     return results as ActivityLog[];
   }
 
-  async getFrozenArchives(month: string): Promise<Omit<FrozenArchive, "reportJson">[]> {
+  async getFrozenArchives(month: string): Promise<FrozenArchive[]> {
     const results = await mysqlDb
-      .select({
-        id: schema.frozenArchives.id,
-        month: schema.frozenArchives.month,
-        workshopId: schema.frozenArchives.workshopId,
-        workRuleId: schema.frozenArchives.workRuleId,
-        frozenAt: schema.frozenArchives.frozenAt,
-        frozenBy: schema.frozenArchives.frozenBy,
-      })
+      .select()
       .from(schema.frozenArchives)
       .where(eq(schema.frozenArchives.month, month));
-    return results as Omit<FrozenArchive, "reportJson">[];
+    return results as FrozenArchive[];
   }
 
   async getFrozenArchive(id: string): Promise<FrozenArchive | undefined> {

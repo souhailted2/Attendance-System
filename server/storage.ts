@@ -70,7 +70,7 @@ export interface IStorage {
   getActivityLogs(limit?: number): Promise<ActivityLog[]>;
   initActivityLogs(): Promise<void>;
 
-  getFrozenArchives(month: string): Promise<Omit<FrozenArchive, "reportJson">[]>;
+  getFrozenArchives(month: string): Promise<FrozenArchive[]>;
   getFrozenArchive(id: string): Promise<FrozenArchive | undefined>;
   createFrozenArchive(data: InsertFrozenArchive): Promise<FrozenArchive>;
   deleteFrozenArchive(id: string): Promise<void>;

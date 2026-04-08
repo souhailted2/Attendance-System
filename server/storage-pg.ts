@@ -14,6 +14,7 @@ import type {
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
   InsertActivityLog, ActivityLog,
+  InsertFrozenArchive, FrozenArchive,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -272,5 +273,26 @@ export class PgStorage implements IStorage {
       .from(schema.activityLogs)
       .orderBy(desc(schema.activityLogs.createdAt))
       .limit(limit);
+  }
+
+  async getFrozenArchives(month: string): Promise<FrozenArchive[]> {
+    const results = await pgDb.select().from(schema.frozenArchives).where(eq(schema.frozenArchives.month, month));
+    return results as FrozenArchive[];
+  }
+
+  async getFrozenArchive(id: string): Promise<FrozenArchive | undefined> {
+    const [result] = await pgDb.select().from(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
+    return result as FrozenArchive | undefined;
+  }
+
+  async createFrozenArchive(data: InsertFrozenArchive): Promise<FrozenArchive> {
+    const id = randomUUID();
+    await pgDb.insert(schema.frozenArchives).values({ id, ...data });
+    const [result] = await pgDb.select().from(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
+    return result as FrozenArchive;
+  }
+
+  async deleteFrozenArchive(id: string): Promise<void> {
+    await pgDb.delete(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
   }
 }

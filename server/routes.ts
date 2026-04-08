@@ -1965,6 +1965,9 @@ export async function registerRoutes(
 
   // GET /api/frozen-archives?month=YYYY-MM
   app.get("/api/frozen-archives", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح" });
+    }
     const month = String(req.query.month || "");
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return res.status(400).json({ message: "month مطلوب بصيغة YYYY-MM" });
