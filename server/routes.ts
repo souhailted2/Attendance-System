@@ -1,7 +1,32 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
+import bcrypt from "bcryptjs";
 import { storage } from "./storage";
+
+// تمديد نوع الجلسة ليشمل معرّف المستخدم
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
+  }
+}
+
+// middleware: حماية مسارات API
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  // السماح لمسارات المصادقة والوكيل بالعبور
+  if (
+    req.path === "/api/login" ||
+    req.path === "/api/logout" ||
+    req.path === "/api/auth/me" ||
+    req.path.startsWith("/api/agent/")
+  ) {
+    return next();
+  }
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "غير مصرح، يرجى تسجيل الدخول" });
+  }
+  next();
+}
 import { insertCompanySchema, insertWorkshopSchema, insertPositionSchema, insertWorkRuleSchema, insertEmployeeSchema, insertDeviceSettingsSchema, type InsertEmployee, type InsertAttendance } from "@shared/schema";
 import multer from "multer";
 import { testConnection, syncAttendanceLogs, clearDeviceLogs } from "./zk-service";
@@ -230,6 +255,41 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // ====== مسارات المصادقة ======
+
+  app.post("/api/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (!username || !password)
+        return res.status(400).json({ message: "اسم المستخدم وكلمة المرور مطلوبان" });
+      const user = await storage.getUserByUsername(username);
+      if (!user) return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
+      req.session.userId = user.id;
+      res.json({ id: user.id, username: user.username });
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
+  app.post("/api/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.clearCookie("connect.sid");
+      res.json({ message: "تم تسجيل الخروج بنجاح" });
+    });
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "غير مصرح" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) return res.status(401).json({ message: "غير مصرح" });
+    res.json({ id: user.id, username: user.username });
+  });
+
+  // حماية جميع مسارات API
+  app.use("/api", requireAuth);
 
   app.get("/api/companies", async (_req, res) => {
     const data = await storage.getCompanies();

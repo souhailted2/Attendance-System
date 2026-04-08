@@ -1,6 +1,18 @@
 import { storage } from "./storage";
+import bcrypt from "bcryptjs";
+
+async function ensureAdminUser() {
+  const existing = await storage.getUserByUsername("admin");
+  if (!existing) {
+    const hashed = await bcrypt.hash("admin123", 10);
+    await storage.createUser({ username: "admin", password: hashed });
+    console.log("✅ تم إنشاء المستخدم الافتراضي: admin / admin123");
+  }
+}
 
 export async function seedDatabase() {
+  await ensureAdminUser();
+
   const existingCompanies = await storage.getCompanies();
   if (existingCompanies.length > 0) return;
 

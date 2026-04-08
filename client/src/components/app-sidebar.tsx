@@ -10,7 +10,10 @@ import {
   Scale,
   Bot,
   CalendarClock,
+  LogOut,
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -45,6 +48,7 @@ const toolsItems = [
 
 export function AppSidebar() {
   const [location] = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <Sidebar side="right">
@@ -126,8 +130,27 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-4">
-        <p className="text-xs text-muted-foreground text-center">v1.0</p>
+      <SidebarFooter className="p-3 border-t">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
+            <span className="text-sm font-medium truncate" data-testid="text-username">
+              {user?.username}
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={logout}
+            data-testid="button-logout"
+            title="تسجيل الخروج"
+          >
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
