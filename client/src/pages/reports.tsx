@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,7 +93,7 @@ export default function Reports() {
 
   const [selectedRule, setSelectedRule] = useState<WorkRule | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
-  const [viewMode, setViewMode] = useState<"shifts" | "overtime" | "holidays">("shifts");
+  const [viewMode, setViewMode] = useState<"shifts" | "overtime">("shifts");
 
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [graceForm, setGraceForm] = useState({
@@ -133,31 +133,6 @@ export default function Reports() {
       if (!res.ok) throw new Error("فشل تحميل تقرير الساعات الإضافية");
       return res.json();
     },
-  });
-
-  const { data: offDaysData, isLoading: offDaysLoading } = useQuery<{ days: number[] }>({
-    queryKey: ["/api/settings/weekly-off-days"],
-    queryFn: async () => {
-      const res = await fetch("/api/settings/weekly-off-days");
-      if (!res.ok) throw new Error("فشل تحميل أيام العطلة");
-      return res.json();
-    },
-  });
-
-  const [selectedOffDays, setSelectedOffDays] = useState<number[]>([]);
-  // Sync selected off days when data loads
-  useEffect(() => {
-    if (offDaysData) setSelectedOffDays(offDaysData.days);
-  }, [offDaysData]);
-
-  const saveOffDaysMutation = useMutation({
-    mutationFn: (days: number[]) => apiRequest("POST", "/api/settings/weekly-off-days", { days }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/settings/weekly-off-days"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
-      toast({ title: "تم حفظ أيام العطلة الأسبوعية" });
-    },
-    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
   const updateRuleMutation = useMutation({
@@ -355,21 +330,6 @@ export default function Reports() {
                 <p className="text-sm text-muted-foreground">عرض تقرير الساعات الإضافية لجميع الموظفين.</p>
               </CardContent>
             </Card>
-            <Card
-              className="border-2 border-dashed border-blue-300 dark:border-blue-700 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all bg-blue-50/40 dark:bg-blue-950/20"
-              onClick={() => { setViewMode("holidays"); setSelectedRule(null); setSelectedWorkshop(null); }}
-              data-testid="card-holidays-empty"
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-400">
-                  <Calendar className="h-4 w-4" />
-                  العطل الأسبوعية
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">تحديد أيام العطلة الأسبوعية.</p>
-              </CardContent>
-            </Card>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -507,22 +467,6 @@ export default function Reports() {
                 <p className="text-sm text-muted-foreground">عرض العمال الذين عملوا ساعات إضافية خارج فترتهم في النطاق الزمني المحدد.</p>
               </CardContent>
             </Card>
-            {/* Holidays card */}
-            <Card
-              className="border-2 border-dashed border-blue-300 dark:border-blue-700 cursor-pointer hover:border-blue-500 hover:shadow-md transition-all bg-blue-50/40 dark:bg-blue-950/20"
-              onClick={() => { setViewMode("holidays"); setSelectedRule(null); setSelectedWorkshop(null); }}
-              data-testid="card-holidays"
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-blue-700 dark:text-blue-400">
-                  <Calendar className="h-4 w-4" />
-                  العطل الأسبوعية
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">تحديد أيام العطلة الأسبوعية — تُحسب تلقائياً بدرجة 1.00 لجميع الموظفين.</p>
-              </CardContent>
-            </Card>
           </div>
         )
       )}
@@ -623,80 +567,6 @@ export default function Reports() {
               </Table>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ======================== HOLIDAYS VIEW ======================== */}
-      {!selectedRule && viewMode === "holidays" && (
-        <div className="space-y-5">
-          <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setViewMode("shifts")} data-testid="button-back-from-holidays">
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-            العودة للفترات
-          </Button>
-
-          <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-blue-600" />
-            إعداد العطل الأسبوعية
-          </h2>
-
-          <Card>
-            <CardContent className="pt-5">
-              {offDaysLoading ? (
-                <Skeleton className="h-32 w-full" />
-              ) : (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    اختر الأيام التي تُعدّ عطلة أسبوعية. ستُحتسب هذه الأيام تلقائياً بدرجة <strong>1.00</strong> لجميع الموظفين في تقارير الحضور.
-                  </p>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {[
-                      { dow: 0, label: "الأحد" },
-                      { dow: 1, label: "الاثنين" },
-                      { dow: 2, label: "الثلاثاء" },
-                      { dow: 3, label: "الأربعاء" },
-                      { dow: 4, label: "الخميس" },
-                      { dow: 5, label: "الجمعة" },
-                      { dow: 6, label: "السبت" },
-                    ].map(({ dow, label }) => {
-                      const checked = selectedOffDays.includes(dow);
-                      return (
-                        <label
-                          key={dow}
-                          className={`flex items-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all
-                            ${checked
-                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400"
-                              : "border-border hover:border-blue-300"}`}
-                          data-testid={`checkbox-day-${dow}`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="accent-blue-600"
-                            checked={checked}
-                            onChange={() => {
-                              setSelectedOffDays(prev =>
-                                prev.includes(dow) ? prev.filter(d => d !== dow) : [...prev, dow]
-                              );
-                            }}
-                          />
-                          <span className="text-sm font-medium">{label}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <div className="flex justify-start pt-2">
-                    <Button
-                      onClick={() => saveOffDaysMutation.mutate(selectedOffDays)}
-                      disabled={saveOffDaysMutation.isPending}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                      data-testid="button-save-off-days"
-                    >
-                      {saveOffDaysMutation.isPending ? "جاري الحفظ..." : "حفظ التغييرات"}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       )}
 
@@ -848,7 +718,9 @@ export default function Reports() {
                               if (rec.status === "holiday") {
                                 return (
                                   <TableCell key={d} className="text-center px-1 bg-blue-50/60 dark:bg-blue-950/20">
-                                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold" title="يوم عطلة أسبوعية">★</span>
+                                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold" title="يوم عطلة أسبوعية">
+                                      {rec.dailyScore.toFixed(2)}
+                                    </span>
                                   </TableCell>
                                 );
                               }
