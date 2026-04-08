@@ -21,6 +21,7 @@ import AgentSettings from "@/pages/agent-settings";
 import Shifts from "@/pages/shifts";
 import Workshops from "@/pages/workshops";
 import Login from "@/pages/login";
+import ActivityLog from "@/pages/activity-log";
 import { Building2, Wrench, Briefcase } from "lucide-react";
 
 function Router() {
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/devices" component={Devices} />
       <Route path="/import" component={ImportData} />
       <Route path="/agent-settings" component={AgentSettings} />
+      <Route path="/activity-log" component={ActivityLog} />
       <Route component={NotFound} />
     </Switch>
   );

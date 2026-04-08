@@ -29,6 +29,7 @@ async function ensureAttendanceUser() {
 }
 
 export async function seedDatabase() {
+  await storage.initActivityLogs();
   await ensureAdminUser();
   await ensureAttendanceUser();
 

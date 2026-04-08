@@ -13,6 +13,7 @@ import type {
   InsertAttendance, AttendanceRecord,
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
+  InsertActivityLog, ActivityLog,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -253,5 +254,23 @@ export class PgStorage implements IStorage {
     const id = randomUUID();
     const [result] = await pgDb.insert(schema.appSettings).values({ id, key, value }).returning();
     return result;
+  }
+
+  async initActivityLogs(): Promise<void> {
+    // PG schema is handled by db:push, no-op here
+  }
+
+  async createActivityLog(data: InsertActivityLog): Promise<ActivityLog> {
+    const id = randomUUID();
+    const [result] = await pgDb.insert(schema.activityLogs).values({ id, ...data }).returning();
+    return result;
+  }
+
+  async getActivityLogs(limit = 200): Promise<ActivityLog[]> {
+    return pgDb
+      .select()
+      .from(schema.activityLogs)
+      .orderBy(schema.activityLogs.createdAt)
+      .limit(limit);
   }
 }

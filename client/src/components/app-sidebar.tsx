@@ -11,6 +11,7 @@ import {
   Bot,
   CalendarClock,
   LogOut,
+  History,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,20 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {user?.username === "bachir tedjani" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/activity-log"}
+                    data-testid="link-nav-activity-log"
+                  >
+                    <Link href="/activity-log">
+                      <History className="h-4 w-4" />
+                      <span>سجل النشاطات</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

@@ -4,10 +4,11 @@ import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 
-// تمديد نوع الجلسة ليشمل معرّف المستخدم
+// تمديد نوع الجلسة ليشمل معرّف المستخدم واسم المستخدم
 declare module "express-session" {
   interface SessionData {
     userId: string;
+    username: string;
   }
 }
 
@@ -268,6 +269,7 @@ export async function registerRoutes(
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
       req.session.userId = user.id;
+      req.session.username = user.username;
       res.json({ id: user.id, username: user.username });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
@@ -290,6 +292,37 @@ export async function registerRoutes(
 
   // حماية جميع مسارات API
   app.use("/api", requireAuth);
+
+  // تسجيل النشاطات (POST/PUT/PATCH/DELETE فقط للمستخدمين المصادق عليهم)
+  const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me"];
+  const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!WRITE_METHODS.includes(req.method) || !req.path.startsWith("/api/") || SKIP_LOG_PATHS.includes(req.path)) {
+      return next();
+    }
+    res.on("finish", () => {
+      if (!req.session?.userId) return;
+      storage.createActivityLog({
+        userId: req.session.userId,
+        username: req.session.username || "unknown",
+        method: req.method,
+        path: req.path,
+        statusCode: res.statusCode,
+        details: null,
+        createdAt: new Date().toISOString(),
+      }).catch(() => {});
+    });
+    next();
+  });
+
+  // سجل النشاطات — يسمح فقط لـ bachir tedjani
+  app.get("/api/activity-logs", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح بالوصول" });
+    }
+    const logs = await storage.getActivityLogs(500);
+    res.json(logs);
+  });
 
   app.get("/api/companies", async (_req, res) => {
     const data = await storage.getCompanies();
