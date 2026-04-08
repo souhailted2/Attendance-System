@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar,
 } from "lucide-react";
@@ -119,6 +121,15 @@ function arabicMonthName(monthStr: string): string {
 
 export default function MonthlyArchive() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (user && user.username !== "bachir tedjani") {
+      navigate("/");
+    }
+  }, [user, navigate]);
+
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr());
   const { from: dateFrom, to: dateTo } = useMemo(() => monthBounds(selectedMonth), [selectedMonth]);
 
