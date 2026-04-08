@@ -1,13 +1,22 @@
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
+const ADMIN_USERNAME = "bachir tedjani";
+
 async function ensureAdminUser() {
-  const existing = await storage.getUserByUsername("admin");
-  if (!existing) {
-    const hashed = await bcrypt.hash("admin123", 10);
-    await storage.createUser({ username: "admin", password: hashed });
-    console.log("✅ تم إنشاء المستخدم الافتراضي: admin / admin123");
+  const target = await storage.getUserByUsername(ADMIN_USERNAME);
+  if (target) return;
+
+  const old = await storage.getUserByUsername("admin");
+  if (old) {
+    await storage.renameUser("admin", ADMIN_USERNAME);
+    console.log(`✅ تم تغيير اسم المستخدم: admin → ${ADMIN_USERNAME}`);
+    return;
   }
+
+  const hashed = await bcrypt.hash("admin123", 10);
+  await storage.createUser({ username: ADMIN_USERNAME, password: hashed });
+  console.log(`✅ تم إنشاء المستخدم الافتراضي: ${ADMIN_USERNAME} / admin123`);
 }
 
 export async function seedDatabase() {

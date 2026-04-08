@@ -35,6 +35,12 @@ export class PgStorage implements IStorage {
     return result;
   }
 
+  async renameUser(oldUsername: string, newUsername: string): Promise<void> {
+    await pgDb.update(schema.users)
+      .set({ username: newUsername })
+      .where(eq(schema.users.username, oldUsername));
+  }
+
   async getCompanies(): Promise<Company[]> {
     return pgDb.select().from(schema.companies);
   }

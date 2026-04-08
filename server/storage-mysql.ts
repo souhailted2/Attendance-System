@@ -36,6 +36,12 @@ export class MysqlStorage implements IStorage {
     return result as User;
   }
 
+  async renameUser(oldUsername: string, newUsername: string): Promise<void> {
+    await mysqlDb.update(schema.users)
+      .set({ username: newUsername })
+      .where(eq(schema.users.username, oldUsername));
+  }
+
   async getCompanies(): Promise<Company[]> {
     return mysqlDb.select().from(schema.companies) as Promise<Company[]>;
   }

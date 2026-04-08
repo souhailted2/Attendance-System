@@ -14,6 +14,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  renameUser(oldUsername: string, newUsername: string): Promise<void>;
 
   getCompanies(): Promise<Company[]>;
   getCompany(id: string): Promise<Company | undefined>;
@@ -88,6 +89,7 @@ class LazyStorage implements IStorage {
   getUser(id: string) { return this.impl().then(s => s.getUser(id)); }
   getUserByUsername(u: string) { return this.impl().then(s => s.getUserByUsername(u)); }
   createUser(d: InsertUser) { return this.impl().then(s => s.createUser(d)); }
+  renameUser(o: string, n: string) { return this.impl().then(s => s.renameUser(o, n)); }
 
   getCompanies() { return this.impl().then(s => s.getCompanies()); }
   getCompany(id: string) { return this.impl().then(s => s.getCompany(id)); }
