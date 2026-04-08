@@ -13,7 +13,9 @@ import type {
   InsertAttendance, AttendanceRecord,
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
+  InsertActivityLog, ActivityLog,
 } from "@shared/schema";
+import { pool } from "./db";
 import type { IStorage } from "./storage";
 
 const mysqlDb = db as MySql2Database<typeof schema>;
@@ -319,5 +321,35 @@ export class MysqlStorage implements IStorage {
     await mysqlDb.insert(schema.appSettings).values({ id, key, value });
     const [result] = await mysqlDb.select().from(schema.appSettings).where(eq(schema.appSettings.id, id));
     return result as AppSettings;
+  }
+
+  async initActivityLogs(): Promise<void> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS activity_logs (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      user_id VARCHAR(36),
+      username VARCHAR(191),
+      method VARCHAR(10) NOT NULL,
+      path TEXT NOT NULL,
+      status_code INT NOT NULL DEFAULT 200,
+      details TEXT,
+      created_at VARCHAR(50) NOT NULL
+    )`);
+  }
+
+  async createActivityLog(data: InsertActivityLog): Promise<ActivityLog> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.activityLogs).values({ id, ...data });
+    const [result] = await mysqlDb.select().from(schema.activityLogs).where(eq(schema.activityLogs.id, id));
+    return result as ActivityLog;
+  }
+
+  async getActivityLogs(limit = 200): Promise<ActivityLog[]> {
+    const results = await mysqlDb
+      .select()
+      .from(schema.activityLogs)
+      .orderBy(schema.activityLogs.createdAt)
+      .limit(limit);
+    return results as ActivityLog[];
   }
 }

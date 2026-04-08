@@ -8,6 +8,7 @@ import type {
   InsertAttendance, AttendanceRecord,
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
+  InsertActivityLog, ActivityLog,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -63,6 +64,10 @@ export interface IStorage {
 
   getAppSetting(key: string): Promise<AppSettings | undefined>;
   setAppSetting(key: string, value: string): Promise<AppSettings>;
+
+  createActivityLog(data: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLogs(limit?: number): Promise<ActivityLog[]>;
+  initActivityLogs(): Promise<void>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -138,6 +143,10 @@ class LazyStorage implements IStorage {
 
   getAppSetting(key: string) { return this.impl().then(s => s.getAppSetting(key)); }
   setAppSetting(key: string, value: string) { return this.impl().then(s => s.setAppSetting(key, value)); }
+
+  createActivityLog(d: InsertActivityLog) { return this.impl().then(s => s.createActivityLog(d)); }
+  getActivityLogs(limit?: number) { return this.impl().then(s => s.getActivityLogs(limit)); }
+  initActivityLogs() { return this.impl().then(s => s.initActivityLogs()); }
 }
 
 export const storage: IStorage = new LazyStorage();

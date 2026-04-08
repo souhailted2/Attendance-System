@@ -91,6 +91,17 @@ export const appSettings = pgTable("app_settings", {
   value: text("value").notNull(),
 });
 
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id"),
+  username: text("username"),
+  method: text("method").notNull(),
+  path: text("path").notNull(),
+  statusCode: integer("status_code").notNull().default(200),
+  details: text("details"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -168,6 +179,10 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({
   value: true,
 });
 
+export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
+  userId: true, username: true, method: true, path: true, statusCode: true, details: true, createdAt: true,
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
@@ -186,3 +201,5 @@ export type InsertDeviceSettings = z.infer<typeof insertDeviceSettingsSchema>;
 export type DeviceSettings = typeof deviceSettings.$inferSelect;
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;

@@ -96,6 +96,17 @@ export const appSettings = mysqlTable("app_settings", {
   uniqueIndex("app_settings_key_idx").on(table.key),
 ]);
 
+export const activityLogs = mysqlTable("activity_logs", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }),
+  username: varchar("username", { length: 191 }),
+  method: varchar("method", { length: 10 }).notNull(),
+  path: text("path").notNull(),
+  statusCode: int("status_code").notNull().default(200),
+  details: text("details"),
+  createdAt: varchar("created_at", { length: 50 }).notNull(),
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
 export const insertCompanySchema = createInsertSchema(companies).pick({ name: true, description: true });
 export const insertWorkshopSchema = createInsertSchema(workshops).pick({ name: true, description: true });
@@ -119,6 +130,9 @@ export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pic
   name: true, ipAddress: true, port: true, isActive: true, lastSyncAt: true, workshopId: true, serialNumber: true,
 });
 export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({ key: true, value: true });
+export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
+  userId: true, username: true, method: true, path: true, statusCode: true, details: true, createdAt: true,
+});
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -138,3 +152,5 @@ export type InsertDeviceSettings = z.infer<typeof insertDeviceSettingsSchema>;
 export type DeviceSettings = typeof deviceSettings.$inferSelect;
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
