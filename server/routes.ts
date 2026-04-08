@@ -624,6 +624,8 @@ export async function registerRoutes(
         return res.status(400).json({ message: "dates must be in YYYY-MM-DD format" });
       if (from > to) return res.status(400).json({ message: "from date must be before or equal to to date" });
 
+      const todayStr = new Date().toISOString().slice(0, 10);
+
       // توحيد كل الأشهر على 30 يوم
       const fromDate = new Date(from + "T00:00:00");
       const toDate = new Date(to + "T00:00:00");
@@ -799,7 +801,8 @@ export async function registerRoutes(
               existing.overtimeHours = 0;
             }
           } else {
-            // Inject synthetic holiday record
+            // Inject synthetic holiday record — skip future dates
+            if (date > todayStr) continue;
             dailyRecords.push({
               attendanceId: null,
               date,
@@ -823,6 +826,7 @@ export async function registerRoutes(
         // For every day in the report range that is NOT a holiday and has no record → inject absent (0.00)
         for (const date of allDatesInRange) {
           if (holidayDateSet.has(date)) continue;
+          if (date > todayStr) continue;
           const hasRecord = dailyRecords.some(r => r.date === date);
           if (!hasRecord) {
             dailyRecords.push({
