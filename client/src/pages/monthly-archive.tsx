@@ -145,12 +145,22 @@ export default function MonthlyArchive() {
   const years = useMemo(() => Array.from({ length: currentYear - 2020 + 2 }, (_, i) => 2020 + i), [currentYear]);
 
   function prevMonth() {
-    if (selectedMonthNum === 1) { setSelectedMonthNum(12); setSelectedYear(y => y - 1); }
-    else setSelectedMonthNum(m => m - 1);
+    if (selectedMonthNum === 1) {
+      if (selectedYear <= 2020) return;
+      setSelectedMonthNum(12);
+      setSelectedYear(y => y - 1);
+    } else {
+      setSelectedMonthNum(m => m - 1);
+    }
   }
   function nextMonth() {
-    if (selectedMonthNum === 12) { setSelectedMonthNum(1); setSelectedYear(y => y + 1); }
-    else setSelectedMonthNum(m => m + 1);
+    if (selectedMonthNum === 12) {
+      if (selectedYear >= currentYear + 1) return;
+      setSelectedMonthNum(1);
+      setSelectedYear(y => y + 1);
+    } else {
+      setSelectedMonthNum(m => m + 1);
+    }
   }
 
   const [editCell, setEditCell] = useState<EditCell | null>(null);
