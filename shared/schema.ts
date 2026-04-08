@@ -102,6 +102,18 @@ export const activityLogs = pgTable("activity_logs", {
   createdAt: text("created_at").notNull(),
 });
 
+export const frozenArchives = pgTable("frozen_archives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  month: varchar("month", { length: 7 }).notNull(),
+  workshopId: varchar("workshop_id", { length: 36 }).notNull(),
+  workRuleId: varchar("work_rule_id", { length: 36 }).notNull(),
+  frozenAt: text("frozen_at").notNull(),
+  frozenBy: text("frozen_by").notNull(),
+  reportJson: text("report_json").notNull(),
+}, (table) => [
+  uniqueIndex("frozen_archives_month_ws_rule_idx").on(table.month, table.workshopId, table.workRuleId),
+]);
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -203,3 +215,9 @@ export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+
+export const insertFrozenArchiveSchema = createInsertSchema(frozenArchives).pick({
+  month: true, workshopId: true, workRuleId: true, frozenAt: true, frozenBy: true, reportJson: true,
+});
+export type InsertFrozenArchive = z.infer<typeof insertFrozenArchiveSchema>;
+export type FrozenArchive = typeof frozenArchives.$inferSelect;

@@ -96,6 +96,18 @@ export const appSettings = mysqlTable("app_settings", {
   uniqueIndex("app_settings_key_idx").on(table.key),
 ]);
 
+export const frozenArchives = mysqlTable("frozen_archives", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  month: varchar("month", { length: 7 }).notNull(),
+  workshopId: varchar("workshop_id", { length: 36 }).notNull(),
+  workRuleId: varchar("work_rule_id", { length: 36 }).notNull(),
+  frozenAt: varchar("frozen_at", { length: 50 }).notNull(),
+  frozenBy: varchar("frozen_by", { length: 191 }).notNull(),
+  reportJson: text("report_json").notNull(),
+}, (table) => [
+  uniqueIndex("frozen_archives_month_ws_rule_idx").on(table.month, table.workshopId, table.workRuleId),
+]);
+
 export const activityLogs = mysqlTable("activity_logs", {
   id: varchar("id", { length: 36 }).primaryKey(),
   userId: varchar("user_id", { length: 36 }),

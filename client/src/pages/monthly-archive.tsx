@@ -20,8 +20,18 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar, Search, X,
   ChevronRight, ChevronLeft, SlidersHorizontal, CheckSquare, Square,
+  Lock, LockOpen, Save,
 } from "lucide-react";
 import type { WorkRule, Workshop } from "@shared/schema";
+
+interface FrozenArchiveMeta {
+  id: string;
+  month: string;
+  workshopId: string;
+  workRuleId: string;
+  frozenAt: string;
+  frozenBy: string;
+}
 
 interface DailyRecord {
   attendanceId: string | null;
@@ -172,6 +182,47 @@ export default function MonthlyArchive() {
 
   const { data: workRules = [] } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
+
+  const { data: frozenList = [] } = useQuery<FrozenArchiveMeta[]>({
+    queryKey: ["/api/frozen-archives", selectedMonth],
+    queryFn: async () => {
+      const r = await fetch(`/api/frozen-archives?month=${selectedMonth}`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+  });
+
+  function getFrozen(workshopId: string | undefined, workRuleId: string): FrozenArchiveMeta | undefined {
+    return frozenList.find((f) => f.workshopId === (workshopId ?? "") && f.workRuleId === workRuleId);
+  }
+
+  const freezeMutation = useMutation({
+    mutationFn: async ({ workshopId, workRuleId, emps }: { workshopId: string; workRuleId: string; emps: EmployeeReport[] }) => {
+      const r = await apiRequest("POST", "/api/frozen-archives", {
+        month: selectedMonth,
+        workshopId,
+        workRuleId,
+        reportJson: JSON.stringify(emps),
+      });
+      return r.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
+      toast({ title: "تم الحفظ", description: "تم تجميد تقرير الجدول بنجاح" });
+    },
+    onError: () => toast({ title: "خطأ", description: "تعذّر حفظ التقرير", variant: "destructive" }),
+  });
+
+  const unfreezeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/frozen-archives/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
+      toast({ title: "تم إلغاء الحفظ", description: "يمكن الآن تعديل هذا الجدول" });
+    },
+    onError: () => toast({ title: "خطأ", description: "تعذّر إلغاء الحفظ", variant: "destructive" }),
+  });
 
   const reportUrl = `/api/reports/range?from=${dateFrom}&to=${dateTo}`;
   const { data: reportData = [], isLoading } = useQuery<EmployeeReport[]>({
@@ -348,20 +399,68 @@ export default function MonthlyArchive() {
     return Array.from(map.values());
   }, [pageSlice]);
 
-  function renderTable(emps: EmployeeReport[], ruleName: string, workshopName: string) {
+  function renderTable(
+    liveEmps: EmployeeReport[],
+    ruleName: string,
+    workshopName: string,
+    workshopId: string | undefined,
+    workRuleId: string,
+  ) {
+    const frozen = getFrozen(workshopId, workRuleId);
+    const emps: EmployeeReport[] = frozen ? (JSON.parse(frozen.reportJson) as EmployeeReport[]) : liveEmps;
     const tableTotal = emps.reduce((s, r) => s + r.attendanceScore, 0);
     const tableMax = emps.reduce((s, r) => s + (r.normalizedTotalDays ?? r.totalDays), 0);
+    const isOwner = user?.username === "bachir tedjani";
+
+    function formatFrozenDate(iso: string) {
+      try {
+        const d = new Date(iso);
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      } catch { return iso; }
+    }
 
     return (
       <div className="overflow-x-auto rounded-lg border mb-6">
-        <div className="px-4 py-2 bg-muted/30 border-b flex items-center gap-2">
-          <Wrench className="h-4 w-4 text-primary" />
+        <div className={`px-4 py-2 border-b flex items-center gap-2 ${frozen ? "bg-emerald-50/80 dark:bg-emerald-950/30" : "bg-muted/30"}`}>
+          {frozen ? <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <Wrench className="h-4 w-4 text-primary" />}
           <span className="font-semibold text-sm">{workshopName}</span>
           <span className="text-muted-foreground text-xs">—</span>
           <span className="text-xs text-muted-foreground">{ruleName}</span>
-          <Badge variant="outline" className="mr-auto text-xs gap-1">
-            <Users className="h-3 w-3" />{emps.length} موظف
-          </Badge>
+          {frozen ? (
+            <Badge className="mr-auto text-xs gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700" variant="outline">
+              <Lock className="h-3 w-3" />محفوظ — {formatFrozenDate(frozen.frozenAt)}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="mr-auto text-xs gap-1">
+              <Users className="h-3 w-3" />{liveEmps.length} موظف
+            </Badge>
+          )}
+          {frozen && isOwner && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-1"
+              onClick={() => unfreezeMutation.mutate(frozen.id)}
+              disabled={unfreezeMutation.isPending}
+              data-testid={`button-unfreeze-${workshopId}-${workRuleId}`}
+            >
+              <LockOpen className="h-3.5 w-3.5" />
+              إلغاء الحفظ
+            </Button>
+          )}
+          {!frozen && isOwner && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 gap-1"
+              onClick={() => freezeMutation.mutate({ workshopId: workshopId ?? "", workRuleId, emps: liveEmps })}
+              disabled={freezeMutation.isPending || liveEmps.length === 0}
+              data-testid={`button-freeze-${workshopId}-${workRuleId}`}
+            >
+              <Save className="h-3.5 w-3.5" />
+              حفظ التقرير
+            </Button>
+          )}
         </div>
         <Table>
           <TableHeader>
@@ -402,8 +501,11 @@ export default function MonthlyArchive() {
                       return (
                         <TableCell key={d} className="p-0">
                           <button
-                            className="w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs cursor-pointer hover:bg-muted/40 transition-colors"
-                            onClick={() => openEditCell(r, d, syntheticRec)}
+                            className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${frozen ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-muted/40"}`}
+                            onClick={() => {
+                              if (frozen) { toast({ title: "مقفل 🔒", description: "هذا التقرير محفوظ ومقفل" }); return; }
+                              openEditCell(r, d, syntheticRec);
+                            }}
                             data-testid={`button-edit-archive-${r.employeeId}-${d}`}
                           >—</button>
                         </TableCell>
@@ -416,8 +518,11 @@ export default function MonthlyArchive() {
                     return (
                       <TableCell key={d} className="p-0" data-testid={`cell-archive-${r.employeeId}-${d}`}>
                         <button
-                          className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors ${bgClass}`}
-                          onClick={() => openEditCell(r, d, rec)}
+                          className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${frozen ? "cursor-not-allowed" : "cursor-pointer"}`}
+                          onClick={() => {
+                            if (frozen) { toast({ title: "مقفل 🔒", description: "هذا التقرير محفوظ ومقفل" }); return; }
+                            openEditCell(r, d, rec);
+                          }}
                           title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
                           data-testid={`button-edit-archive-${r.employeeId}-${d}`}
                         >
@@ -668,7 +773,7 @@ export default function MonthlyArchive() {
               {/* Workshop tables */}
               {tables.map(({ workshop, emps }: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => (
                 <div key={workshop?.id ?? "unknown"}>
-                  {renderTable(emps, rule.name, workshop?.name ?? "ورشة غير محددة")}
+                  {renderTable(emps, rule.name, workshop?.name ?? "ورشة غير محددة", workshop?.id, rule.id)}
                 </div>
               ))}
             </div>

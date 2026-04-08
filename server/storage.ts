@@ -9,6 +9,7 @@ import type {
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
   InsertActivityLog, ActivityLog,
+  InsertFrozenArchive, FrozenArchive,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -68,6 +69,11 @@ export interface IStorage {
   createActivityLog(data: InsertActivityLog): Promise<ActivityLog>;
   getActivityLogs(limit?: number): Promise<ActivityLog[]>;
   initActivityLogs(): Promise<void>;
+
+  getFrozenArchives(month: string): Promise<Omit<FrozenArchive, "reportJson">[]>;
+  getFrozenArchive(id: string): Promise<FrozenArchive | undefined>;
+  createFrozenArchive(data: InsertFrozenArchive): Promise<FrozenArchive>;
+  deleteFrozenArchive(id: string): Promise<void>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -147,6 +153,11 @@ class LazyStorage implements IStorage {
   createActivityLog(d: InsertActivityLog) { return this.impl().then(s => s.createActivityLog(d)); }
   getActivityLogs(limit?: number) { return this.impl().then(s => s.getActivityLogs(limit)); }
   initActivityLogs() { return this.impl().then(s => s.initActivityLogs()); }
+
+  getFrozenArchives(month: string) { return this.impl().then(s => s.getFrozenArchives(month)); }
+  getFrozenArchive(id: string) { return this.impl().then(s => s.getFrozenArchive(id)); }
+  createFrozenArchive(d: InsertFrozenArchive) { return this.impl().then(s => s.createFrozenArchive(d)); }
+  deleteFrozenArchive(id: string) { return this.impl().then(s => s.deleteFrozenArchive(id)); }
 }
 
 export const storage: IStorage = new LazyStorage();

@@ -1961,6 +1961,47 @@ export async function registerRoutes(
     res.send("OK");
   });
 
+  // ---- Frozen Archives ----
+
+  // GET /api/frozen-archives?month=YYYY-MM
+  app.get("/api/frozen-archives", async (req, res) => {
+    const month = String(req.query.month || "");
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ message: "month مطلوب بصيغة YYYY-MM" });
+    }
+    const list = await storage.getFrozenArchives(month);
+    return res.json(list);
+  });
+
+  // POST /api/frozen-archives — freeze a table snapshot
+  app.post("/api/frozen-archives", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح" });
+    }
+    const { month, workshopId, workRuleId, reportJson } = req.body;
+    if (!month || !workshopId || !workRuleId || !reportJson) {
+      return res.status(400).json({ message: "الحقول مطلوبة: month, workshopId, workRuleId, reportJson" });
+    }
+    const existing = await storage.getFrozenArchives(month);
+    const dup = existing.find((f) => f.workshopId === workshopId && f.workRuleId === workRuleId);
+    if (dup) {
+      return res.status(409).json({ message: "هذا الجدول محفوظ مسبقاً" });
+    }
+    const frozenAt = new Date().toISOString();
+    const frozenBy = req.session.username ?? "unknown";
+    const record = await storage.createFrozenArchive({ month, workshopId, workRuleId, reportJson, frozenAt, frozenBy });
+    return res.json(record);
+  });
+
+  // DELETE /api/frozen-archives/:id — unfreeze (owner only)
+  app.delete("/api/frozen-archives/:id", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح" });
+    }
+    await storage.deleteFrozenArchive(req.params.id);
+    return res.status(204).send();
+  });
+
   // POST /iclock/devicecmd — device reporting command result
   app.post("/iclock/devicecmd", admsTextParser, (req, res) => {
     const sn = String(req.query.SN || "");

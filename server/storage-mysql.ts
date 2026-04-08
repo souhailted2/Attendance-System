@@ -14,6 +14,7 @@ import type {
   InsertDeviceSettings, DeviceSettings,
   InsertAppSettings, AppSettings,
   InsertActivityLog, ActivityLog,
+  InsertFrozenArchive, FrozenArchive,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -351,5 +352,36 @@ export class MysqlStorage implements IStorage {
       .orderBy(desc(schema.activityLogs.createdAt))
       .limit(limit);
     return results as ActivityLog[];
+  }
+
+  async getFrozenArchives(month: string): Promise<Omit<FrozenArchive, "reportJson">[]> {
+    const results = await mysqlDb
+      .select({
+        id: schema.frozenArchives.id,
+        month: schema.frozenArchives.month,
+        workshopId: schema.frozenArchives.workshopId,
+        workRuleId: schema.frozenArchives.workRuleId,
+        frozenAt: schema.frozenArchives.frozenAt,
+        frozenBy: schema.frozenArchives.frozenBy,
+      })
+      .from(schema.frozenArchives)
+      .where(eq(schema.frozenArchives.month, month));
+    return results as Omit<FrozenArchive, "reportJson">[];
+  }
+
+  async getFrozenArchive(id: string): Promise<FrozenArchive | undefined> {
+    const [result] = await mysqlDb.select().from(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
+    return result as FrozenArchive | undefined;
+  }
+
+  async createFrozenArchive(data: InsertFrozenArchive): Promise<FrozenArchive> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.frozenArchives).values({ id, ...data });
+    const [result] = await mysqlDb.select().from(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
+    return result as FrozenArchive;
+  }
+
+  async deleteFrozenArchive(id: string): Promise<void> {
+    await mysqlDb.delete(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
   }
 }
