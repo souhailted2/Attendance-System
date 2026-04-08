@@ -15,6 +15,7 @@ import type {
   InsertAppSettings, AppSettings,
   InsertActivityLog, ActivityLog,
   InsertFrozenArchive, FrozenArchive,
+  InsertLockedRecord, LockedRecord,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -273,6 +274,40 @@ export class PgStorage implements IStorage {
       .from(schema.activityLogs)
       .orderBy(desc(schema.activityLogs.createdAt))
       .limit(limit);
+  }
+
+  async getActivityLog(id: string): Promise<ActivityLog | undefined> {
+    const [result] = await pgDb.select().from(schema.activityLogs).where(eq(schema.activityLogs.id, id));
+    return result;
+  }
+
+  async revertActivityLog(id: string, revertedBy: string): Promise<void> {
+    await pgDb.update(schema.activityLogs)
+      .set({ isReverted: 1, revertedAt: new Date().toISOString(), revertedBy })
+      .where(eq(schema.activityLogs.id, id));
+  }
+
+  async isRecordLocked(employeeId: string, recordDate: string): Promise<boolean> {
+    const results = await pgDb
+      .select()
+      .from(schema.lockedRecords)
+      .where(and(eq(schema.lockedRecords.employeeId, employeeId), eq(schema.lockedRecords.recordDate, recordDate)))
+      .limit(1);
+    return results.length > 0;
+  }
+
+  async lockRecord(data: InsertLockedRecord): Promise<LockedRecord> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const [result] = await pgDb.insert(schema.lockedRecords).values({
+      id,
+      employeeId: data.employeeId,
+      recordDate: data.recordDate,
+      lockedBy: data.lockedBy ?? null,
+      lockedAt: data.lockedAt ?? now,
+      activityLogId: data.activityLogId ?? null,
+    }).returning();
+    return result;
   }
 
   async getFrozenArchives(month: string): Promise<FrozenArchive[]> {

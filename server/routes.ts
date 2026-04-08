@@ -405,13 +405,35 @@ export async function registerRoutes(
       const existing = await storage.getAttendanceById(log.entityId);
       if (!existing) return res.status(404).json({ message: "سجل الحضور غير موجود" });
 
-      // تطبيق القيم القديمة على سجل الحضور
-      await storage.updateAttendance(log.entityId, {
+      // إعادة الحساب الكامل باستخدام قاعدة العمل لضمان اتساق البيانات
+      const revertWorkRule = await getWorkRuleForEmployee(existing.employeeId);
+      const revertData: Partial<InsertAttendance> = {
         checkIn: oldVals.checkIn,
         checkOut: oldVals.checkOut,
         status: oldVals.status,
         middleAbsenceMinutes: 0,
-      });
+        lateMinutes: 0,
+        earlyLeaveMinutes: 0,
+        totalHours: "0",
+        penalty: "0",
+      };
+      if (revertWorkRule) {
+        const calc = calculateAttendanceDetails(
+          oldVals.checkIn, oldVals.checkOut,
+          revertWorkRule.workStartTime, revertWorkRule.workEndTime,
+          revertWorkRule.lateGraceMinutes,
+          revertWorkRule.latePenaltyPerMinute,
+          revertWorkRule.earlyLeavePenaltyPerMinute,
+          revertWorkRule.absencePenalty,
+          oldVals.status
+        );
+        revertData.lateMinutes = calc.lateMinutes;
+        revertData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
+        revertData.totalHours = String(calc.totalHours);
+        revertData.penalty = String(calc.penalty);
+        revertData.status = calc.status;
+      }
+      await storage.updateAttendance(log.entityId, revertData);
 
       // قفل السجل لمنع attendence من إعادة التعديل
       await storage.lockRecord({
@@ -600,6 +622,14 @@ export async function registerRoutes(
       const employee = await storage.getEmployee(employeeId);
       if (!employee) return res.status(404).json({ message: "Employee not found" });
 
+      // فحص القفل للمستخدم attendence عند إنشاء سجل على تاريخ مقفول
+      if (req.session.username === "attendence") {
+        const locked = await storage.isRecordLocked(employeeId, date);
+        if (locked) {
+          return res.status(403).json({ message: "هذا التعديل لم يعجب المسؤول ولا يمكنك إجراؤه" });
+        }
+      }
+
       const workRule = await getWorkRuleForEmployee(employeeId);
 
       let attendanceData: any = {
@@ -726,6 +756,14 @@ export async function registerRoutes(
     try {
       const existing = await storage.getAttendanceById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Record not found" });
+
+      // فحص القفل للمستخدم attendence
+      if (req.session.username === "attendence") {
+        const locked = await storage.isRecordLocked(existing.employeeId, existing.date);
+        if (locked) {
+          return res.status(403).json({ message: "هذا التعديل لم يعجب المسؤول ولا يمكنك إجراؤه" });
+        }
+      }
 
       // تسجيل تفصيلي قبل الحذف
       const empDel = await storage.getEmployee(existing.employeeId);
