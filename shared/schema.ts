@@ -101,6 +101,27 @@ export const activityLogs = pgTable("activity_logs", {
   statusCode: integer("status_code").notNull().default(200),
   details: text("details"),
   createdAt: text("created_at").notNull(),
+  entityType: text("entity_type"),
+  entityId: text("entity_id"),
+  oldValues: text("old_values"),
+  newValues: text("new_values"),
+  employeeName: text("employee_name"),
+  employeeCode: text("employee_code"),
+  workshopName: text("workshop_name"),
+  workRuleName: text("work_rule_name"),
+  recordDate: text("record_date"),
+  isReverted: integer("is_reverted").default(0),
+  revertedAt: text("reverted_at"),
+  revertedBy: text("reverted_by"),
+});
+
+export const lockedRecords = pgTable("locked_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  employeeId: text("employee_id").notNull(),
+  recordDate: text("record_date").notNull(),
+  lockedBy: text("locked_by"),
+  lockedAt: text("locked_at"),
+  activityLogId: text("activity_log_id"),
 });
 
 export const frozenArchives = pgTable("frozen_archives", {
@@ -195,6 +216,13 @@ export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({
 
 export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
   userId: true, username: true, method: true, path: true, statusCode: true, details: true, createdAt: true,
+  entityType: true, entityId: true, oldValues: true, newValues: true,
+  employeeName: true, employeeCode: true, workshopName: true, workRuleName: true, recordDate: true,
+  isReverted: true, revertedAt: true, revertedBy: true,
+});
+
+export const insertLockedRecordSchema = createInsertSchema(lockedRecords).pick({
+  employeeId: true, recordDate: true, lockedBy: true, lockedAt: true, activityLogId: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -217,6 +245,8 @@ export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertLockedRecord = z.infer<typeof insertLockedRecordSchema>;
+export type LockedRecord = typeof lockedRecords.$inferSelect;
 
 export const insertFrozenArchiveSchema = createInsertSchema(frozenArchives).pick({
   month: true, workshopId: true, workRuleId: true, frozenAt: true, frozenBy: true, reportJson: true,

@@ -72,7 +72,10 @@ export default function Attendance() {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
       toast({ title: "تم حذف الوقت بنجاح" });
     },
-    onError: (err: Error) => toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" }),
+    onError: (err: any) => {
+      const msg = err?.body?.message ?? err.message ?? "خطأ في الحذف";
+      toast({ title: msg.includes("لم يعجب") ? "التعديل مقفول" : "خطأ في الحذف", description: msg, variant: "destructive" });
+    },
   });
 
   function resetForm() {

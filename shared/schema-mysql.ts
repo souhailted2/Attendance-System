@@ -118,6 +118,27 @@ export const activityLogs = mysqlTable("activity_logs", {
   statusCode: int("status_code").notNull().default(200),
   details: text("details"),
   createdAt: varchar("created_at", { length: 50 }).notNull(),
+  entityType: varchar("entity_type", { length: 50 }),
+  entityId: varchar("entity_id", { length: 36 }),
+  oldValues: text("old_values"),
+  newValues: text("new_values"),
+  employeeName: varchar("employee_name", { length: 191 }),
+  employeeCode: varchar("employee_code", { length: 50 }),
+  workshopName: varchar("workshop_name", { length: 191 }),
+  workRuleName: varchar("work_rule_name", { length: 191 }),
+  recordDate: varchar("record_date", { length: 20 }),
+  isReverted: int("is_reverted").default(0),
+  revertedAt: varchar("reverted_at", { length: 50 }),
+  revertedBy: varchar("reverted_by", { length: 191 }),
+});
+
+export const lockedRecords = mysqlTable("locked_records", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  employeeId: varchar("employee_id", { length: 36 }).notNull(),
+  recordDate: varchar("record_date", { length: 20 }).notNull(),
+  lockedBy: varchar("locked_by", { length: 191 }),
+  lockedAt: varchar("locked_at", { length: 50 }),
+  activityLogId: varchar("activity_log_id", { length: 36 }),
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
@@ -145,6 +166,13 @@ export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pic
 export const insertAppSettingsSchema = createInsertSchema(appSettings).pick({ key: true, value: true });
 export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
   userId: true, username: true, method: true, path: true, statusCode: true, details: true, createdAt: true,
+  entityType: true, entityId: true, oldValues: true, newValues: true,
+  employeeName: true, employeeCode: true, workshopName: true, workRuleName: true, recordDate: true,
+  isReverted: true, revertedAt: true, revertedBy: true,
+});
+
+export const insertLockedRecordSchema = createInsertSchema(lockedRecords).pick({
+  employeeId: true, recordDate: true, lockedBy: true, lockedAt: true, activityLogId: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -167,6 +195,8 @@ export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;
 export type AppSettings = typeof appSettings.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertLockedRecord = z.infer<typeof insertLockedRecordSchema>;
+export type LockedRecord = typeof lockedRecords.$inferSelect;
 
 export const insertFrozenArchiveSchema = createInsertSchema(frozenArchives).pick({
   month: true, workshopId: true, workRuleId: true, frozenAt: true, frozenBy: true, reportJson: true,

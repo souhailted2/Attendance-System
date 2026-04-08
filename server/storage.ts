@@ -10,6 +10,7 @@ import type {
   InsertAppSettings, AppSettings,
   InsertActivityLog, ActivityLog,
   InsertFrozenArchive, FrozenArchive,
+  InsertLockedRecord, LockedRecord,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -67,8 +68,13 @@ export interface IStorage {
   setAppSetting(key: string, value: string): Promise<AppSettings>;
 
   createActivityLog(data: InsertActivityLog): Promise<ActivityLog>;
+  getActivityLog(id: string): Promise<ActivityLog | undefined>;
   getActivityLogs(limit?: number): Promise<ActivityLog[]>;
+  revertActivityLog(id: string, revertedBy: string): Promise<void>;
   initActivityLogs(): Promise<void>;
+
+  isRecordLocked(employeeId: string, recordDate: string): Promise<boolean>;
+  lockRecord(data: InsertLockedRecord): Promise<LockedRecord>;
 
   getFrozenArchives(month: string): Promise<FrozenArchive[]>;
   getFrozenArchive(id: string): Promise<FrozenArchive | undefined>;
@@ -151,8 +157,13 @@ class LazyStorage implements IStorage {
   setAppSetting(key: string, value: string) { return this.impl().then(s => s.setAppSetting(key, value)); }
 
   createActivityLog(d: InsertActivityLog) { return this.impl().then(s => s.createActivityLog(d)); }
+  getActivityLog(id: string) { return this.impl().then(s => s.getActivityLog(id)); }
   getActivityLogs(limit?: number) { return this.impl().then(s => s.getActivityLogs(limit)); }
+  revertActivityLog(id: string, by: string) { return this.impl().then(s => s.revertActivityLog(id, by)); }
   initActivityLogs() { return this.impl().then(s => s.initActivityLogs()); }
+
+  isRecordLocked(empId: string, date: string) { return this.impl().then(s => s.isRecordLocked(empId, date)); }
+  lockRecord(d: InsertLockedRecord) { return this.impl().then(s => s.lockRecord(d)); }
 
   getFrozenArchives(month: string) { return this.impl().then(s => s.getFrozenArchives(month)); }
   getFrozenArchive(id: string) { return this.impl().then(s => s.getFrozenArchive(id)); }

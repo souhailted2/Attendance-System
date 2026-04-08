@@ -460,8 +460,13 @@ export default function MonthlyArchive() {
         // Log the action (non-critical — fire and forget, don't block or fail on log error)
         apiRequest("POST", "/api/archive-action", { description: op.description }).catch(() => {});
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "خطأ غير معروف";
-        toast({ title: "خطأ في التنفيذ", description: msg, variant: "destructive" });
+        const rawMsg = (err as any)?.body?.message ?? (err instanceof Error ? err.message : "خطأ غير معروف");
+        const isLocked = typeof rawMsg === "string" && rawMsg.includes("لم يعجب");
+        toast({
+          title: isLocked ? "التعديل مقفول" : "خطأ في التنفيذ",
+          description: rawMsg,
+          variant: "destructive"
+        });
         failed = true;
         break;
       }

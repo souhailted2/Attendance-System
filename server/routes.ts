@@ -318,11 +318,15 @@ export async function registerRoutes(
   // حماية جميع مسارات API
   app.use("/api", requireAuth);
 
-  // تسجيل النشاطات (POST/PUT/PATCH/DELETE) — يُسجَّل حتى للطلبات غير المصادق عليها كوكيل الحضور
+  // تسجيل النشاطات (POST/PUT/PATCH/DELETE) — سجلات الحضور اليدوية لها تسجيل تفصيلي خاص بها
   const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me", "/api/archive-action"];
   const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
   app.use((req: Request, res: Response, next: NextFunction) => {
-    if (!WRITE_METHODS.includes(req.method) || !req.path.startsWith("/api/") || SKIP_LOG_PATHS.includes(req.path)) {
+    // تجاهل مسارات الحضور اليدوية — تُعالج بتسجيل تفصيلي داخل كل route handler
+    const isAttendanceCRUD =
+      (req.method === "POST" && req.path === "/api/attendance") ||
+      ((req.method === "PATCH" || req.method === "DELETE") && /^\/api\/attendance\/[^/]+$/.test(req.path));
+    if (!WRITE_METHODS.includes(req.method) || !req.path.startsWith("/api/") || SKIP_LOG_PATHS.includes(req.path) || isAttendanceCRUD) {
       return next();
     }
     res.on("finish", () => {
@@ -339,6 +343,43 @@ export async function registerRoutes(
     next();
   });
 
+  // دالة مساعدة: تسجيل نشاط حضور تفصيلي
+  async function logAttendanceAction(opts: {
+    req: Request;
+    method: string;
+    statusCode: number;
+    entityId: string;
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string;
+    workshopName: string;
+    workRuleName: string;
+    recordDate: string;
+    oldValues?: { checkIn: string | null; checkOut: string | null; status: string };
+    newValues?: { checkIn: string | null; checkOut: string | null; status: string };
+    details?: string;
+  }) {
+    await storage.createActivityLog({
+      userId: opts.req.session?.userId ?? null,
+      username: opts.req.session?.username ?? null,
+      method: opts.method,
+      path: opts.req.path,
+      statusCode: opts.statusCode,
+      details: opts.details ?? null,
+      createdAt: new Date().toISOString(),
+      entityType: "attendance",
+      entityId: opts.entityId,
+      oldValues: opts.oldValues ? JSON.stringify(opts.oldValues) : null,
+      newValues: opts.newValues ? JSON.stringify(opts.newValues) : null,
+      employeeName: opts.employeeName,
+      employeeCode: opts.employeeCode,
+      workshopName: opts.workshopName,
+      workRuleName: opts.workRuleName,
+      recordDate: opts.recordDate,
+      isReverted: 0,
+    }).catch(() => {});
+  }
+
   // سجل النشاطات — يسمح فقط لـ bachir tedjani
   app.get("/api/activity-logs", async (req, res) => {
     if (req.session.username !== "bachir tedjani") {
@@ -346,6 +387,49 @@ export async function registerRoutes(
     }
     const logs = await storage.getActivityLogs(500);
     res.json(logs);
+  });
+
+  // إرجاع تعديل حضور (المالك فقط) — يُعيد القيم القديمة ويقفل السجل
+  app.post("/api/activity-logs/:id/revert", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح بالوصول" });
+    }
+    try {
+      const log = await storage.getActivityLog(req.params.id);
+      if (!log) return res.status(404).json({ message: "السجل غير موجود" });
+      if (log.entityType !== "attendance") return res.status(400).json({ message: "لا يمكن إرجاع هذا النوع من السجلات" });
+      if (log.isReverted === 1) return res.status(400).json({ message: "تم إرجاع هذا التعديل مسبقاً" });
+      if (!log.oldValues || !log.entityId) return res.status(400).json({ message: "لا توجد قيم قديمة لاسترجاعها" });
+
+      const oldVals = JSON.parse(log.oldValues) as { checkIn: string | null; checkOut: string | null; status: string };
+      const existing = await storage.getAttendanceById(log.entityId);
+      if (!existing) return res.status(404).json({ message: "سجل الحضور غير موجود" });
+
+      // تطبيق القيم القديمة على سجل الحضور
+      await storage.updateAttendance(log.entityId, {
+        checkIn: oldVals.checkIn,
+        checkOut: oldVals.checkOut,
+        status: oldVals.status,
+        middleAbsenceMinutes: 0,
+      });
+
+      // قفل السجل لمنع attendence من إعادة التعديل
+      await storage.lockRecord({
+        employeeId: existing.employeeId,
+        recordDate: existing.date,
+        lockedBy: req.session.username,
+        lockedAt: new Date().toISOString(),
+        activityLogId: log.id,
+      });
+
+      // وسم سجل النشاط كـ "مُرجَع"
+      await storage.revertActivityLog(log.id, req.session.username);
+
+      notifyAttendanceUpdate();
+      res.json({ ok: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   });
 
   // تسجيل عملية أرشيف مع وصف عربي مفصّل — يستخدمه نظام تأكيد التغييرات
@@ -546,6 +630,18 @@ export async function registerRoutes(
 
       const record = await storage.createAttendance(attendanceData);
       notifyAttendanceUpdate();
+
+      // تسجيل تفصيلي
+      const allWorkshops = await storage.getWorkshops();
+      const workshop = allWorkshops.find(w => w.id === employee.workshopId);
+      logAttendanceAction({
+        req, method: "POST", statusCode: 200, entityId: record.id,
+        employeeId: employee.id, employeeName: employee.name, employeeCode: employee.employeeCode,
+        workshopName: workshop?.name ?? "—", workRuleName: workRule?.name ?? "—",
+        recordDate: date,
+        newValues: { checkIn: record.checkIn, checkOut: record.checkOut, status: record.status },
+      });
+
       res.json(record);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -560,6 +656,14 @@ export async function registerRoutes(
       const { checkIn, checkOut, status, notes } = req.body;
       const employeeId = existingRecords.employeeId;
 
+      // فحص القفل: إذا كان المستخدم "attendence" والسجل مقفل → رفض
+      if (req.session.username === "attendence") {
+        const locked = await storage.isRecordLocked(employeeId, existingRecords.date);
+        if (locked) {
+          return res.status(403).json({ message: "هذا التعديل لم يعجب المسؤول ولا يمكنك إجراؤه" });
+        }
+      }
+
       const workRule = await getWorkRuleForEmployee(employeeId);
 
       const finalCheckIn = checkIn !== undefined ? (checkIn || null) : existingRecords.checkIn;
@@ -567,7 +671,6 @@ export async function registerRoutes(
       const finalStatus = status || existingRecords.status;
 
       // نُعيد الغياب الوسيط إلى 0 فقط عند تغيير الأوقات فعلياً (لا مجرد وجود الحقل في الطلب)
-      // إذا لم تتغير الأوقات (تعديل الحالة أو الملاحظات فقط) نحافظ على القيمة الموجودة
       const timesChanged =
         (checkIn !== undefined && (checkIn || null) !== existingRecords.checkIn) ||
         (checkOut !== undefined && (checkOut || null) !== existingRecords.checkOut);
@@ -598,6 +701,21 @@ export async function registerRoutes(
 
       const record = await storage.updateAttendance(req.params.id, updateData);
       if (!record) return res.status(404).json({ message: "Not found" });
+
+      // تسجيل تفصيلي
+      const employee = await storage.getEmployee(employeeId);
+      const allWorkshops2 = await storage.getWorkshops();
+      const workshop2 = allWorkshops2.find(w => w.id === employee?.workshopId);
+      logAttendanceAction({
+        req, method: "PATCH", statusCode: 200, entityId: existingRecords.id,
+        employeeId, employeeName: employee?.name ?? "—", employeeCode: employee?.employeeCode ?? "—",
+        workshopName: workshop2?.name ?? "—", workRuleName: workRule?.name ?? "—",
+        recordDate: existingRecords.date,
+        oldValues: { checkIn: existingRecords.checkIn, checkOut: existingRecords.checkOut, status: existingRecords.status },
+        newValues: { checkIn: record.checkIn, checkOut: record.checkOut, status: record.status },
+      });
+
+      notifyAttendanceUpdate();
       res.json(record);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -608,7 +726,24 @@ export async function registerRoutes(
     try {
       const existing = await storage.getAttendanceById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Record not found" });
+
+      // تسجيل تفصيلي قبل الحذف
+      const empDel = await storage.getEmployee(existing.employeeId);
+      const allWorkshopsDel = await storage.getWorkshops();
+      const workshopDel = allWorkshopsDel.find(w => w.id === empDel?.workshopId);
+      const workRuleDel = await getWorkRuleForEmployee(existing.employeeId);
+
       await storage.deleteAttendance(req.params.id);
+
+      logAttendanceAction({
+        req, method: "DELETE", statusCode: 200, entityId: existing.id,
+        employeeId: existing.employeeId, employeeName: empDel?.name ?? "—", employeeCode: empDel?.employeeCode ?? "—",
+        workshopName: workshopDel?.name ?? "—", workRuleName: workRuleDel?.name ?? "—",
+        recordDate: existing.date,
+        oldValues: { checkIn: existing.checkIn, checkOut: existing.checkOut, status: existing.status },
+      });
+
+      notifyAttendanceUpdate();
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

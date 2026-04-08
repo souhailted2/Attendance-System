@@ -15,6 +15,7 @@ import type {
   InsertAppSettings, AppSettings,
   InsertActivityLog, ActivityLog,
   InsertFrozenArchive, FrozenArchive,
+  InsertLockedRecord, LockedRecord,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -335,7 +336,27 @@ export class MysqlStorage implements IStorage {
       path TEXT NOT NULL,
       status_code INT NOT NULL DEFAULT 200,
       details TEXT,
-      created_at VARCHAR(50) NOT NULL
+      created_at VARCHAR(50) NOT NULL,
+      entity_type VARCHAR(50),
+      entity_id VARCHAR(36),
+      old_values TEXT,
+      new_values TEXT,
+      employee_name VARCHAR(191),
+      employee_code VARCHAR(50),
+      workshop_name VARCHAR(191),
+      work_rule_name VARCHAR(191),
+      record_date VARCHAR(20),
+      is_reverted TINYINT(1) DEFAULT 0,
+      reverted_at VARCHAR(50),
+      reverted_by VARCHAR(191)
+    )`);
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS locked_records (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      record_date VARCHAR(20) NOT NULL,
+      locked_by VARCHAR(191),
+      locked_at VARCHAR(50),
+      activity_log_id VARCHAR(36)
     )`);
   }
 
@@ -346,13 +367,52 @@ export class MysqlStorage implements IStorage {
     return result as ActivityLog;
   }
 
-  async getActivityLogs(limit = 200): Promise<ActivityLog[]> {
+  async getActivityLog(id: string): Promise<ActivityLog | undefined> {
+    const [result] = await mysqlDb.select().from(schema.activityLogs).where(eq(schema.activityLogs.id, id));
+    return result as ActivityLog | undefined;
+  }
+
+  async getActivityLogs(limit = 500): Promise<ActivityLog[]> {
     const results = await mysqlDb
       .select()
       .from(schema.activityLogs)
       .orderBy(desc(schema.activityLogs.createdAt))
       .limit(limit);
     return results as ActivityLog[];
+  }
+
+  async revertActivityLog(id: string, revertedBy: string): Promise<void> {
+    const now = new Date().toISOString();
+    await mysqlDb.update(schema.activityLogs)
+      .set({ isReverted: 1, revertedAt: now, revertedBy })
+      .where(eq(schema.activityLogs.id, id));
+  }
+
+  async isRecordLocked(employeeId: string, recordDate: string): Promise<boolean> {
+    const results = await mysqlDb
+      .select()
+      .from(schema.lockedRecords)
+      .where(and(
+        eq(schema.lockedRecords.employeeId, employeeId),
+        eq(schema.lockedRecords.recordDate, recordDate)
+      ))
+      .limit(1);
+    return results.length > 0;
+  }
+
+  async lockRecord(data: InsertLockedRecord): Promise<LockedRecord> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    await mysqlDb.insert(schema.lockedRecords).values({
+      id,
+      employeeId: data.employeeId,
+      recordDate: data.recordDate,
+      lockedBy: data.lockedBy ?? null,
+      lockedAt: data.lockedAt ?? now,
+      activityLogId: data.activityLogId ?? null,
+    });
+    const [result] = await mysqlDb.select().from(schema.lockedRecords).where(eq(schema.lockedRecords.id, id));
+    return result as LockedRecord;
   }
 
   async getFrozenArchives(month: string): Promise<FrozenArchive[]> {
