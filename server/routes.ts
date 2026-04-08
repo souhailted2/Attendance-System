@@ -689,6 +689,31 @@ export async function registerRoutes(
             });
           }
         }
+        // --- Absent injection for missing working days ---
+        // For every day in the report range that is NOT a holiday and has no record → inject absent (0.00)
+        for (const date of allDatesInRange) {
+          if (holidayDateSet.has(date)) continue;
+          const hasRecord = dailyRecords.some(r => r.date === date);
+          if (!hasRecord) {
+            dailyRecords.push({
+              date,
+              checkIn: null,
+              checkOut: null,
+              normalizedCheckIn: null,
+              normalizedCheckOut: null,
+              status: "absent",
+              lateMinutes: 0,
+              earlyLeaveMinutes: 0,
+              effectiveLateMinutes: 0,
+              effectiveEarlyLeaveMinutes: 0,
+              totalHours: null,
+              dailyScore: 0.00,
+              pending: false,
+              overtimeHours: 0,
+            });
+          }
+        }
+
         // Re-sort by date after injection
         dailyRecords.sort((a, b) => a.date.localeCompare(b.date));
 
