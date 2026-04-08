@@ -50,6 +50,7 @@ interface EmployeeReport {
   totalLateMinutes: number;
   totalHours: number;
   attendanceScore: number;
+  februaryBonus?: number;
   dailyRecords: DailyRecord[];
 }
 
@@ -772,10 +773,22 @@ export default function Reports() {
                               );
                             })}
                             <TableCell className="text-center font-bold">
-                              <span className={`text-sm ${scoreColor(r.attendanceScore, r.totalDays)}`} data-testid={`score-${r.employeeId}`}>
-                                {r.attendanceScore.toFixed(2)}
-                              </span>
-                              <span className="text-xs text-muted-foreground mr-1">/{r.totalDays}</span>
+                              {(() => {
+                                const bonus = r.februaryBonus ?? 0;
+                                const rawScore = r.attendanceScore + bonus;
+                                const displayScore = bonus > 0
+                                  ? Math.round(rawScore * 2) / 2
+                                  : r.attendanceScore;
+                                const denominator = bonus > 0 ? 30 : r.totalDays;
+                                return (
+                                  <>
+                                    <span className={`text-sm ${scoreColor(displayScore, denominator)}`} data-testid={`score-${r.employeeId}`}>
+                                      {displayScore % 1 === 0 ? displayScore.toFixed(0) : displayScore.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground mr-1">/{denominator}</span>
+                                  </>
+                                );
+                              })()}
                             </TableCell>
                           </TableRow>
                         );

@@ -532,6 +532,17 @@ export async function registerRoutes(
         return res.status(400).json({ message: "dates must be in YYYY-MM-DD format" });
       if (from > to) return res.status(400).json({ message: "from date must be before or equal to to date" });
 
+      // حساب تعويض شهر فيفري (يُعامَل كـ 30 يوم دائماً)
+      const fromDate = new Date(from + "T00:00:00");
+      const toDate = new Date(to + "T00:00:00");
+      let februaryBonus = 0;
+      if (fromDate.getMonth() === 1 && toDate.getMonth() === 1) {
+        const daysInFeb = new Date(fromDate.getFullYear(), 2, 0).getDate();
+        if (fromDate.getDate() === 1 && toDate.getDate() === daysInFeb) {
+          februaryBonus = 30 - daysInFeb; // 2 إذا كان 28 يوماً، 1 إذا كان 29 يوماً
+        }
+      }
+
       const allEmployees = await storage.getEmployees();
       const allWorkshops = await storage.getWorkshops();
       const allWorkRules = await storage.getWorkRules();
@@ -777,6 +788,7 @@ export async function registerRoutes(
           totalLateMinutes: dailyRecords.reduce((s, r) => s + r.lateMinutes, 0),
           totalHours: empRecords.reduce((s, r) => s + parseFloat(r.totalHours || "0"), 0),
           attendanceScore: Math.round(attendanceScore * 100) / 100,
+          februaryBonus,
           dailyRecords,
         };
       });
