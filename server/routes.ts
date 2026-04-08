@@ -692,6 +692,37 @@ export async function registerRoutes(
         // Re-sort by date after injection
         dailyRecords.sort((a, b) => a.date.localeCompare(b.date));
 
+        // --- خصم العطلة الأسبوعية عند الغياب ---
+        // لكل يوم غياب في الأسبوع → خصم 0.5 من نقاط العطلة (الأخيرة أولاً)
+        {
+          function getWeekStart(dateStr: string): string {
+            const d = new Date(dateStr + "T00:00:00");
+            d.setDate(d.getDate() - d.getDay()); // رجوع للأحد
+            return d.toISOString().slice(0, 10);
+          }
+          const holidaysByWeek = new Map<string, typeof dailyRecords[0][]>();
+          for (const rec of dailyRecords) {
+            if (rec.status === "holiday") {
+              const wk = getWeekStart(rec.date);
+              if (!holidaysByWeek.has(wk)) holidaysByWeek.set(wk, []);
+              holidaysByWeek.get(wk)!.push(rec);
+            }
+          }
+          for (const [wk, holidays] of holidaysByWeek) {
+            const absenceCount = dailyRecords.filter(
+              r => getWeekStart(r.date) === wk && r.status === "absent"
+            ).length;
+            if (absenceCount === 0) continue;
+            let toDeduct = absenceCount * 0.5;
+            for (const holiday of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
+              if (toDeduct <= 0) break;
+              const deduct = Math.min(toDeduct, holiday.dailyScore);
+              holiday.dailyScore = Math.round((holiday.dailyScore - deduct) * 100) / 100;
+              toDeduct = Math.round((toDeduct - deduct) * 100) / 100;
+            }
+          }
+        }
+
         // Recompute attendanceScore from final dailyRecords
         attendanceScore = dailyRecords.reduce((s, r) => s + r.dailyScore, 0);
 
