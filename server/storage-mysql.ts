@@ -252,6 +252,7 @@ export class MysqlStorage implements IStorage {
       status: data.status ?? "present",
       lateMinutes: data.lateMinutes ?? 0,
       earlyLeaveMinutes: data.earlyLeaveMinutes ?? 0,
+      middleAbsenceMinutes: data.middleAbsenceMinutes ?? 0,
       totalHours: data.totalHours ?? "0",
       penalty: data.penalty ?? "0",
       notes: data.notes ?? null,

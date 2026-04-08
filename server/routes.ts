@@ -111,6 +111,26 @@ function notifyAttendanceUpdate() {
   }
 }
 
+// حساب دقائق الغياب الوسيطة: مجموع الفجوات بين أزواج البصمات التي تتجاوز مدة السماح
+// مثال: [08:00, 10:00, 10:40, 12:00] → فجوة 40 دقيقة > 15 → middleAbsenceMinutes = 40
+const MIDDLE_ABSENCE_GRACE_MINUTES = 15;
+function calculateMiddleAbsenceMinutes(filteredTimes: string[]): number {
+  if (filteredTimes.length <= 2) return 0;
+  let totalAbsence = 0;
+  // الأزواج: (t[0],t[1]), (t[2],t[3])... الفجوات: t[1]→t[2], t[3]→t[4]...
+  for (let i = 1; i + 1 < filteredTimes.length; i += 2) {
+    const outTime = filteredTimes[i];
+    const inTime  = filteredTimes[i + 1];
+    const [outH, outM] = outTime.split(":").map(Number);
+    const [inH,  inM ] = inTime.split(":").map(Number);
+    const gapMin = (inH * 60 + inM) - (outH * 60 + outM);
+    if (gapMin > MIDDLE_ABSENCE_GRACE_MINUTES) {
+      totalAbsence += gapMin;
+    }
+  }
+  return totalAbsence;
+}
+
 // فلترة البصمات المتكررة: إزالة أي بصمة في خلال N دقيقة من السابقة
 function filterDuplicateSwipes(times: string[], minGapMinutes: number): string[] {
   const result: string[] = [];
@@ -162,6 +182,8 @@ async function processAttendanceLogs(
     const checkIn = filteredTimes[0] || null;
     const checkOut = filteredTimes.length > 1 ? filteredTimes[filteredTimes.length - 1] : null;
 
+    const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes);
+
     let attendanceData: any = {
       employeeId: employee.id,
       date: entry.date,
@@ -171,6 +193,7 @@ async function processAttendanceLogs(
       notes: `مزامنة من: ${sourceName}`,
       lateMinutes: 0,
       earlyLeaveMinutes: 0,
+      middleAbsenceMinutes,
       totalHours: "0",
       penalty: "0",
     };
@@ -208,9 +231,10 @@ async function processAttendanceLogs(
 
       const newCheckIn  = allTimes[0] || null;
       const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
+      const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes);
 
       if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn) {
-        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut };
+        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes };
         if (workRule) {
           const calc = calculateAttendanceDetails(
             newCheckIn, newCheckOut,
@@ -763,13 +787,15 @@ export async function registerRoutes(
           const effectiveLateMinutes = Math.max(0, rawLateMinutes - lateArrivalGrace);
           const effectiveEarlyLeaveMinutes = Math.max(0, rawEarlyLeaveMinutes - earlyLeaveGrace);
 
+          const middleAbsenceMin = (rec as any).middleAbsenceMinutes ?? 0;
+
           let dailyScore = 0;
           if (rec.status === "absent") {
             dailyScore = 0;
           } else if (rec.status === "leave") {
             dailyScore = 1;
           } else {
-            dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes) / totalWorkDayMinutes);
+            dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes + middleAbsenceMin) / totalWorkDayMinutes);
           }
           const roundedScore = Math.round(dailyScore * 100) / 100;
           attendanceScore += roundedScore;
@@ -793,6 +819,7 @@ export async function registerRoutes(
             earlyLeaveMinutes: rawEarlyLeaveMinutes,
             effectiveLateMinutes,
             effectiveEarlyLeaveMinutes,
+            middleAbsenceMinutes: middleAbsenceMin,
             totalHours: rec.totalHours,
             dailyScore: roundedScore,
             pending: rec.checkIn !== null && rec.checkOut === null,

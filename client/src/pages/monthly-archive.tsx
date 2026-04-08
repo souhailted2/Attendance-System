@@ -46,6 +46,7 @@ interface DailyRecord {
   earlyLeaveMinutes: number;
   effectiveLateMinutes: number;
   effectiveEarlyLeaveMinutes: number;
+  middleAbsenceMinutes?: number;
   totalHours: string | null;
   dailyScore: number;
   pending?: boolean;
@@ -777,7 +778,7 @@ export default function MonthlyArchive() {
                             if (isStaged) { toast({ title: "معلّق للتعديل", description: "اضغط تراجع لإلغاء هذا التعديل" }); return; }
                             openEditCell(r, d, rec, workshopName, ruleName);
                           }}
-                          title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
+                          title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}${rec.middleAbsenceMinutes && rec.middleAbsenceMinutes > 0 ? `\nغياب وسط الفترة: ${rec.middleAbsenceMinutes} دقيقة` : ""}`}
                           data-testid={`button-edit-archive-${r.employeeId}-${d}`}
                         >
                           {isStagedDelete ? (
@@ -809,6 +810,9 @@ export default function MonthlyArchive() {
                               {rec.checkOut && (
                                 <span className="text-[10px] font-mono text-muted-foreground leading-none">{rec.checkOut}</span>
                               )}
+                              {rec.middleAbsenceMinutes && rec.middleAbsenceMinutes > 0 ? (
+                                <span className="text-[9px] font-bold text-orange-500 dark:text-orange-400 leading-none">غ:{rec.middleAbsenceMinutes}د</span>
+                              ) : null}
                             </>
                           )}
                         </button>

@@ -70,6 +70,7 @@ export const attendanceRecords = mysqlTable("attendance_records", {
   status: text("status").notNull().default("present"),
   lateMinutes: int("late_minutes").notNull().default(0),
   earlyLeaveMinutes: int("early_leave_minutes").notNull().default(0),
+  middleAbsenceMinutes: int("middle_absence_minutes").notNull().default(0),
   totalHours: text("total_hours").default("0"),
   penalty: text("penalty").default("0"),
   notes: text("notes"),
@@ -136,7 +137,7 @@ export const insertEmployeeSchema = createInsertSchema(employees).pick({
 });
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({
   employeeId: true, date: true, checkIn: true, checkOut: true, status: true,
-  lateMinutes: true, earlyLeaveMinutes: true, totalHours: true, penalty: true, notes: true,
+  lateMinutes: true, earlyLeaveMinutes: true, middleAbsenceMinutes: true, totalHours: true, penalty: true, notes: true,
 });
 export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pick({
   name: true, ipAddress: true, port: true, isActive: true, lastSyncAt: true, workshopId: true, serialNumber: true,
