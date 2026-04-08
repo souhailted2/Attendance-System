@@ -537,8 +537,9 @@ export async function registerRoutes(
       const allWorkRules = await storage.getWorkRules();
       const records = await storage.getAttendanceByDateRange(from, to);
 
-      // الخميس (4) والجمعة (5) — عطلة أسبوعية ثابتة
-      const weeklyOffDays: number[] = [4, 5];
+      // Load weekly off days from DB setting
+      const offDaySetting = await storage.getAppSetting("weeklyOffDays");
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [4, 5];
 
       // Build full date range list
       const allDatesInRange: string[] = [];
