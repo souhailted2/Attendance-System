@@ -882,12 +882,12 @@ export default function Reports() {
                                     data-testid={`button-edit-cell-${r.employeeId}-${d}`}
                                   >
                                     {rec.status === "absent" ? (
-                                      <span className={`text-xs font-bold ${scoreColorClass}`}>غائب</span>
+                                      <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
                                     ) : rec.status === "leave" ? (
                                       <span className={`text-xs font-bold ${scoreColorClass}`}>إجازة</span>
                                     ) : rec.status === "holiday" ? (
                                       <>
-                                        <span className={`text-xs font-bold ${scoreColorClass}`}>عطلة</span>
+                                        <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
                                         {rec.checkIn && (
                                           <span className="text-[10px] text-blue-500 dark:text-blue-400 font-mono">{rec.checkIn}</span>
                                         )}
