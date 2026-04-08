@@ -776,15 +776,12 @@ export default function Reports() {
                             <TableCell className="text-center font-bold">
                               {(() => {
                                 const bonus = r.monthBonus ?? 0;
-                                const rawScore = r.attendanceScore + bonus;
-                                const displayScore = bonus !== 0
-                                  ? Math.round(rawScore * 2) / 2
-                                  : r.attendanceScore;
+                                const displayScore = r.attendanceScore + bonus;
                                 const denominator = r.normalizedTotalDays ?? r.totalDays;
                                 return (
                                   <>
                                     <span className={`text-sm ${scoreColor(displayScore, denominator)}`} data-testid={`score-${r.employeeId}`}>
-                                      {displayScore % 1 === 0 ? displayScore.toFixed(0) : displayScore.toFixed(1)}
+                                      {Number.isInteger(displayScore) ? displayScore.toFixed(0) : displayScore.toFixed(2)}
                                     </span>
                                     <span className="text-xs text-muted-foreground mr-1">/{denominator}</span>
                                   </>
