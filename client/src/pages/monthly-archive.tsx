@@ -19,7 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar, Search, X,
-  ChevronRight, ChevronLeft,
+  ChevronRight, ChevronLeft, SlidersHorizontal, CheckSquare, Square,
 } from "lucide-react";
 import type { WorkRule, Workshop } from "@shared/schema";
 
@@ -163,6 +163,10 @@ export default function MonthlyArchive() {
     }
   }
 
+  const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set());
+  const [selectedWorkshopIds, setSelectedWorkshopIds] = useState<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const [editCell, setEditCell] = useState<EditCell | null>(null);
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
 
@@ -266,10 +270,40 @@ export default function MonthlyArchive() {
     return Array.from(byRule.values());
   }, [reportData, workRules, workshops]);
 
+  const filteredBySelection = useMemo(() => {
+    const noRuleFilter = selectedRuleIds.size === 0;
+    const noWsFilter = selectedWorkshopIds.size === 0;
+    if (noRuleFilter && noWsFilter) return grouped;
+    return grouped
+      .filter(({ rule }) => noRuleFilter || selectedRuleIds.has(rule.id))
+      .map(({ rule, workshops: wsGroups }) => ({
+        rule,
+        workshops: wsGroups.filter((ws: { workshop: Workshop | undefined; emps: EmployeeReport[] }) =>
+          noWsFilter || selectedWorkshopIds.has(ws.workshop?.id ?? "")
+        ),
+      }))
+      .filter((g) => g.workshops.length > 0);
+  }, [grouped, selectedRuleIds, selectedWorkshopIds]);
+
+  const availableWorkshops = useMemo(() => {
+    const source = selectedRuleIds.size === 0
+      ? grouped
+      : grouped.filter((g) => selectedRuleIds.has(g.rule.id));
+    const wsMap = new Map<string, Workshop>();
+    for (const g of source)
+      for (const ws of g.workshops)
+        if (ws.workshop) wsMap.set(ws.workshop.id, ws.workshop);
+    return Array.from(wsMap.values());
+  }, [grouped, selectedRuleIds]);
+
+  const availableRules = useMemo(() => grouped.map((g) => g.rule), [grouped]);
+
+  const activeFilterCount = (selectedRuleIds.size > 0 ? 1 : 0) + (selectedWorkshopIds.size > 0 ? 1 : 0);
+
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return grouped;
-    return grouped
+    if (!q) return filteredBySelection;
+    return filteredBySelection
       .map(({ rule, workshops: wsGroups }) => {
         const filteredWs = wsGroups
           .map((wsGroup: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => {
@@ -287,9 +321,9 @@ export default function MonthlyArchive() {
         return { rule, workshops: filteredWs };
       })
       .filter((g) => g.workshops.length > 0);
-  }, [grouped, searchTerm]);
+  }, [filteredBySelection, searchTerm]);
 
-  useEffect(() => { setPage(0); }, [searchTerm, selectedMonth]);
+  useEffect(() => { setPage(0); }, [searchTerm, selectedMonth, selectedRuleIds, selectedWorkshopIds]);
 
   const flatTables = useMemo(() =>
     filtered.flatMap(({ rule, workshops }) =>
@@ -524,6 +558,22 @@ export default function MonthlyArchive() {
             </CardContent>
           </Card>
 
+          {/* Filter button */}
+          <Button
+            variant={activeFilterCount > 0 ? "default" : "outline"}
+            className="h-full flex items-center gap-2 relative"
+            onClick={() => setFilterOpen(true)}
+            data-testid="button-open-filter"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            انتقاء
+            {activeFilterCount > 0 && (
+              <Badge className="absolute -top-2 -left-2 h-5 w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </Button>
+
           <Card className="shadow-sm flex-1 min-w-[220px]">
             <CardContent className="p-3 flex items-center gap-2">
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -578,6 +628,20 @@ export default function MonthlyArchive() {
             <p className="text-base">لا توجد نتائج لـ «{searchTerm}»</p>
             <Button variant="ghost" className="mt-2 text-sm" onClick={() => setSearchTerm("")}>
               مسح البحث
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filtered.length === 0 && activeFilterCount > 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+            <SlidersHorizontal className="h-10 w-10 mb-3 opacity-30" />
+            <p className="text-base">لا توجد بيانات للفترة أو الورشات المختارة</p>
+            <Button
+              variant="ghost"
+              className="mt-2 text-sm"
+              onClick={() => { setSelectedRuleIds(new Set()); setSelectedWorkshopIds(new Set()); }}
+            >
+              إلغاء الفلتر
             </Button>
           </CardContent>
         </Card>
@@ -644,7 +708,145 @@ export default function MonthlyArchive() {
         </div>
       )}
 
-      {/* Edit Dialog */}
+      {/* ---- Filter Dialog ---- */}
+      <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
+        <DialogContent className="sm:max-w-sm" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SlidersHorizontal className="h-5 w-5 text-primary" />
+              انتقاء الفترات والورشات
+            </DialogTitle>
+            <DialogDescription>اختر الفترة والورشة لتصفية عرض الجداول</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            {/* Shifts / Work Rules */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">الفترات</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setSelectedRuleIds(new Set())}
+                  data-testid="button-filter-all-rules"
+                >
+                  كل الفترات
+                </Button>
+              </div>
+              <div className="space-y-1.5 border rounded-md p-2.5 bg-muted/20">
+                {availableRules.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">لا توجد فترات</p>
+                )}
+                {availableRules.map((rule) => {
+                  const checked = selectedRuleIds.size === 0 || selectedRuleIds.has(rule.id);
+                  return (
+                    <button
+                      key={rule.id}
+                      className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded-md hover:bg-muted/60 transition-colors text-right"
+                      onClick={() => {
+                        setSelectedRuleIds((prev) => {
+                          const next = new Set(prev.size === 0 ? availableRules.map((r) => r.id) : Array.from(prev));
+                          if (next.has(rule.id)) {
+                            next.delete(rule.id);
+                            if (next.size === availableRules.length) return new Set();
+                          } else {
+                            next.add(rule.id);
+                            if (next.size === availableRules.length) return new Set();
+                          }
+                          return next;
+                        });
+                        setSelectedWorkshopIds(new Set());
+                      }}
+                      data-testid={`button-filter-rule-${rule.id}`}
+                    >
+                      {checked ? (
+                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                      ) : (
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="flex-1">{rule.name}</span>
+                      <span className="text-xs text-muted-foreground font-mono">{rule.workStartTime}–{rule.workEndTime}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Workshops */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">الورشات</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setSelectedWorkshopIds(new Set())}
+                  data-testid="button-filter-all-workshops"
+                >
+                  كل الورشات
+                </Button>
+              </div>
+              <div className="space-y-1.5 border rounded-md p-2.5 bg-muted/20 max-h-48 overflow-y-auto">
+                {availableWorkshops.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">لا توجد ورشات</p>
+                )}
+                {availableWorkshops.map((ws) => {
+                  const checked = selectedWorkshopIds.size === 0 || selectedWorkshopIds.has(ws.id);
+                  return (
+                    <button
+                      key={ws.id}
+                      className="w-full flex items-center gap-2 text-sm px-2 py-1.5 rounded-md hover:bg-muted/60 transition-colors text-right"
+                      onClick={() => {
+                        setSelectedWorkshopIds((prev) => {
+                          const next = new Set(prev.size === 0 ? availableWorkshops.map((w) => w.id) : Array.from(prev));
+                          if (next.has(ws.id)) {
+                            next.delete(ws.id);
+                            if (next.size === availableWorkshops.length) return new Set();
+                          } else {
+                            next.add(ws.id);
+                            if (next.size === availableWorkshops.length) return new Set();
+                          }
+                          return next;
+                        });
+                      }}
+                      data-testid={`button-filter-workshop-${ws.id}`}
+                    >
+                      {checked ? (
+                        <CheckSquare className="h-4 w-4 text-primary shrink-0" />
+                      ) : (
+                        <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                      )}
+                      <span className="flex-1">{ws.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 flex-row-reverse">
+            <Button
+              variant="default"
+              onClick={() => setFilterOpen(false)}
+              data-testid="button-filter-apply"
+            >
+              تطبيق
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSelectedRuleIds(new Set());
+                setSelectedWorkshopIds(new Set());
+              }}
+              data-testid="button-filter-reset"
+            >
+              إعادة ضبط
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!editCell} onOpenChange={(open) => { if (!open) setEditCell(null); }}>
         <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
