@@ -218,7 +218,9 @@ export default function Reports() {
   }, [reportData]);
 
   const employeesWithOvertime = useMemo(() =>
-    overtimeData.filter(emp => emp.dailyRecords.some(r => r.overtimeHours > 0)),
+    overtimeData.filter(emp =>
+      emp.dailyRecords.some(r => r.overtimeHours > 0 || (r.pending && r.status === "holiday"))
+    ),
     [overtimeData]);
 
   const allOvertimeDates = useMemo(() => {
@@ -519,12 +521,18 @@ export default function Reports() {
                         {allOvertimeDates.map(d => {
                           const rec = byDate?.get(d);
                           const ot = rec?.overtimeHours ?? 0;
+                          const pendingHoliday = rec?.pending && rec?.status === "holiday";
                           return (
                             <TableCell key={d} className="text-center px-1">
                               {ot > 0 ? (
                                 <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
                                   title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
                                   {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
+                                </span>
+                              ) : pendingHoliday ? (
+                                <span className="text-xs text-amber-500 font-semibold"
+                                  title={`دخول: ${rec?.checkIn ?? "—"} | لم يسجّل الخروج بعد`}>
+                                  ؟
                                 </span>
                               ) : (
                                 <span className="text-xs text-muted-foreground">—</span>
