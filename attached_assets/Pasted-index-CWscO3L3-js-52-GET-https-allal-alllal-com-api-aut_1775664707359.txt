@@ -1,0 +1,275 @@
+index-CWscO3L3.js:52  GET https://allal.alllal.com/api/auth/me 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:52
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+uh @ index-CWscO3L3.js:8
+z @ index-CWscO3L3.js:1
+re @ index-CWscO3L3.js:1Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/companies 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+z @ index-CWscO3L3.js:1
+re @ index-CWscO3L3.js:1Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/employees 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+z @ index-CWscO3L3.js:1
+re @ index-CWscO3L3.js:1Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/workshops 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+z @ index-CWscO3L3.js:1
+re @ index-CWscO3L3.js:1Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/attendance/?date=2026-04-08 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+z @ index-CWscO3L3.js:1
+re @ index-CWscO3L3.js:1Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/workshops 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/positions 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/employees 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/work-rules 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/companies 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+events:1  GET https://allal.alllal.com/api/attendance/events 401 (Unauthorized)Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/attendance/?date=2026-04-08 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/employees 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/work-rules 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/employees 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/workshops 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/work-rules 401 (Unauthorized)
+(anonymous) @ index-CWscO3L3.js:8
+c @ index-CWscO3L3.js:8
+T @ index-CWscO3L3.js:8
+start @ index-CWscO3L3.js:8
+fetch @ index-CWscO3L3.js:8
+#d @ index-CWscO3L3.js:8
+onSubscribe @ index-CWscO3L3.js:8
+subscribe @ index-CWscO3L3.js:8
+(anonymous) @ index-CWscO3L3.js:8
+hp @ index-CWscO3L3.js:6
+Li @ index-CWscO3L3.js:8
+gs @ index-CWscO3L3.js:8
+ww @ index-CWscO3L3.js:8
+Fr @ index-CWscO3L3.js:8
+dh @ index-CWscO3L3.js:8
+nr @ index-CWscO3L3.js:6
+(anonymous) @ index-CWscO3L3.js:8Understand this error
+index-CWscO3L3.js:8  GET https://allal.alllal.com/api/employees 401 (Unauthorized)
