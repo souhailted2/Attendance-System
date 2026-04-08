@@ -722,7 +722,7 @@ export async function registerRoutes(
         {
           function getWeekStart(dateStr: string): string {
             const d = new Date(dateStr + "T00:00:00");
-            d.setDate(d.getDate() - d.getDay()); // رجوع للأحد
+            d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); // رجوع للسبت (بداية الأسبوع الفعلي)
             return d.toISOString().slice(0, 10);
           }
           const holidaysByWeek = new Map<string, typeof dailyRecords[0][]>();
