@@ -852,9 +852,20 @@ export default function Reports() {
                             {allDates.map((d) => {
                               const rec = byDate?.get(d);
                               if (!rec) {
+                                const syntheticRec: DailyRecord = {
+                                  attendanceId: null, date: d, checkIn: null, checkOut: null,
+                                  normalizedCheckIn: null, normalizedCheckOut: null, status: "absent",
+                                  lateMinutes: 0, earlyLeaveMinutes: 0, effectiveLateMinutes: 0,
+                                  effectiveEarlyLeaveMinutes: 0, totalHours: null, dailyScore: 0,
+                                  pending: false, overtimeHours: 0,
+                                };
                                 return (
                                   <TableCell key={d} className="p-0">
-                                    <div className="h-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs">—</div>
+                                    <button
+                                      className="w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs cursor-pointer hover:bg-muted/40 transition-colors"
+                                      onClick={() => openEditCell(r, d, syntheticRec)}
+                                      data-testid={`button-edit-cell-${r.employeeId}-${d}`}
+                                    >—</button>
                                   </TableCell>
                                 );
                               }
