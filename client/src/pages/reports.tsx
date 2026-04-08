@@ -521,7 +521,7 @@ export default function Reports() {
                         {allOvertimeDates.map(d => {
                           const rec = byDate?.get(d);
                           const ot = rec?.overtimeHours ?? 0;
-                          const pendingHoliday = rec?.pending && rec?.status === "holiday";
+                          const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
                           return (
                             <TableCell key={d} className="text-center px-1">
                               {ot > 0 ? (
