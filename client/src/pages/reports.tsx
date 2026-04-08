@@ -894,12 +894,8 @@ export default function Reports() {
                                       </>
                                     ) : rec.pending ? (
                                       <>
-                                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                                          {rec.dailyScore.toFixed(2)}
-                                          {rec.overtimeHours > 0 && <span className="text-amber-400 mr-0.5">+</span>}
-                                        </span>
-                                        <span className="text-[10px] font-mono text-muted-foreground">{rec.checkIn}</span>
-                                        <span className="text-[10px] text-amber-400">...</span>
+                                        <span className="text-base font-bold text-amber-500 dark:text-amber-400">؟</span>
+                                        <span className="text-[10px] font-mono text-muted-foreground leading-none">{rec.checkIn}</span>
                                       </>
                                     ) : (
                                       <>
