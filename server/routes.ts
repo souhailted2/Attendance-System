@@ -532,14 +532,31 @@ export async function registerRoutes(
         return res.status(400).json({ message: "dates must be in YYYY-MM-DD format" });
       if (from > to) return res.status(400).json({ message: "from date must be before or equal to to date" });
 
-      // حساب تعويض شهر فيفري (يُعامَل كـ 30 يوم دائماً)
+      // توحيد كل الأشهر على 30 يوم
       const fromDate = new Date(from + "T00:00:00");
       const toDate = new Date(to + "T00:00:00");
-      let februaryBonus = 0;
-      if (fromDate.getMonth() === 1 && toDate.getMonth() === 1) {
-        const daysInFeb = new Date(fromDate.getFullYear(), 2, 0).getDate();
-        if (fromDate.getDate() === 1 && toDate.getDate() === daysInFeb) {
-          februaryBonus = 30 - daysInFeb; // 2 إذا كان 28 يوماً، 1 إذا كان 29 يوماً
+      let monthBonus = 0;          // تعديل النقاط (فيفري فقط)
+      let isFullMonth = false;     // هل النطاق شهر كامل؟
+      let isFullMonth31 = false;   // هل الشهر 31 يوم؟
+
+      if (
+        fromDate.getMonth() === toDate.getMonth() &&
+        fromDate.getFullYear() === toDate.getFullYear()
+      ) {
+        const year = fromDate.getFullYear();
+        const month = fromDate.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        if (fromDate.getDate() === 1 && toDate.getDate() === daysInMonth) {
+          isFullMonth = true;
+          if (daysInMonth === 28 || daysInMonth === 29) {
+            // فيفري: نعدّل النقاط لأعلى (+1 أو +2)
+            monthBonus = 30 - daysInMonth;
+          } else if (daysInMonth === 31) {
+            // شهر 31 يوم: اليوم 31 يُعالج على مستوى السجل (حضر=0، غاب=-1)
+            isFullMonth31 = true;
+            monthBonus = 0;
+          }
+          // 30 يوم: لا تغيير
         }
       }
 
@@ -736,6 +753,20 @@ export async function registerRoutes(
         // Re-sort by date after injection
         dailyRecords.sort((a, b) => a.date.localeCompare(b.date));
 
+        // --- قاعدة اليوم 31 (شهر 31 يوم): حضر=0.00 ، غاب=-1.00 ---
+        if (isFullMonth31) {
+          const day31Str = from.slice(0, 7) + "-31"; // YYYY-MM-31
+          const rec31 = dailyRecords.find(r => r.date === day31Str);
+          if (rec31) {
+            if (rec31.status === "absent") {
+              rec31.dailyScore = -1.00;
+            } else {
+              // حاضر أو عطلة → لا يكسب شيئاً
+              rec31.dailyScore = 0.00;
+            }
+          }
+        }
+
         // --- خصم العطلة الأسبوعية عند الغياب ---
         // لكل يوم غياب في الأسبوع → خصم 0.5 من نقاط العطلة (الأخيرة أولاً)
         {
@@ -788,7 +819,8 @@ export async function registerRoutes(
           totalLateMinutes: dailyRecords.reduce((s, r) => s + r.lateMinutes, 0),
           totalHours: empRecords.reduce((s, r) => s + parseFloat(r.totalHours || "0"), 0),
           attendanceScore: Math.round(attendanceScore * 100) / 100,
-          februaryBonus,
+          monthBonus,
+          normalizedTotalDays: isFullMonth ? 30 : undefined,
           dailyRecords,
         };
       });
