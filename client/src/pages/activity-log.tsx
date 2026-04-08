@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
@@ -97,10 +98,11 @@ export default function ActivityLogPage() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  if (user && user.username !== ADMIN_USERNAME) {
-    setLocation("/");
-    return null;
-  }
+  useEffect(() => {
+    if (user && user.username !== ADMIN_USERNAME) {
+      setLocation("/");
+    }
+  }, [user, setLocation]);
 
   const { data: logs = [], isLoading } = useQuery<ActivityLog[]>({
     queryKey: ["/api/activity-logs"],
