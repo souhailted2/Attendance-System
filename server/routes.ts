@@ -537,9 +537,9 @@ export async function registerRoutes(
       const allWorkRules = await storage.getWorkRules();
       const records = await storage.getAttendanceByDateRange(from, to);
 
-      // Load weekly off days from DB setting
+      // Load weekly off days
       const offDaySetting = await storage.getAppSetting("weeklyOffDays");
-      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [4, 5];
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
 
       // Build full date range list
       const allDatesInRange: string[] = [];
