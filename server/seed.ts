@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 
 const ADMIN_USERNAME = "bachir tedjani";
 const ATTENDANCE_USERNAME = "attendence";
+const OBSERVER_USERNAME = "observer";
 
 async function ensureAdminUser() {
   const target = await storage.getUserByUsername(ADMIN_USERNAME);
@@ -28,10 +29,19 @@ async function ensureAttendanceUser() {
   console.log(`✅ تم إنشاء مستخدم الحضور: ${ATTENDANCE_USERNAME} / attendence123`);
 }
 
+async function ensureObserverUser() {
+  const existing = await storage.getUserByUsername(OBSERVER_USERNAME);
+  if (existing) return;
+  const hashed = await bcrypt.hash("observer123", 10);
+  await storage.createUser({ username: OBSERVER_USERNAME, password: hashed });
+  console.log(`✅ تم إنشاء مستخدم المراقب: ${OBSERVER_USERNAME} / observer123`);
+}
+
 export async function seedDatabase() {
   await storage.initActivityLogs();
   await ensureAdminUser();
   await ensureAttendanceUser();
+  await ensureObserverUser();
 
   const existingCompanies = await storage.getCompanies();
   if (existingCompanies.length > 0) return;
