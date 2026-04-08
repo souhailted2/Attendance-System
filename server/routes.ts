@@ -668,7 +668,15 @@ export async function registerRoutes(
             existing.earlyLeaveMinutes = 0;
             existing.effectiveLateMinutes = 0;
             existing.effectiveEarlyLeaveMinutes = 0;
-            existing.overtimeHours = 0;
+            // كل دقيقة عمل في يوم العطلة = ساعة إضافية كاملة
+            if (existing.checkIn && existing.checkOut) {
+              const [inH, inM] = existing.checkIn.split(":").map(Number);
+              const [outH, outM] = existing.checkOut.split(":").map(Number);
+              const workedMin = (outH * 60 + outM) - (inH * 60 + inM);
+              existing.overtimeHours = workedMin > 0 ? Math.round(workedMin / 60 * 10) / 10 : 0;
+            } else {
+              existing.overtimeHours = 0;
+            }
           } else {
             // Inject synthetic holiday record
             dailyRecords.push({
