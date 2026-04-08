@@ -294,7 +294,7 @@ export async function registerRoutes(
   app.use("/api", requireAuth);
 
   // تسجيل النشاطات (POST/PUT/PATCH/DELETE) — يُسجَّل حتى للطلبات غير المصادق عليها كوكيل الحضور
-  const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me"];
+  const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me", "/api/archive-action"];
   const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (!WRITE_METHODS.includes(req.method) || !req.path.startsWith("/api/") || SKIP_LOG_PATHS.includes(req.path)) {
@@ -321,6 +321,27 @@ export async function registerRoutes(
     }
     const logs = await storage.getActivityLogs(500);
     res.json(logs);
+  });
+
+  // تسجيل عملية أرشيف مع وصف عربي مفصّل — يستخدمه نظام تأكيد التغييرات
+  app.post("/api/archive-action", async (req, res) => {
+    if (req.session.username !== "bachir tedjani") {
+      return res.status(403).json({ message: "غير مصرح بالوصول" });
+    }
+    const { description } = req.body;
+    if (!description || typeof description !== "string") {
+      return res.status(400).json({ message: "الوصف مطلوب" });
+    }
+    await storage.createActivityLog({
+      userId: req.session?.userId ?? null,
+      username: req.session?.username ?? null,
+      method: "ACTION",
+      path: "/api/archive-action",
+      statusCode: 200,
+      details: description,
+      createdAt: new Date().toISOString(),
+    }).catch(() => {});
+    res.json({ ok: true });
   });
 
   app.get("/api/companies", async (_req, res) => {

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar, Search, X,
   ChevronRight, ChevronLeft, SlidersHorizontal, CheckSquare, Square,
-  Lock, LockOpen, Save,
+  Lock, LockOpen, Save, RotateCcw, CheckCheck, AlertCircle, Clock,
 } from "lucide-react";
 import type { WorkRule, Workshop } from "@shared/schema";
 
@@ -50,6 +50,8 @@ interface DailyRecord {
   dailyScore: number;
   pending?: boolean;
   overtimeHours: number;
+  staged?: boolean;
+  stagedDelete?: boolean;
 }
 
 interface EmployeeReport {
@@ -75,6 +77,16 @@ interface EditCell {
   employeeName: string;
   date: string;
   record: DailyRecord;
+  workshopName: string;
+  ruleName: string;
+}
+
+interface PendingOp {
+  id: string;
+  type: "editCell" | "deleteCell" | "freeze" | "unfreeze";
+  description: string;
+  execute: () => Promise<void>;
+  revert: () => void;
 }
 
 const ARABIC_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -134,6 +146,44 @@ function arabicMonthName(monthStr: string): string {
   return `${MONTH_NAMES[m - 1]} ${y}`;
 }
 
+function formatArabicDate(dateStr: string): string {
+  try {
+    const parts = dateStr.split("-");
+    return `${Number(parts[2])}/${Number(parts[1])}/${parts[0]}`;
+  } catch { return dateStr; }
+}
+
+function applyLocalCellOverrides(
+  emps: EmployeeReport[],
+  overrides: Map<string, DailyRecord>,
+): EmployeeReport[] {
+  if (overrides.size === 0) return emps;
+  return emps.map(emp => {
+    const empPrefix = emp.employeeId + "_";
+    const empKeys = Array.from(overrides.keys()).filter(k => k.startsWith(empPrefix));
+    if (empKeys.length === 0) return emp;
+
+    const origByDate = new Map<string, DailyRecord>(emp.dailyRecords.map(r => [r.date, r]));
+    const datesToProcess = new Set<string>([
+      ...emp.dailyRecords.map(r => r.date),
+      ...empKeys.map(k => k.substring(empPrefix.length)),
+    ]);
+
+    const newRecords: DailyRecord[] = [];
+    for (const date of Array.from(datesToProcess)) {
+      const key = `${emp.employeeId}_${date}`;
+      if (overrides.has(key)) {
+        newRecords.push(overrides.get(key)!);
+      } else {
+        const orig = origByDate.get(date);
+        if (orig) newRecords.push(orig);
+      }
+    }
+
+    return { ...emp, dailyRecords: newRecords.sort((a, b) => a.date.localeCompare(b.date)) };
+  });
+}
+
 export default function MonthlyArchive() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -181,6 +231,17 @@ export default function MonthlyArchive() {
   const [editCell, setEditCell] = useState<EditCell | null>(null);
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
 
+  const [pendingOps, setPendingOps] = useState<PendingOp[]>([]);
+  const [localCellOverrides, setLocalCellOverrides] = useState<Map<string, DailyRecord>>(new Map());
+  const [localFreezeOverrides, setLocalFreezeOverrides] = useState<Map<string, FrozenArchiveMeta | null>>(new Map());
+  const [isConfirming, setIsConfirming] = useState(false);
+
+  useEffect(() => {
+    setLocalCellOverrides(new Map());
+    setLocalFreezeOverrides(new Map());
+    setPendingOps([]);
+  }, [selectedMonth]);
+
   const { data: workRules = [] } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
 
@@ -197,34 +258,6 @@ export default function MonthlyArchive() {
     return frozenList.find((f) => f.workshopId === (workshopId ?? "") && f.workRuleId === workRuleId);
   }
 
-  const freezeMutation = useMutation({
-    mutationFn: async ({ workshopId, workRuleId, emps }: { workshopId: string; workRuleId: string; emps: EmployeeReport[] }) => {
-      const r = await apiRequest("POST", "/api/frozen-archives", {
-        month: selectedMonth,
-        workshopId,
-        workRuleId,
-        reportJson: JSON.stringify(emps),
-      });
-      return r.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
-      toast({ title: "تم الحفظ", description: "تم تجميد تقرير الجدول بنجاح" });
-    },
-    onError: () => toast({ title: "خطأ", description: "تعذّر حفظ التقرير", variant: "destructive" }),
-  });
-
-  const unfreezeMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/frozen-archives/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
-      toast({ title: "تم إلغاء الحفظ", description: "يمكن الآن تعديل هذا الجدول" });
-    },
-    onError: () => toast({ title: "خطأ", description: "تعذّر إلغاء الحفظ", variant: "destructive" }),
-  });
-
   const reportUrl = `/api/reports/range?from=${dateFrom}&to=${dateTo}`;
   const { data: reportData = [], isLoading } = useQuery<EmployeeReport[]>({
     queryKey: ["/api/reports/range", dateFrom, dateTo],
@@ -236,39 +269,216 @@ export default function MonthlyArchive() {
     enabled: !!dateFrom && !!dateTo,
   });
 
-  const saveAttendanceMutation = useMutation({
-    mutationFn: async ({ attendanceId, employeeId, date, data }: {
-      attendanceId: string | null;
-      employeeId: string;
-      date: string;
-      data: { status: string; checkIn: string | null; checkOut: string | null };
-    }) => {
-      if (attendanceId) {
-        return apiRequest("PATCH", `/api/attendance/${attendanceId}`, data);
-      } else {
-        return apiRequest("POST", `/api/attendance`, { employeeId, date, ...data });
+  function stageEditCell(ec: EditCell, ef: { status: string; checkIn: string; checkOut: string }) {
+    const key = `${ec.employeeId}_${ec.date}`;
+    const hadPrev = localCellOverrides.has(key);
+    const prevVal = localCellOverrides.get(key);
+
+    const newRecord: DailyRecord = {
+      ...ec.record,
+      status: ef.status,
+      checkIn: ef.checkIn || null,
+      checkOut: ef.checkOut || null,
+      staged: true,
+      stagedDelete: false,
+    };
+
+    setLocalCellOverrides(prev => new Map(prev).set(key, newRecord));
+
+    const today = new Date();
+    const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const description = `قام ${user?.username ?? "المستخدم"} بتعديل حضور الموظف ${ec.employeeName} بتاريخ ${formatArabicDate(ec.date)} في ورشة ${ec.workshopName} (${ec.ruleName}) يوم ${todayStr}`;
+
+    const opId = Date.now().toString() + Math.random().toString(36).slice(2, 8);
+    const attendanceId = ec.record.attendanceId;
+    const employeeId = ec.employeeId;
+    const date = ec.date;
+    const status = ef.status;
+    const checkIn = ef.checkIn || null;
+    const checkOut = ef.checkOut || null;
+
+    setPendingOps(prev => [...prev, {
+      id: opId,
+      type: "editCell",
+      description,
+      execute: async () => {
+        if (attendanceId) {
+          await apiRequest("PATCH", `/api/attendance/${attendanceId}`, { status, checkIn, checkOut });
+        } else {
+          await apiRequest("POST", `/api/attendance`, { employeeId, date, status, checkIn, checkOut });
+        }
+      },
+      revert: () => {
+        setLocalCellOverrides(prev => {
+          const m = new Map(prev);
+          if (!hadPrev) m.delete(key);
+          else m.set(key, prevVal!);
+          return m;
+        });
+      },
+    }]);
+  }
+
+  function stageDeleteCell(ec: EditCell) {
+    if (!ec.record.attendanceId) return;
+
+    const key = `${ec.employeeId}_${ec.date}`;
+    const hadPrev = localCellOverrides.has(key);
+    const prevVal = localCellOverrides.get(key);
+
+    const deleteRecord: DailyRecord = { ...ec.record, staged: true, stagedDelete: true };
+    setLocalCellOverrides(prev => new Map(prev).set(key, deleteRecord));
+
+    const today = new Date();
+    const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const description = `قام ${user?.username ?? "المستخدم"} بحذف سجل حضور الموظف ${ec.employeeName} بتاريخ ${formatArabicDate(ec.date)} في ورشة ${ec.workshopName} (${ec.ruleName}) يوم ${todayStr}`;
+
+    const opId = Date.now().toString() + Math.random().toString(36).slice(2, 8);
+    const attendanceId = ec.record.attendanceId;
+
+    setPendingOps(prev => [...prev, {
+      id: opId,
+      type: "deleteCell",
+      description,
+      execute: async () => {
+        await apiRequest("DELETE", `/api/attendance/${attendanceId}`);
+      },
+      revert: () => {
+        setLocalCellOverrides(prev => {
+          const m = new Map(prev);
+          if (!hadPrev) m.delete(key);
+          else m.set(key, prevVal!);
+          return m;
+        });
+      },
+    }]);
+  }
+
+  function stageFreeze(
+    workshopId: string,
+    workRuleId: string,
+    workshopName: string,
+    ruleName: string,
+    snapshotEmps: EmployeeReport[],
+  ) {
+    const key = `${workshopId}_${workRuleId}`;
+    const hadPrev = localFreezeOverrides.has(key);
+    const prevVal = localFreezeOverrides.get(key);
+
+    const pendingMeta: FrozenArchiveMeta = {
+      id: "pending-" + Date.now(),
+      month: selectedMonth,
+      workshopId,
+      workRuleId,
+      frozenAt: new Date().toISOString(),
+      frozenBy: user?.username ?? "المستخدم",
+      reportJson: JSON.stringify(snapshotEmps),
+    };
+
+    setLocalFreezeOverrides(prev => new Map(prev).set(key, pendingMeta));
+
+    const today = new Date();
+    const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const description = `قام ${user?.username ?? "المستخدم"} بحفظ جدول ورشة ${workshopName} الفترة ${ruleName} بتاريخ ${todayStr}`;
+
+    const opId = Date.now().toString() + Math.random().toString(36).slice(2, 8);
+    const month = selectedMonth;
+    const snapJson = JSON.stringify(snapshotEmps);
+
+    setPendingOps(prev => [...prev, {
+      id: opId,
+      type: "freeze",
+      description,
+      execute: async () => {
+        await apiRequest("POST", "/api/frozen-archives", { month, workshopId, workRuleId, reportJson: snapJson });
+      },
+      revert: () => {
+        setLocalFreezeOverrides(prev => {
+          const m = new Map(prev);
+          if (!hadPrev) m.delete(key);
+          else m.set(key, prevVal ?? null);
+          return m;
+        });
+      },
+    }]);
+  }
+
+  function stageUnfreeze(frozen: FrozenArchiveMeta, workshopName: string, ruleName: string) {
+    const key = `${frozen.workshopId}_${frozen.workRuleId}`;
+    const hadPrev = localFreezeOverrides.has(key);
+    const prevVal = localFreezeOverrides.get(key);
+
+    setLocalFreezeOverrides(prev => new Map(prev).set(key, null));
+
+    const today = new Date();
+    const todayStr = `${today.getDate()}/${today.getMonth() + 1}/${today.getFullYear()}`;
+    const description = `قام ${user?.username ?? "المستخدم"} بإلغاء حفظ جدول ورشة ${workshopName} الفترة ${ruleName} بتاريخ ${todayStr}`;
+
+    const opId = Date.now().toString() + Math.random().toString(36).slice(2, 8);
+    const frozenId = frozen.id;
+
+    setPendingOps(prev => [...prev, {
+      id: opId,
+      type: "unfreeze",
+      description,
+      execute: async () => {
+        await apiRequest("DELETE", `/api/frozen-archives/${frozenId}`);
+      },
+      revert: () => {
+        setLocalFreezeOverrides(prev => {
+          const m = new Map(prev);
+          if (!hadPrev) m.delete(key);
+          else m.set(key, prevVal ?? null);
+          return m;
+        });
+      },
+    }]);
+  }
+
+  function handleUndo() {
+    if (pendingOps.length === 0) return;
+    const lastOp = pendingOps[pendingOps.length - 1];
+    lastOp.revert();
+    setPendingOps(prev => prev.slice(0, -1));
+  }
+
+  async function handleConfirm() {
+    if (pendingOps.length === 0 || isConfirming) return;
+    setIsConfirming(true);
+
+    const opsCopy = [...pendingOps];
+    let failed = false;
+
+    for (const op of opsCopy) {
+      try {
+        await op.execute();
+        try {
+          await apiRequest("POST", "/api/archive-action", { description: op.description });
+        } catch {}
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "خطأ غير معروف";
+        toast({ title: "خطأ في التنفيذ", description: msg, variant: "destructive" });
+        failed = true;
+        break;
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
-      toast({ title: "تم حفظ السجل بنجاح" });
-      setEditCell(null);
-    },
-    onError: (err: Error) => toast({ title: "خطأ في الحفظ", description: err.message, variant: "destructive" }),
-  });
+    }
 
-  const deleteAttendanceMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/attendance/${id}`),
-    onSuccess: () => {
+    if (!failed) {
+      toast({ title: "تم تطبيق التغييرات", description: `تم تنفيذ ${opsCopy.length} عملية وتسجيلها بنجاح` });
+      setLocalCellOverrides(new Map());
+      setLocalFreezeOverrides(new Map());
+      setPendingOps([]);
       queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
-      toast({ title: "تم حذف السجل" });
-      setEditCell(null);
-    },
-    onError: (err: Error) => toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" }),
-  });
+      queryClient.invalidateQueries({ queryKey: ["/api/frozen-archives", selectedMonth] });
+      queryClient.invalidateQueries({ queryKey: ["/api/activity-logs"] });
+    }
 
-  function openEditCell(emp: EmployeeReport, date: string, rec: DailyRecord) {
-    setEditCell({ employeeId: emp.employeeId, employeeName: emp.employeeName, date, record: rec });
+    setIsConfirming(false);
+  }
+
+  function openEditCell(emp: EmployeeReport, date: string, rec: DailyRecord, workshopName: string, ruleName: string) {
+    if (rec.staged) return;
+    setEditCell({ employeeId: emp.employeeId, employeeName: emp.employeeName, date, record: rec, workshopName, ruleName });
     setEditForm({
       status: rec.status === "holiday" ? "present" : rec.status,
       checkIn: rec.checkIn ?? "",
@@ -278,22 +488,16 @@ export default function MonthlyArchive() {
 
   function handleSave() {
     if (!editCell) return;
-    saveAttendanceMutation.mutate({
-      attendanceId: editCell.record.attendanceId,
-      employeeId: editCell.employeeId,
-      date: editCell.date,
-      data: {
-        status: editForm.status,
-        checkIn: editForm.checkIn || null,
-        checkOut: editForm.checkOut || null,
-      },
-    });
+    stageEditCell(editCell, editForm);
+    setEditCell(null);
+    toast({ title: "تمت إضافة التعديل", description: "اضغط «تأكيد التغييرات» لحفظه في قاعدة البيانات" });
   }
 
   function handleDelete() {
     if (!editCell?.record.attendanceId) return;
-    if (!confirm("هل أنت متأكد من حذف هذا السجل؟")) return;
-    deleteAttendanceMutation.mutate(editCell.record.attendanceId);
+    stageDeleteCell(editCell);
+    setEditCell(null);
+    toast({ title: "تمت إضافة الحذف", description: "اضغط «تأكيد التغييرات» لتطبيقه" });
   }
 
   const allDates = useMemo(() => {
@@ -407,11 +611,27 @@ export default function MonthlyArchive() {
     workshopId: string | undefined,
     workRuleId: string,
   ) {
-    const frozen = getFrozen(workshopId, workRuleId);
-    const emps: EmployeeReport[] = frozen ? (JSON.parse(frozen.reportJson) as EmployeeReport[]) : liveEmps;
+    const freezeKey = `${workshopId ?? ""}_${workRuleId}`;
+
+    const effectiveFrozen: FrozenArchiveMeta | null = localFreezeOverrides.has(freezeKey)
+      ? (localFreezeOverrides.get(freezeKey) ?? null)
+      : (getFrozen(workshopId, workRuleId) ?? null);
+
+    const isPendingFreeze = !!effectiveFrozen && effectiveFrozen.id.startsWith("pending-");
+    const isPendingUnfreeze = localFreezeOverrides.has(freezeKey) && localFreezeOverrides.get(freezeKey) === null;
+
+    const displayEmps: EmployeeReport[] = effectiveFrozen
+      ? (JSON.parse(effectiveFrozen.reportJson) as EmployeeReport[])
+      : applyLocalCellOverrides(liveEmps, localCellOverrides);
+
+    const emps = displayEmps;
     const tableTotal = emps.reduce((s, r) => s + r.attendanceScore, 0);
     const tableMax = emps.reduce((s, r) => s + (r.normalizedTotalDays ?? r.totalDays), 0);
     const isOwner = user?.username === "bachir tedjani";
+
+    const headerBg = effectiveFrozen
+      ? (isPendingFreeze ? "bg-amber-50/80 dark:bg-amber-950/30" : "bg-emerald-50/80 dark:bg-emerald-950/30")
+      : (isPendingUnfreeze ? "bg-amber-50/50 dark:bg-amber-950/20" : "bg-muted/30");
 
     function formatFrozenDate(iso: string) {
       try {
@@ -422,40 +642,56 @@ export default function MonthlyArchive() {
 
     return (
       <div className="overflow-x-auto rounded-lg border mb-6">
-        <div className={`px-4 py-2 border-b flex items-center gap-2 ${frozen ? "bg-emerald-50/80 dark:bg-emerald-950/30" : "bg-muted/30"}`}>
-          {frozen ? <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <Wrench className="h-4 w-4 text-primary" />}
+        <div className={`px-4 py-2 border-b flex items-center gap-2 ${headerBg}`}>
+          {effectiveFrozen
+            ? (isPendingFreeze
+              ? <Clock className="h-4 w-4 text-amber-500 dark:text-amber-400" />
+              : <Lock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />)
+            : <Wrench className="h-4 w-4 text-primary" />}
           <span className="font-semibold text-sm">{workshopName}</span>
           <span className="text-muted-foreground text-xs">—</span>
           <span className="text-xs text-muted-foreground">{ruleName}</span>
-          {frozen ? (
-            <Badge className="mr-auto text-xs gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700" variant="outline">
-              <Lock className="h-3 w-3" />محفوظ — {formatFrozenDate(frozen.frozenAt)} — بواسطة: {frozen.frozenBy}
+
+          {effectiveFrozen ? (
+            isPendingFreeze ? (
+              <Badge className="mr-auto text-xs gap-1 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-700" variant="outline">
+                <Clock className="h-3 w-3" />حفظ معلّق — في انتظار التأكيد
+              </Badge>
+            ) : (
+              <Badge className="mr-auto text-xs gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700" variant="outline">
+                <Lock className="h-3 w-3" />محفوظ — {formatFrozenDate(effectiveFrozen.frozenAt)} — بواسطة: {effectiveFrozen.frozenBy}
+              </Badge>
+            )
+          ) : isPendingUnfreeze ? (
+            <Badge className="mr-auto text-xs gap-1 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 border-amber-200 dark:border-amber-700" variant="outline">
+              <LockOpen className="h-3 w-3" />إلغاء حفظ معلّق — في انتظار التأكيد
             </Badge>
           ) : (
             <Badge variant="outline" className="mr-auto text-xs gap-1">
               <Users className="h-3 w-3" />{liveEmps.length} موظف
             </Badge>
           )}
-          {frozen && isOwner && (
+
+          {effectiveFrozen && !isPendingFreeze && isOwner && (
             <Button
               variant="ghost"
               size="sm"
               className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 gap-1"
-              onClick={() => unfreezeMutation.mutate(frozen.id)}
-              disabled={unfreezeMutation.isPending}
+              onClick={() => stageUnfreeze(effectiveFrozen, workshopName, ruleName)}
+              disabled={isConfirming}
               data-testid={`button-unfreeze-${workshopId}-${workRuleId}`}
             >
               <LockOpen className="h-3.5 w-3.5" />
               إلغاء الحفظ
             </Button>
           )}
-          {!frozen && isOwner && (
+          {!effectiveFrozen && isOwner && (
             <Button
               variant="ghost"
               size="sm"
               className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 gap-1"
-              onClick={() => freezeMutation.mutate({ workshopId: workshopId ?? "", workRuleId, emps: liveEmps })}
-              disabled={freezeMutation.isPending || liveEmps.length === 0}
+              onClick={() => stageFreeze(workshopId ?? "", workRuleId, workshopName, ruleName, emps)}
+              disabled={isConfirming || liveEmps.length === 0}
               data-testid={`button-freeze-${workshopId}-${workRuleId}`}
             >
               <Save className="h-3.5 w-3.5" />
@@ -497,15 +733,15 @@ export default function MonthlyArchive() {
                         normalizedCheckIn: null, normalizedCheckOut: null, status: "absent",
                         lateMinutes: 0, earlyLeaveMinutes: 0, effectiveLateMinutes: 0,
                         effectiveEarlyLeaveMinutes: 0, totalHours: null, dailyScore: 0,
-                        pending: false, overtimeHours: 0,
+                        pending: false, overtimeHours: 0, staged: false, stagedDelete: false,
                       };
                       return (
                         <TableCell key={d} className="p-0">
                           <button
-                            className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${frozen ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-muted/40"}`}
+                            className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${effectiveFrozen ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:bg-muted/40"}`}
                             onClick={() => {
-                              if (frozen) { toast({ title: "مقفل 🔒", description: "هذا التقرير محفوظ ومقفل" }); return; }
-                              openEditCell(r, d, syntheticRec);
+                              if (effectiveFrozen) { toast({ title: "مقفل 🔒", description: "هذا التقرير محفوظ ومقفل" }); return; }
+                              openEditCell(r, d, syntheticRec, workshopName, ruleName);
                             }}
                             data-testid={`button-edit-archive-${r.employeeId}-${d}`}
                           >—</button>
@@ -515,19 +751,32 @@ export default function MonthlyArchive() {
 
                     const bgClass = getCellBg(rec.status);
                     const scoreColorClass = getCellScoreColor(rec.status, rec.dailyScore);
+                    const isStagedDelete = rec.stagedDelete === true;
+                    const isStaged = rec.staged === true;
+                    const cellRingClass = isStaged
+                      ? isStagedDelete
+                        ? "ring-2 ring-inset ring-red-400 dark:ring-red-600 opacity-60"
+                        : "ring-2 ring-inset ring-amber-400 dark:ring-amber-500"
+                      : "";
 
                     return (
                       <TableCell key={d} className="p-0" data-testid={`cell-archive-${r.employeeId}-${d}`}>
                         <button
-                          className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${frozen ? "cursor-not-allowed" : "cursor-pointer"}`}
+                          className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${cellRingClass} ${(effectiveFrozen || isStagedDelete) ? "cursor-not-allowed" : isStaged ? "cursor-default" : "cursor-pointer"}`}
                           onClick={() => {
-                            if (frozen) { toast({ title: "مقفل 🔒", description: "هذا التقرير محفوظ ومقفل" }); return; }
-                            openEditCell(r, d, rec);
+                            if (effectiveFrozen) { toast({ title: "مقفل 🔒", description: "هذا التقرير محفوظ ومقفل" }); return; }
+                            if (isStagedDelete) { toast({ title: "معلّق للحذف", description: "اضغط تراجع لإلغاء هذا الحذف" }); return; }
+                            if (isStaged) { toast({ title: "معلّق للتعديل", description: "اضغط تراجع لإلغاء هذا التعديل" }); return; }
+                            openEditCell(r, d, rec, workshopName, ruleName);
                           }}
                           title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
                           data-testid={`button-edit-archive-${r.employeeId}-${d}`}
                         >
-                          {rec.status === "absent" ? (
+                          {isStagedDelete ? (
+                            <span className="text-xs font-bold text-red-500 dark:text-red-400 line-through">حذف</span>
+                          ) : isStaged ? (
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">معلّق</span>
+                          ) : rec.status === "absent" ? (
                             <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
                           ) : rec.status === "leave" ? (
                             <span className={`text-xs font-bold ${scoreColorClass}`}>إجازة</span>
@@ -576,7 +825,6 @@ export default function MonthlyArchive() {
                 </TableRow>
               );
             })}
-            {/* Totals row */}
             <TableRow className="bg-muted/50 font-bold border-t-2">
               <TableCell className="sticky right-0 bg-muted/50 z-10 border-l">المجموع</TableCell>
               <TableCell />
@@ -616,8 +864,49 @@ export default function MonthlyArchive() {
           </p>
         </div>
 
-        {/* Controls: month picker + search */}
+        {/* Controls */}
         <div className="flex flex-wrap items-stretch gap-3">
+          {/* Undo + Confirm buttons */}
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUndo}
+                disabled={pendingOps.length === 0 || isConfirming}
+                className={`gap-1.5 h-full ${pendingOps.length > 0 ? "border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950/30" : ""}`}
+                data-testid="button-undo"
+              >
+                <RotateCcw className="h-4 w-4" />
+                تراجع
+                {pendingOps.length > 0 && (
+                  <span className="mr-0.5 inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold h-4 w-4 shrink-0">
+                    {pendingOps.length}
+                  </span>
+                )}
+              </Button>
+            </div>
+            <Button
+              size="sm"
+              onClick={handleConfirm}
+              disabled={pendingOps.length === 0 || isConfirming}
+              className={`gap-1.5 h-full ${pendingOps.length > 0 ? "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-700 dark:hover:bg-emerald-600 text-white" : ""}`}
+              data-testid="button-confirm-changes"
+            >
+              {isConfirming ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <CheckCheck className="h-4 w-4" />
+              )}
+              {isConfirming ? "جاري التطبيق..." : "تأكيد التغييرات"}
+              {pendingOps.length > 0 && !isConfirming && (
+                <span className="mr-0.5 inline-flex items-center justify-center rounded-full bg-emerald-500 text-white text-[10px] font-bold h-4 w-4 shrink-0">
+                  {pendingOps.length}
+                </span>
+              )}
+            </Button>
+          </div>
+
           <Card className="shadow-sm">
             <CardContent className="p-3 flex items-center gap-2">
               <Calendar className="h-4 w-4 text-primary shrink-0" />
@@ -664,7 +953,6 @@ export default function MonthlyArchive() {
             </CardContent>
           </Card>
 
-          {/* Filter button */}
           <Button
             variant={activeFilterCount > 0 ? "default" : "outline"}
             className="h-full flex items-center gap-2 relative"
@@ -713,6 +1001,35 @@ export default function MonthlyArchive() {
         </div>
       </div>
 
+      {/* Pending ops banner */}
+      {pendingOps.length > 0 && (
+        <div className="flex items-center gap-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 text-amber-800 dark:text-amber-200 text-sm" data-testid="banner-pending-ops">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span className="flex-1">
+            لديك <strong>{pendingOps.length}</strong> تغيير{pendingOps.length === 1 ? "" : " معلّق"} — اضغط <strong>«تأكيد التغييرات»</strong> لتطبيقها وتسجيلها، أو <strong>«تراجع»</strong> للتراجع خطوة واحدة
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/30 gap-1"
+            onClick={handleUndo}
+            disabled={isConfirming}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            تراجع
+          </Button>
+          <Button
+            size="sm"
+            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+            onClick={handleConfirm}
+            disabled={isConfirming}
+          >
+            <CheckCheck className="h-3.5 w-3.5" />
+            تأكيد
+          </Button>
+        </div>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="space-y-6">
@@ -755,7 +1072,6 @@ export default function MonthlyArchive() {
         <div className="space-y-8">
           {pageGrouped.map(({ rule, tables }) => (
             <div key={rule.id} className="space-y-1">
-              {/* Work rule header */}
               <div className="flex items-center gap-3 mb-3">
                 <div className={`p-1.5 rounded-md ${rule.name.includes("صباح") ? "bg-amber-100 dark:bg-amber-950/50" : rule.name.includes("مساء") ? "bg-indigo-100 dark:bg-indigo-950/50" : "bg-primary/10"}`}>
                   {rule.name.includes("صباح") ? (
@@ -771,7 +1087,6 @@ export default function MonthlyArchive() {
                 <div className="flex-1 h-px bg-border mr-2" />
               </div>
 
-              {/* Workshop tables */}
               {tables.map(({ workshop, emps }: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => (
                 <div key={workshop?.id ?? "unknown"}>
                   {renderTable(emps, rule.name, workshop?.name ?? "ورشة غير محددة", workshop?.id, rule.id)}
@@ -780,7 +1095,6 @@ export default function MonthlyArchive() {
             </div>
           ))}
 
-          {/* Pagination bar */}
           {flatTables.length > PAGE_SIZE && (
             <div className="flex items-center justify-center gap-3 py-4 border-t mt-4" data-testid="pagination-bar">
               <Button
@@ -814,7 +1128,7 @@ export default function MonthlyArchive() {
         </div>
       )}
 
-      {/* ---- Filter Dialog ---- */}
+      {/* Filter Dialog */}
       <Dialog open={filterOpen} onOpenChange={setFilterOpen}>
         <DialogContent className="sm:max-w-sm" dir="rtl">
           <DialogHeader>
@@ -826,7 +1140,6 @@ export default function MonthlyArchive() {
           </DialogHeader>
 
           <div className="space-y-5 py-2">
-            {/* Shifts / Work Rules */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground">الفترات</p>
@@ -879,7 +1192,6 @@ export default function MonthlyArchive() {
               </div>
             </div>
 
-            {/* Workshops */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-foreground">الورشات</p>
@@ -953,6 +1265,7 @@ export default function MonthlyArchive() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Cell Dialog */}
       <Dialog open={!!editCell} onOpenChange={(open) => { if (!open) setEditCell(null); }}>
         <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
@@ -1012,9 +1325,13 @@ export default function MonthlyArchive() {
 
             {!editCell?.record.attendanceId && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
-                لا يوجد سجل في قاعدة البيانات — سيتم إنشاء سجل جديد عند الحفظ.
+                لا يوجد سجل في قاعدة البيانات — سيتم إنشاء سجل جديد عند التأكيد.
               </p>
             )}
+
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-2">
+              سيُضاف هذا التعديل لقائمة التغييرات المعلّقة. اضغط «تأكيد التغييرات» في الصفحة لتطبيقه فعلياً.
+            </p>
           </div>
 
           <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
@@ -1024,7 +1341,6 @@ export default function MonthlyArchive() {
                 size="sm"
                 className="gap-1.5 ml-auto"
                 onClick={handleDelete}
-                disabled={deleteAttendanceMutation.isPending}
                 data-testid="button-delete-archive"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -1037,10 +1353,9 @@ export default function MonthlyArchive() {
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={saveAttendanceMutation.isPending}
               data-testid="button-save-archive"
             >
-              {saveAttendanceMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+              إضافة للمراجعة
             </Button>
           </DialogFooter>
         </DialogContent>

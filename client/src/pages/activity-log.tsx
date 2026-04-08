@@ -7,6 +7,7 @@ import type { ActivityLog } from "@shared/schema";
 const ADMIN_USERNAME = "bachir tedjani";
 
 function getActionLabel(method: string, path: string): string {
+  if (method === "ACTION") return "عملية أرشيف";
   const clean = path.replace(/\/[a-f0-9\-]{36}/g, "").replace(/\/$/, "");
   const map: Record<string, Record<string, string>> = {
     POST: {
@@ -19,6 +20,7 @@ function getActionLabel(method: string, path: string): string {
       "/api/attendance/import": "استيراد حضور",
       "/api/devices": "إضافة جهاز",
       "/api/agent/attendance": "رفع حضور (وكيل)",
+      "/api/frozen-archives": "حفظ تقرير",
     },
     PATCH: {
       "/api/employees": "تعديل موظف",
@@ -37,6 +39,7 @@ function getActionLabel(method: string, path: string): string {
       "/api/work-rules": "حذف قاعدة عمل",
       "/api/attendance": "حذف حضور",
       "/api/devices": "حذف جهاز",
+      "/api/frozen-archives": "إلغاء حفظ تقرير",
     },
     PUT: {
       "/api/employees": "تعديل موظف",
@@ -51,12 +54,14 @@ function methodBadge(method: string) {
     PATCH: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     PUT: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     DELETE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    ACTION: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   };
   const labels: Record<string, string> = {
     POST: "إضافة",
     PATCH: "تعديل",
     PUT: "تعديل",
     DELETE: "حذف",
+    ACTION: "أرشيف",
   };
   return (
     <span
@@ -136,6 +141,7 @@ export default function ActivityLogPage() {
                 <th className="py-3 px-4 text-right font-medium">الوقت</th>
                 <th className="py-3 px-4 text-right font-medium">المستخدم</th>
                 <th className="py-3 px-4 text-right font-medium">العملية</th>
+                <th className="py-3 px-4 text-right font-medium">التفاصيل</th>
                 <th className="py-3 px-4 text-right font-medium">المسار</th>
                 <th className="py-3 px-4 text-right font-medium">الحالة</th>
               </tr>
@@ -144,10 +150,10 @@ export default function ActivityLogPage() {
               {logs.map((log, idx) => (
                 <tr
                   key={log.id}
-                  className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}
+                  className={`${idx % 2 === 0 ? "bg-background" : "bg-muted/30"} ${log.method === "ACTION" ? "border-r-2 border-r-purple-400 dark:border-r-purple-600" : ""}`}
                   data-testid={`row-log-${log.id}`}
                 >
-                  <td className="py-3 px-4 text-muted-foreground tabular-nums" data-testid={`text-log-time-${log.id}`}>
+                  <td className="py-3 px-4 text-muted-foreground tabular-nums text-xs" data-testid={`text-log-time-${log.id}`}>
                     {formatDateTime(log.createdAt)}
                   </td>
                   <td className="py-3 px-4 font-medium" data-testid={`text-log-user-${log.id}`}>
@@ -158,6 +164,13 @@ export default function ActivityLogPage() {
                       {methodBadge(log.method)}
                       <span>{getActionLabel(log.method, log.path)}</span>
                     </div>
+                  </td>
+                  <td className="py-3 px-4 max-w-xs" data-testid={`text-log-details-${log.id}`}>
+                    {log.details ? (
+                      <span className="text-xs text-foreground leading-relaxed">{log.details}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-muted-foreground font-mono text-xs" data-testid={`text-log-path-${log.id}`}>
                     {log.path}
