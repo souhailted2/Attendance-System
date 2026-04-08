@@ -455,7 +455,7 @@ export default function MonthlyArchive() {
                   data-testid="input-search-archive"
                   dir="rtl"
                 />
-                {searchTerm && (
+                {searchTerm.trim() && (
                   <button
                     onClick={() => setSearchTerm("")}
                     className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
@@ -466,7 +466,7 @@ export default function MonthlyArchive() {
                   </button>
                 )}
               </div>
-              {searchTerm && (
+              {searchTerm.trim() && (
                 <Badge variant="outline" className="text-xs whitespace-nowrap shrink-0">
                   {filtered.reduce((s, g) => s + g.workshops.reduce((ws, w) => ws + w.emps.length, 0), 0)} نتيجة
                 </Badge>
@@ -490,7 +490,7 @@ export default function MonthlyArchive() {
             <p className="text-base">لا توجد بيانات حضور لشهر {arabicMonthName(selectedMonth)}</p>
           </CardContent>
         </Card>
-      ) : filtered.length === 0 && searchTerm ? (
+      ) : filtered.length === 0 && searchTerm.trim() ? (
         <Card>
           <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
             <Search className="h-10 w-10 mb-3 opacity-30" />
