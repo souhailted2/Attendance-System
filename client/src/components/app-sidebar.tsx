@@ -12,6 +12,7 @@ import {
   CalendarClock,
   LogOut,
   History,
+  Archive,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,20 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {user?.username === "bachir tedjani" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/monthly-archive"}
+                    data-testid="link-nav-monthly-archive"
+                  >
+                    <Link href="/monthly-archive">
+                      <Archive className="h-4 w-4" />
+                      <span>حفظ الاشهر</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
