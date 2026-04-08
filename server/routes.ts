@@ -566,9 +566,11 @@ export async function registerRoutes(
       const finalCheckOut = checkOut !== undefined ? (checkOut || null) : existingRecords.checkOut;
       const finalStatus = status || existingRecords.status;
 
-      // عند تعديل الأوقات يدوياً نحصل فقط على زوج واحد (دخول/خروج)، لذا نُعيد الغياب الوسيط إلى 0
+      // نُعيد الغياب الوسيط إلى 0 فقط عند تغيير الأوقات فعلياً (لا مجرد وجود الحقل في الطلب)
       // إذا لم تتغير الأوقات (تعديل الحالة أو الملاحظات فقط) نحافظ على القيمة الموجودة
-      const timesChanged = checkIn !== undefined || checkOut !== undefined;
+      const timesChanged =
+        (checkIn !== undefined && (checkIn || null) !== existingRecords.checkIn) ||
+        (checkOut !== undefined && (checkOut || null) !== existingRecords.checkOut);
       const updateData: Partial<InsertAttendance> = {
         checkIn: finalCheckIn,
         checkOut: finalCheckOut,
