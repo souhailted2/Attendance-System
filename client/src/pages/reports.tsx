@@ -8,21 +8,28 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   BarChart3, Clock, Users, ChevronLeft, Pencil, Check, X,
-  Sun, Moon, Star, Wrench, AlertTriangle, Calendar,
+  Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2,
 } from "lucide-react";
 import type { WorkRule, Workshop, Employee } from "@shared/schema";
 
 type DateMode = "day" | "week" | "month" | "year";
 
 interface DailyRecord {
+  attendanceId: string | null;
   date: string;
   checkIn: string | null;
   checkOut: string | null;
-  normalizedCheckIn: string;
-  normalizedCheckOut: string;
+  normalizedCheckIn: string | null;
+  normalizedCheckOut: string | null;
   status: string;
   lateMinutes: number;
   earlyLeaveMinutes: number;
@@ -53,6 +60,37 @@ interface EmployeeReport {
   monthBonus?: number;
   normalizedTotalDays?: number;
   dailyRecords: DailyRecord[];
+}
+
+interface EditCell {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  record: DailyRecord;
+}
+
+const ARABIC_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+
+function getArabicDay(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return ARABIC_DAYS[d.getDay()];
+}
+
+function getCellBg(status: string): string {
+  if (status === "absent") return "bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50";
+  if (status === "holiday") return "bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50";
+  if (status === "leave") return "bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50";
+  if (status === "late") return "bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50";
+  return "bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50";
+}
+
+function getCellScoreColor(status: string, score: number): string {
+  if (status === "absent") return "text-red-600 dark:text-red-400";
+  if (status === "holiday") return "text-blue-600 dark:text-blue-400";
+  if (status === "leave") return "text-purple-600 dark:text-purple-400";
+  if (score >= 0.95) return "text-green-700 dark:text-green-400";
+  if (score >= 0.80) return "text-amber-700 dark:text-amber-400";
+  return "text-red-700 dark:text-red-400";
 }
 
 function todayStr() {
@@ -105,6 +143,9 @@ export default function Reports() {
     lateLeaveGraceMinutes: 0,
   });
 
+  const [editCell, setEditCell] = useState<EditCell | null>(null);
+  const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
+
   const { data: workRules = [], isLoading: rulesLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
@@ -147,6 +188,66 @@ export default function Reports() {
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
+
+  const saveAttendanceMutation = useMutation({
+    mutationFn: async ({ attendanceId, employeeId, date, data }: {
+      attendanceId: string | null;
+      employeeId: string;
+      date: string;
+      data: { status: string; checkIn: string | null; checkOut: string | null };
+    }) => {
+      if (attendanceId) {
+        return apiRequest("PATCH", `/api/attendance/${attendanceId}`, data);
+      } else {
+        return apiRequest("POST", `/api/attendance`, { employeeId, date, ...data });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
+      toast({ title: "تم حفظ السجل بنجاح" });
+      setEditCell(null);
+    },
+    onError: (err: Error) => toast({ title: "خطأ في الحفظ", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteAttendanceMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/attendance/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
+      toast({ title: "تم حذف السجل" });
+      setEditCell(null);
+    },
+    onError: (err: Error) => toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" }),
+  });
+
+  function openEditCell(emp: EmployeeReport, date: string, rec: DailyRecord) {
+    setEditCell({ employeeId: emp.employeeId, employeeName: emp.employeeName, date, record: rec });
+    setEditForm({
+      status: rec.status === "holiday" ? "present" : rec.status,
+      checkIn: rec.checkIn ?? "",
+      checkOut: rec.checkOut ?? "",
+    });
+  }
+
+  function handleSaveAttendance() {
+    if (!editCell) return;
+    saveAttendanceMutation.mutate({
+      attendanceId: editCell.record.attendanceId,
+      employeeId: editCell.employeeId,
+      date: editCell.date,
+      data: {
+        status: editForm.status,
+        checkIn: editForm.checkIn || null,
+        checkOut: editForm.checkOut || null,
+      },
+    });
+  }
+
+  function handleDeleteAttendance() {
+    if (!editCell?.record.attendanceId) return;
+    if (!confirm("هل أنت متأكد من حذف هذا السجل؟")) return;
+    deleteAttendanceMutation.mutate(editCell.record.attendanceId);
+  }
 
   function handleDateMode(mode: DateMode) {
     setDateMode(mode);
@@ -349,23 +450,27 @@ export default function Reports() {
               const departureFrom = addMinutesToTime(rule.workEndTime, -earlyLv);
               const departureTo = addMinutesToTime(rule.workEndTime, lateLv);
 
+              const empCount = getEmpCountForRule(rule);
+
               return (
                 <Card
                   key={rule.id}
-                  className={`border-2 transition-all ${isEditing ? "border-primary" : "hover:border-primary/50 hover:shadow-md"}`}
+                  className={`border-2 transition-all ${isEditing ? "border-primary shadow-md" : "hover:border-primary/50 hover:shadow-md"}`}
                   data-testid={`card-rule-${rule.id}`}
                 >
-                  <CardHeader className="pb-2">
+                  <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2 text-base">
-                        {rule.name.includes("صباح") ? (
-                          <Sun className="h-4 w-4 text-amber-500" />
-                        ) : rule.name.includes("مساء") ? (
-                          <Moon className="h-4 w-4 text-indigo-500" />
-                        ) : (
-                          <Star className="h-4 w-4 text-primary" />
-                        )}
-                        {rule.name}
+                        <div className={`p-1.5 rounded-md ${rule.name.includes("صباح") ? "bg-amber-100 dark:bg-amber-950/50" : rule.name.includes("مساء") ? "bg-indigo-100 dark:bg-indigo-950/50" : "bg-primary/10"}`}>
+                          {rule.name.includes("صباح") ? (
+                            <Sun className="h-4 w-4 text-amber-500" />
+                          ) : rule.name.includes("مساء") ? (
+                            <Moon className="h-4 w-4 text-indigo-500" />
+                          ) : (
+                            <Star className="h-4 w-4 text-primary" />
+                          )}
+                        </div>
+                        <span>{rule.name}</span>
                         {rule.isDefault && <Badge variant="secondary" className="text-xs">افتراضية</Badge>}
                       </CardTitle>
                       <div className="flex gap-1">
@@ -385,19 +490,22 @@ export default function Reports() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                      <Clock className="h-3.5 w-3.5" />
-                      <span>{rule.workStartTime} — {rule.workEndTime}</span>
-                      <Badge variant="outline" className="mr-auto gap-1 text-xs">
-                        <Users className="h-3 w-3" />{getEmpCountForRule(rule)} موظف
+
+                    <div className="flex items-center justify-between mt-1.5">
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span className="font-mono">{rule.workStartTime} — {rule.workEndTime}</span>
+                      </div>
+                      <Badge variant="outline" className="gap-1 text-xs">
+                        <Users className="h-3 w-3" />{empCount} موظف
                       </Badge>
                     </div>
                   </CardHeader>
 
-                  <CardContent className="space-y-3">
-                    {/* Grace windows display / edit */}
-                    <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground mb-1">نافذة المهلة</p>
+                  <CardContent className="space-y-3 pt-0">
+                    {/* Grace windows */}
+                    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground">نافذة المهلة</p>
                       {isEditing ? (
                         <div className="grid grid-cols-2 gap-2">
                           <div className="space-y-0.5">
@@ -426,24 +534,23 @@ export default function Reports() {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-1 text-xs">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">الوصول:</span>
-                            <span className="font-mono">{arrivalFrom} → {arrivalTo} <span className="text-muted-foreground">(= {rule.workStartTime})</span></span>
+                            <span className="font-mono text-foreground">{arrivalFrom} ← {arrivalTo}</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">المغادرة:</span>
-                            <span className="font-mono">{departureFrom} → {departureTo} <span className="text-muted-foreground">(= {rule.workEndTime})</span></span>
+                            <span className="font-mono text-foreground">{departureFrom} ← {departureTo}</span>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Click to drill down */}
                     {!isEditing && (
                       <Button
                         variant="outline"
-                        className="w-full gap-2"
+                        className="w-full gap-2 border-primary/30 hover:border-primary hover:bg-primary/5"
                         onClick={() => { setSelectedRule(rule); setSelectedWorkshop(null); }}
                         data-testid={`button-open-rule-${rule.id}`}
                       >
@@ -463,7 +570,9 @@ export default function Reports() {
             >
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
-                  <Clock className="h-4 w-4" />
+                  <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/50">
+                    <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
                   الساعات الإضافية
                 </CardTitle>
               </CardHeader>
@@ -505,8 +614,9 @@ export default function Reports() {
                     <TableHead className="sticky right-0 bg-muted/50 z-10 text-right font-bold">الموظف</TableHead>
                     <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
                     {allOvertimeDates.map(d => (
-                      <TableHead key={d} className="text-center text-xs font-medium min-w-[52px]">
-                        {d.slice(5).replace("-", "/")}
+                      <TableHead key={d} className="text-center text-xs font-medium min-w-[52px] p-1">
+                        <div className="text-muted-foreground text-[10px]">{getArabicDay(d)}</div>
+                        <div>{d.slice(5).replace("-", "/")}</div>
                       </TableHead>
                     ))}
                     <TableHead className="text-center font-bold">المجموع (س)</TableHead>
@@ -605,13 +715,13 @@ export default function Reports() {
                 {ruleWorkshops.map(({ workshop, count }) => (
                   <Card
                     key={workshop!.id}
-                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all"
+                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
                     onClick={() => setSelectedWorkshop(workshop!)}
                     data-testid={`card-workshop-${workshop!.id}`}
                   >
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10">
+                        <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
                           <Wrench className="h-4 w-4 text-primary" />
                         </div>
                         {workshop!.name}
@@ -644,7 +754,7 @@ export default function Reports() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
                     <Users className="h-4 w-4 text-primary" />
                   </div>
                   <div>
@@ -655,7 +765,7 @@ export default function Reports() {
               </Card>
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-md bg-green-500/10 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-md bg-green-500/10 flex items-center justify-center shrink-0">
                     <Calendar className="h-4 w-4 text-green-600" />
                   </div>
                   <div>
@@ -666,7 +776,7 @@ export default function Reports() {
               </Card>
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-md bg-amber-500/10 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0">
                     <Clock className="h-4 w-4 text-amber-600" />
                   </div>
                   <div>
@@ -677,7 +787,7 @@ export default function Reports() {
               </Card>
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-md bg-destructive/10 flex items-center justify-center">
+                  <div className="h-9 w-9 rounded-md bg-destructive/10 flex items-center justify-center shrink-0">
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                   </div>
                   <div>
@@ -686,6 +796,19 @@ export default function Reports() {
                   </div>
                 </CardContent>
               </Card>
+            </div>
+          )}
+
+          {/* Legend */}
+          {!reportLoading && reportData.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground px-1">
+              <span className="font-medium">الألوان:</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-100 dark:bg-green-900/50 border border-green-300 dark:border-green-700 inline-block"></span> حاضر</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 inline-block"></span> متأخر</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 inline-block"></span> غائب</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-100 dark:bg-blue-900/50 border border-blue-300 dark:border-blue-700 inline-block"></span> عطلة</span>
+              <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-purple-100 dark:bg-purple-900/50 border border-purple-300 dark:border-purple-700 inline-block"></span> إجازة</span>
+              <span className="mr-auto text-[10px] text-muted-foreground/70">انقر على أي خلية للتعديل</span>
             </div>
           )}
 
@@ -704,76 +827,85 @@ export default function Reports() {
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="border-b-2">
-                        <TableHead className="text-right sticky right-0 bg-background z-10 min-w-[120px]">الموظف</TableHead>
-                        <TableHead className="text-right min-w-[72px]">الرقم</TableHead>
-                        {allDates.map((d) => (
-                          <TableHead key={d} className="text-center min-w-[70px] text-xs px-1">
-                            <div>{d.slice(5)}</div>
-                          </TableHead>
-                        ))}
-                        <TableHead className="text-center min-w-[80px] font-bold">الإجمالي</TableHead>
+                      <TableRow className="border-b-2 bg-muted/30">
+                        <TableHead className="text-right sticky right-0 bg-muted/30 z-10 min-w-[130px] font-bold">الموظف</TableHead>
+                        <TableHead className="text-center min-w-[60px] font-bold text-xs">الرقم</TableHead>
+                        {allDates.map((d) => {
+                          const isWeekend = [5, 6].includes(new Date(d + "T00:00:00").getDay());
+                          return (
+                            <TableHead key={d} className={`text-center min-w-[76px] px-0.5 py-1 ${isWeekend ? "bg-blue-50/80 dark:bg-blue-950/20" : ""}`}>
+                              <div className="text-[10px] text-muted-foreground leading-tight">{getArabicDay(d)}</div>
+                              <div className="text-xs font-mono font-medium leading-tight">{d.slice(5).replace("-", "/")}</div>
+                            </TableHead>
+                          );
+                        })}
+                        <TableHead className="text-center min-w-[90px] font-bold bg-muted/30 sticky left-0 z-10">الإجمالي</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {reportData.map((r) => {
                         const byDate = empDayMap.get(r.employeeId);
                         return (
-                          <TableRow key={r.employeeId} data-testid={`row-report-${r.employeeId}`}>
-                            <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
-                            <TableCell className="text-muted-foreground text-xs">{r.employeeCode}</TableCell>
+                          <TableRow key={r.employeeId} data-testid={`row-report-${r.employeeId}`} className="hover:bg-transparent">
+                            <TableCell className="font-medium sticky right-0 bg-background z-10 border-l">{r.employeeName}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
                             {allDates.map((d) => {
                               const rec = byDate?.get(d);
-                              if (!rec) return <TableCell key={d} className="text-center text-muted-foreground text-xs">—</TableCell>;
-                              if (rec.status === "holiday") {
+                              if (!rec) {
                                 return (
-                                  <TableCell key={d} className="text-center px-1 bg-blue-50/60 dark:bg-blue-950/20">
-                                    <span className="text-xs text-blue-600 dark:text-blue-400 font-semibold" title="يوم عطلة أسبوعية">
-                                      {rec.dailyScore.toFixed(2)}
-                                    </span>
+                                  <TableCell key={d} className="p-0">
+                                    <div className="h-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs">—</div>
                                   </TableCell>
                                 );
                               }
-                              if (rec.pending) {
-                                if (rec.overtimeHours > 0) {
-                                  const s = rec.dailyScore;
-                                  const cls = s >= 0.95
-                                    ? "text-green-600 dark:text-green-400 font-semibold"
-                                    : s >= 0.80
-                                    ? "text-amber-600 dark:text-amber-400 font-semibold"
-                                    : "text-red-600 dark:text-red-400 font-semibold";
-                                  return (
-                                    <TableCell key={d} className="text-center px-1">
-                                      <span
-                                        className={`text-xs ${cls}`}
-                                        title={`دخول: ${rec.checkIn} | س.إضافية: ${rec.overtimeHours} | لم يسجل الخروج بعد`}
-                                      >
-                                        {s.toFixed(2)}<span className="text-amber-400 mr-0.5">+</span>
-                                      </span>
-                                    </TableCell>
-                                  );
-                                }
-                                return (
-                                  <TableCell key={d} className="text-center px-1">
-                                    <span className="text-xs text-amber-500 dark:text-amber-400 font-semibold" title={`في انتظار تسجيل الخروج | دخول: ${rec.checkIn}`}>؟</span>
-                                  </TableCell>
-                                );
-                              }
-                              const s = rec.dailyScore;
-                              const cls = s >= 0.95
-                                ? "text-green-600 dark:text-green-400 font-semibold"
-                                : s >= 0.80
-                                ? "text-amber-600 dark:text-amber-400 font-semibold"
-                                : "text-red-600 dark:text-red-400 font-semibold";
+
+                              const bgClass = getCellBg(rec.status);
+                              const scoreColorClass = getCellScoreColor(rec.status, rec.dailyScore);
+
                               return (
-                                <TableCell key={d} className="text-center px-1">
-                                  <span className={`text-xs ${cls}`} title={`${rec.status} | دخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}>
-                                    {s.toFixed(2)}
-                                  </span>
+                                <TableCell key={d} className="p-0" data-testid={`cell-${r.employeeId}-${d}`}>
+                                  <button
+                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors ${bgClass}`}
+                                    onClick={() => openEditCell(r, d, rec)}
+                                    title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
+                                    data-testid={`button-edit-cell-${r.employeeId}-${d}`}
+                                  >
+                                    {rec.status === "absent" ? (
+                                      <span className={`text-xs font-bold ${scoreColorClass}`}>غائب</span>
+                                    ) : rec.status === "leave" ? (
+                                      <span className={`text-xs font-bold ${scoreColorClass}`}>إجازة</span>
+                                    ) : rec.status === "holiday" ? (
+                                      <>
+                                        <span className={`text-xs font-bold ${scoreColorClass}`}>عطلة</span>
+                                        {rec.checkIn && (
+                                          <span className="text-[10px] text-blue-500 dark:text-blue-400 font-mono">{rec.checkIn}</span>
+                                        )}
+                                      </>
+                                    ) : rec.pending ? (
+                                      <>
+                                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                                          {rec.dailyScore.toFixed(2)}
+                                          {rec.overtimeHours > 0 && <span className="text-amber-400 mr-0.5">+</span>}
+                                        </span>
+                                        <span className="text-[10px] font-mono text-muted-foreground">{rec.checkIn}</span>
+                                        <span className="text-[10px] text-amber-400">...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                        {rec.checkIn && (
+                                          <span className="text-[10px] font-mono text-muted-foreground leading-none">{rec.checkIn}</span>
+                                        )}
+                                        {rec.checkOut && (
+                                          <span className="text-[10px] font-mono text-muted-foreground leading-none">{rec.checkOut}</span>
+                                        )}
+                                      </>
+                                    )}
+                                  </button>
                                 </TableCell>
                               );
                             })}
-                            <TableCell className="text-center font-bold">
+                            <TableCell className="text-center font-bold bg-muted/10 sticky left-0 z-10 border-r">
                               {(() => {
                                 const bonus = r.monthBonus ?? 0;
                                 const displayScore = r.attendanceScore + bonus;
@@ -793,7 +925,7 @@ export default function Reports() {
                       })}
                       {/* Totals row */}
                       <TableRow className="bg-muted/50 font-bold border-t-2">
-                        <TableCell className="sticky right-0 bg-muted/50 z-10">المجموع</TableCell>
+                        <TableCell className="sticky right-0 bg-muted/50 z-10 border-l">المجموع</TableCell>
                         <TableCell />
                         {allDates.map((d) => {
                           const dayTotal = reportData.reduce((s, r) => {
@@ -801,14 +933,14 @@ export default function Reports() {
                             return s + (rec?.dailyScore ?? 0);
                           }, 0);
                           return (
-                            <TableCell key={d} className="text-center text-xs px-1">
+                            <TableCell key={d} className="text-center text-xs px-1 py-2">
                               <span className={scoreColor(dayTotal, reportData.length)}>
                                 {dayTotal.toFixed(2)}
                               </span>
                             </TableCell>
                           );
                         })}
-                        <TableCell className="text-center">
+                        <TableCell className="text-center sticky left-0 bg-muted/50 z-10 border-r">
                           <span className={`text-sm ${scoreColor(totalScore, maxScore)}`}>
                             {totalScore.toFixed(2)}
                           </span>
@@ -823,6 +955,105 @@ export default function Reports() {
           )}
         </div>
       )}
+
+      {/* ======================== EDIT ATTENDANCE DIALOG ======================== */}
+      <Dialog open={!!editCell} onOpenChange={(open) => { if (!open) setEditCell(null); }}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>تعديل سجل الحضور</DialogTitle>
+            <DialogDescription>
+              {editCell && (
+                <span>
+                  <span className="font-semibold text-foreground">{editCell.employeeName}</span>
+                  {" — "}
+                  <span className="font-mono">{editCell.date}</span>
+                  {" ("}
+                  <span>{editCell.date ? getArabicDay(editCell.date) : ""}</span>
+                  {")"}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>الحالة</Label>
+              <Select value={editForm.status} onValueChange={(v) => setEditForm(f => ({ ...f, status: v }))}>
+                <SelectTrigger data-testid="select-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="present">حاضر</SelectItem>
+                  <SelectItem value="late">متأخر</SelectItem>
+                  <SelectItem value="absent">غائب</SelectItem>
+                  <SelectItem value="leave">إجازة</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>وقت الدخول</Label>
+                <Input
+                  type="time"
+                  value={editForm.checkIn}
+                  onChange={(e) => setEditForm(f => ({ ...f, checkIn: e.target.value }))}
+                  data-testid="input-checkin"
+                  disabled={editForm.status === "absent" || editForm.status === "leave"}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>وقت الخروج</Label>
+                <Input
+                  type="time"
+                  value={editForm.checkOut}
+                  onChange={(e) => setEditForm(f => ({ ...f, checkOut: e.target.value }))}
+                  data-testid="input-checkout"
+                  disabled={editForm.status === "absent" || editForm.status === "leave"}
+                />
+              </div>
+            </div>
+
+            {editCell?.record.attendanceId && (
+              <p className="text-xs text-muted-foreground">
+                رقم السجل: <span className="font-mono">{editCell.record.attendanceId}</span>
+              </p>
+            )}
+            {!editCell?.record.attendanceId && (
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                لا يوجد سجل في قاعدة البيانات — سيتم إنشاء سجل جديد عند الحفظ.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="flex-row-reverse gap-2 sm:flex-row-reverse">
+            {editCell?.record.attendanceId && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-1.5 ml-auto"
+                onClick={handleDeleteAttendance}
+                disabled={deleteAttendanceMutation.isPending}
+                data-testid="button-delete-attendance"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                حذف السجل
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setEditCell(null)} data-testid="button-cancel-edit">
+              إلغاء
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveAttendance}
+              disabled={saveAttendanceMutation.isPending}
+              data-testid="button-save-attendance"
+            >
+              {saveAttendanceMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -759,6 +759,7 @@ export async function registerRoutes(
           const overtimeHours = Math.round((earlyOT + lateOT) / 60 * 10) / 10;
 
           return {
+            attendanceId: rec.id,
             date: rec.date,
             checkIn: rec.checkIn,
             checkOut: rec.checkOut,
@@ -800,6 +801,7 @@ export async function registerRoutes(
           } else {
             // Inject synthetic holiday record
             dailyRecords.push({
+              attendanceId: null,
               date,
               checkIn: null,
               checkOut: null,
@@ -824,6 +826,7 @@ export async function registerRoutes(
           const hasRecord = dailyRecords.some(r => r.date === date);
           if (!hasRecord) {
             dailyRecords.push({
+              attendanceId: null,
               date,
               checkIn: null,
               checkOut: null,
