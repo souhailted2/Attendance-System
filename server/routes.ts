@@ -320,13 +320,15 @@ export async function registerRoutes(
 
   // تسجيل النشاطات (POST/PUT/PATCH/DELETE) — سجلات الحضور اليدوية لها تسجيل تفصيلي خاص بها
   const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me", "/api/archive-action"];
+  const SKIP_LOG_PREFIXES = ["/api/activity-logs"];
   const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
   app.use((req: Request, res: Response, next: NextFunction) => {
     // تجاهل مسارات الحضور اليدوية — تُعالج بتسجيل تفصيلي داخل كل route handler
     const isAttendanceCRUD =
       (req.method === "POST" && req.path === "/api/attendance") ||
       ((req.method === "PATCH" || req.method === "DELETE") && /^\/api\/attendance\/[^/]+$/.test(req.path));
-    if (!WRITE_METHODS.includes(req.method) || !req.path.startsWith("/api/") || SKIP_LOG_PATHS.includes(req.path) || isAttendanceCRUD) {
+    const isActivityLogPath = SKIP_LOG_PREFIXES.some(prefix => req.path === prefix || req.path.startsWith(prefix + "/"));
+    if (!WRITE_METHODS.includes(req.method) || !req.path.startsWith("/api/") || SKIP_LOG_PATHS.includes(req.path) || isAttendanceCRUD || isActivityLogPath) {
       return next();
     }
     res.on("finish", () => {
