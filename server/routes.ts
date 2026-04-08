@@ -293,7 +293,7 @@ export async function registerRoutes(
   // حماية جميع مسارات API
   app.use("/api", requireAuth);
 
-  // تسجيل النشاطات (POST/PUT/PATCH/DELETE فقط للمستخدمين المصادق عليهم)
+  // تسجيل النشاطات (POST/PUT/PATCH/DELETE) — يُسجَّل حتى للطلبات غير المصادق عليها كوكيل الحضور
   const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me"];
   const WRITE_METHODS = ["POST", "PUT", "PATCH", "DELETE"];
   app.use((req: Request, res: Response, next: NextFunction) => {
@@ -301,10 +301,9 @@ export async function registerRoutes(
       return next();
     }
     res.on("finish", () => {
-      if (!req.session?.userId) return;
       storage.createActivityLog({
-        userId: req.session.userId,
-        username: req.session.username || "unknown",
+        userId: req.session?.userId ?? null,
+        username: req.session?.username ?? (req.path.startsWith("/api/agent/") ? "agent" : null),
         method: req.method,
         path: req.path,
         statusCode: res.statusCode,

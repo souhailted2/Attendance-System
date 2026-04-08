@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import type { MySql2Database } from "drizzle-orm/mysql2";
 import { db } from "./db";
 import * as schema from "../shared/schema-mysql";
@@ -348,7 +348,7 @@ export class MysqlStorage implements IStorage {
     const results = await mysqlDb
       .select()
       .from(schema.activityLogs)
-      .orderBy(schema.activityLogs.createdAt)
+      .orderBy(desc(schema.activityLogs.createdAt))
       .limit(limit);
     return results as ActivityLog[];
   }

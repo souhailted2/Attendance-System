@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { eq, and, gte, lte } from "drizzle-orm";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { db } from "./db";
 import * as schema from "../shared/schema";
@@ -270,7 +270,7 @@ export class PgStorage implements IStorage {
     return pgDb
       .select()
       .from(schema.activityLogs)
-      .orderBy(schema.activityLogs.createdAt)
+      .orderBy(desc(schema.activityLogs.createdAt))
       .limit(limit);
   }
 }

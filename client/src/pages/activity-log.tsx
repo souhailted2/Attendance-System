@@ -107,8 +107,6 @@ export default function ActivityLogPage() {
     refetchInterval: 30_000,
   });
 
-  const reversed = [...logs].reverse();
-
   return (
     <div className="p-6" dir="rtl">
       <div className="mb-6">
@@ -124,7 +122,7 @@ export default function ActivityLogPage() {
         <div className="flex justify-center items-center h-48">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" data-testid="spinner-loading" />
         </div>
-      ) : reversed.length === 0 ? (
+      ) : logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-48 text-muted-foreground" data-testid="text-no-logs">
           <p className="text-lg">لا توجد نشاطات مسجّلة بعد</p>
         </div>
@@ -135,13 +133,13 @@ export default function ActivityLogPage() {
               <tr>
                 <th className="py-3 px-4 text-right font-medium">الوقت</th>
                 <th className="py-3 px-4 text-right font-medium">المستخدم</th>
-                <th className="py-3 px-4 text-right font-medium">النوع</th>
                 <th className="py-3 px-4 text-right font-medium">العملية</th>
+                <th className="py-3 px-4 text-right font-medium">المسار</th>
                 <th className="py-3 px-4 text-right font-medium">الحالة</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {reversed.map((log, idx) => (
+              {logs.map((log, idx) => (
                 <tr
                   key={log.id}
                   className={idx % 2 === 0 ? "bg-background" : "bg-muted/30"}
@@ -153,11 +151,14 @@ export default function ActivityLogPage() {
                   <td className="py-3 px-4 font-medium" data-testid={`text-log-user-${log.id}`}>
                     {log.username ?? "—"}
                   </td>
-                  <td className="py-3 px-4" data-testid={`badge-log-method-${log.id}`}>
-                    {methodBadge(log.method)}
-                  </td>
                   <td className="py-3 px-4" data-testid={`text-log-action-${log.id}`}>
-                    {getActionLabel(log.method, log.path)}
+                    <div className="flex items-center gap-2">
+                      {methodBadge(log.method)}
+                      <span>{getActionLabel(log.method, log.path)}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-muted-foreground font-mono text-xs" data-testid={`text-log-path-${log.id}`}>
+                    {log.path}
                   </td>
                   <td className="py-3 px-4" data-testid={`badge-log-status-${log.id}`}>
                     {statusBadge(log.statusCode)}
