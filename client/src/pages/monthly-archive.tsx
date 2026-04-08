@@ -429,7 +429,7 @@ export default function MonthlyArchive() {
           <span className="text-xs text-muted-foreground">{ruleName}</span>
           {frozen ? (
             <Badge className="mr-auto text-xs gap-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700" variant="outline">
-              <Lock className="h-3 w-3" />محفوظ — {formatFrozenDate(frozen.frozenAt)}
+              <Lock className="h-3 w-3" />محفوظ — {formatFrozenDate(frozen.frozenAt)} — بواسطة: {frozen.frozenBy}
             </Badge>
           ) : (
             <Badge variant="outline" className="mr-auto text-xs gap-1">
