@@ -18,7 +18,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar,
+  Archive, Sun, Moon, Star, Wrench, Users, Trash2, Calendar, Search, X,
 } from "lucide-react";
 import type { WorkRule, Workshop } from "@shared/schema";
 
@@ -132,6 +132,7 @@ export default function MonthlyArchive() {
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonthStr());
   const { from: dateFrom, to: dateTo } = useMemo(() => monthBounds(selectedMonth), [selectedMonth]);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [editCell, setEditCell] = useState<EditCell | null>(null);
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
@@ -235,6 +236,29 @@ export default function MonthlyArchive() {
     }
     return Array.from(byRule.values());
   }, [reportData, workRules, workshops]);
+
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return grouped;
+    return grouped
+      .map(({ rule, workshops: wsGroups }) => {
+        const filteredWs = wsGroups
+          .map((wsGroup: { workshop: Workshop | undefined; emps: EmployeeReport[] }) => {
+            const wsMatch = wsGroup.workshop?.name.toLowerCase().includes(q);
+            const filteredEmps = wsMatch
+              ? wsGroup.emps
+              : wsGroup.emps.filter(
+                  (e) =>
+                    e.employeeName.toLowerCase().includes(q) ||
+                    e.employeeCode.toLowerCase().includes(q)
+                );
+            return { ...wsGroup, emps: filteredEmps };
+          })
+          .filter((ws) => ws.emps.length > 0);
+        return { rule, workshops: filteredWs };
+      })
+      .filter((g) => g.workshops.length > 0);
+  }, [grouped, searchTerm]);
 
   function renderTable(emps: EmployeeReport[], ruleName: string, workshopName: string) {
     const tableTotal = emps.reduce((s, r) => s + r.attendanceScore, 0);
@@ -398,25 +422,58 @@ export default function MonthlyArchive() {
           </p>
         </div>
 
-        {/* Month picker */}
-        <Card className="shadow-sm">
-          <CardContent className="p-3 flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-primary shrink-0" />
-            <div className="space-y-0.5">
-              <Label className="text-xs text-muted-foreground">اختيار الشهر</Label>
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="block h-8 rounded-md border border-input bg-background px-3 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-                data-testid="input-month"
-              />
-            </div>
-            <Badge variant="secondary" className="text-xs font-medium">
-              {arabicMonthName(selectedMonth)}
-            </Badge>
-          </CardContent>
-        </Card>
+        {/* Controls: month picker + search */}
+        <div className="flex flex-wrap items-stretch gap-3">
+          <Card className="shadow-sm">
+            <CardContent className="p-3 flex items-center gap-3">
+              <Calendar className="h-4 w-4 text-primary shrink-0" />
+              <div className="space-y-0.5">
+                <Label className="text-xs text-muted-foreground">اختيار الشهر</Label>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="block h-8 rounded-md border border-input bg-background px-3 text-sm text-right font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+                  data-testid="input-month"
+                />
+              </div>
+              <Badge variant="secondary" className="text-xs font-medium">
+                {arabicMonthName(selectedMonth)}
+              </Badge>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm flex-1 min-w-[220px]">
+            <CardContent className="p-3 flex items-center gap-2">
+              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex-1 relative">
+                <Input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="ابحث بالورشة أو اسم العامل أو رقمه"
+                  className="h-8 text-sm pl-6"
+                  data-testid="input-search-archive"
+                  dir="rtl"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid="button-clear-search"
+                    title="مسح البحث"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {searchTerm && (
+                <Badge variant="outline" className="text-xs whitespace-nowrap shrink-0">
+                  {filtered.reduce((s, g) => s + g.workshops.reduce((ws, w) => ws + w.emps.length, 0), 0)} نتيجة
+                </Badge>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Content */}
@@ -433,9 +490,19 @@ export default function MonthlyArchive() {
             <p className="text-base">لا توجد بيانات حضور لشهر {arabicMonthName(selectedMonth)}</p>
           </CardContent>
         </Card>
+      ) : filtered.length === 0 && searchTerm ? (
+        <Card>
+          <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+            <Search className="h-10 w-10 mb-3 opacity-30" />
+            <p className="text-base">لا توجد نتائج لـ «{searchTerm}»</p>
+            <Button variant="ghost" className="mt-2 text-sm" onClick={() => setSearchTerm("")}>
+              مسح البحث
+            </Button>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-8">
-          {grouped.map(({ rule, workshops: wsGroups }) => (
+          {filtered.map(({ rule, workshops: wsGroups }) => (
             <div key={rule.id} className="space-y-1">
               {/* Work rule header */}
               <div className="flex items-center gap-3 mb-3">
