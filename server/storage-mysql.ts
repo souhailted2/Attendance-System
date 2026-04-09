@@ -448,7 +448,7 @@ export class MysqlStorage implements IStorage {
   }
 
   async getLeaves(): Promise<Leave[]> {
-    const results = await mysqlDb.select().from(schema.leaves);
+    const results = await mysqlDb.select().from(schema.leaves).orderBy(desc(schema.leaves.startDate));
     return results as Leave[];
   }
 

@@ -2394,7 +2394,16 @@ export async function registerRoutes(
     try {
       const { startDate, endDate, isPaid, targetType, shiftValue, workshopId, notes } = req.body;
       if (!startDate || !endDate) return res.status(400).json({ message: "startDate و endDate مطلوبان" });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate))
+        return res.status(400).json({ message: "تنسيق التاريخ يجب أن يكون YYYY-MM-DD" });
       if (startDate > endDate) return res.status(400).json({ message: "تاريخ البداية يجب أن يكون قبل نهاية الفترة" });
+      const validTargetTypes = ["all", "shift", "workshop"];
+      if (targetType && !validTargetTypes.includes(targetType))
+        return res.status(400).json({ message: "targetType غير صحيح" });
+      if (targetType === "shift" && !["morning", "evening"].includes(shiftValue))
+        return res.status(400).json({ message: "shiftValue مطلوب: morning أو evening" });
+      if (targetType === "workshop" && !workshopId)
+        return res.status(400).json({ message: "workshopId مطلوب عند targetType=workshop" });
       const record = await storage.createLeave({
         startDate,
         endDate,

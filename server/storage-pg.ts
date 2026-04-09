@@ -337,7 +337,7 @@ export class PgStorage implements IStorage {
   }
 
   async getLeaves(): Promise<Leave[]> {
-    const results = await pgDb.select().from(schema.leaves);
+    const results = await pgDb.select().from(schema.leaves).orderBy(desc(schema.leaves.startDate));
     return results;
   }
 
