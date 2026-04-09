@@ -1136,7 +1136,8 @@ export async function registerRoutes(
 
         // --- Holiday injection ---
         // Override existing records on holiday dates, and add synthetic records for missing dates
-        for (const date of holidayDateSet) {
+        // عمال المناوبة 24 ساعة يعملون حتى في أيام العطلة — لا تُطبَّق عليهم العطلة الأسبوعية
+        for (const date of (workRule?.is24hShift ? [] : Array.from(holidayDateSet))) {
           const existing = dailyRecords.find(r => r.date === date);
           if (existing) {
             // Override status and score; keep checkIn/checkOut for reference
