@@ -173,8 +173,14 @@ export default function Attendance() {
     }
   }
 
-  // ترتيب الحركات تنازلياً (الأحدث أولاً)
-  allMovements.sort((a, b) => b.time.localeCompare(a.time));
+  // ترتيب الحركات: حسب اسم الموظف تصاعدياً، ثم الوقت تصاعدياً لكل موظف
+  allMovements.sort((a, b) => {
+    const nameA = a.emp?.name ?? "";
+    const nameB = b.emp?.name ?? "";
+    const nameCmp = nameA.localeCompare(nameB, "ar");
+    if (nameCmp !== 0) return nameCmp;
+    return a.time.localeCompare(b.time);
+  });
 
   // تصفية البحث بالاسم أو رقم الموظف
   const q = searchQuery.trim().toLowerCase();

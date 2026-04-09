@@ -326,23 +326,32 @@ async function processAttendanceLogs(
     const existing = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
 
     if (existing) {
-      // دمج الأوقات الجديدة مع الموجودة وتطبيق فلتر 5 دقائق
+      // استعادة البصمات الخام الموجودة مسبقاً للدمج الصحيح
+      let existingPunches: string[] = [];
+      try {
+        const rp = (existing as any).rawPunches;
+        if (rp) existingPunches = JSON.parse(rp);
+      } catch { existingPunches = []; }
+
+      // دمج البصمات الجديدة مع الموجودة (rawPunches إن وُجدت، وإلا checkIn/checkOut)
+      const baseTimes = existingPunches.length > 0
+        ? existingPunches
+        : [existing.checkIn, existing.checkOut].filter(Boolean) as string[];
+
       const allTimes = filterDuplicateSwipes(
-        [...new Set([
-          existing.checkIn,
-          existing.checkOut,
-          ...entry.times,
-        ].filter(Boolean) as string[])].sort(),
+        [...new Set([...baseTimes, ...entry.times])].sort(),
         5
       );
 
       const newCheckIn  = allTimes[0] || null;
       const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
       const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes);
+      const newRawPunches = JSON.stringify(allTimes);
+      const existingRaw = (existing as any).rawPunches ?? null;
 
       const existingMiddle = (existing as { middleAbsenceMinutes?: number }).middleAbsenceMinutes ?? 0;
-      if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn || newMiddleAbsenceMinutes !== existingMiddle) {
-        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes, rawPunches: JSON.stringify(allTimes) };
+      if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn || newMiddleAbsenceMinutes !== existingMiddle || newRawPunches !== existingRaw) {
+        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes, rawPunches: newRawPunches };
         if (workRule) {
           const calc = calculateAttendanceDetails(
             newCheckIn, newCheckOut,
@@ -1942,6 +1951,7 @@ export async function registerRoutes(
 
         const workRule = await getWorkRuleForEmployee(employee.id);
 
+        const importedPunches = [checkIn, checkOut].filter(Boolean) as string[];
         let attendanceData: any = {
           employeeId: employee.id,
           date,
@@ -1949,7 +1959,8 @@ export async function registerRoutes(
           checkOut: checkOut || null,
           status: "present",
           notes: "مستورد من ملف",
-          lateMinutes: 0, earlyLeaveMinutes: 0, totalHours: "0", penalty: "0",
+          lateMinutes: 0, earlyLeaveMinutes: 0, middleAbsenceMinutes: 0, totalHours: "0", penalty: "0",
+          rawPunches: importedPunches.length > 0 ? JSON.stringify(importedPunches) : null,
         };
 
         if (workRule) {
