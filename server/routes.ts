@@ -42,7 +42,7 @@ function generateApiKey(): string {
   return randomBytes(32).toString("hex");
 }
 
-function calculateAttendanceDetails(checkIn: string | null, checkOut: string | null, workStartTime: string, workEndTime: string, lateGraceMinutes: number, latePenaltyPerMinute: string, earlyLeavePenaltyPerMinute: string, absencePenalty: string, status: string) {
+function calculateAttendanceDetails(checkIn: string | null, checkOut: string | null, workStartTime: string, workEndTime: string, lateGraceMinutes: number, latePenaltyPerMinute: string, earlyLeavePenaltyPerMinute: string, absencePenalty: string, status: string, checkoutEarliestTime?: string | null) {
   let lateMinutes = 0;
   let earlyLeaveMinutes = 0;
   let totalHours = 0;
@@ -73,9 +73,11 @@ function calculateAttendanceDetails(checkIn: string | null, checkOut: string | n
     }
   }
 
-  if (checkOut && workEndTime) {
+  if (checkOut) {
+    // إذا كان هناك أقرب وقت مسموح للخروج، يُحسب الخروج المبكر منه بدلاً من نهاية الدوام
+    const refEndTime = checkoutEarliestTime || workEndTime;
     const [checkH, checkM] = checkOut.split(":").map(Number);
-    const [endH, endM] = workEndTime.split(":").map(Number);
+    const [endH, endM] = refEndTime.split(":").map(Number);
     const checkMinutes = checkH * 60 + checkM;
     const endMinutes = endH * 60 + endM;
     if (checkMinutes < endMinutes) {
@@ -309,7 +311,8 @@ async function processAttendanceLogs(
         workRule.latePenaltyPerMinute,
         workRule.earlyLeavePenaltyPerMinute,
         workRule.absencePenalty,
-        "present"
+        "present",
+        workRule.checkoutEarliestTime
       );
       attendanceData.lateMinutes = calc.lateMinutes;
       attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -347,7 +350,8 @@ async function processAttendanceLogs(
             workRule.latePenaltyPerMinute,
             workRule.earlyLeavePenaltyPerMinute,
             workRule.absencePenalty,
-            "present"
+            "present",
+            workRule.checkoutEarliestTime
           );
           updateData.lateMinutes = calc.lateMinutes;
           updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -530,7 +534,8 @@ export async function registerRoutes(
           revertWorkRule.latePenaltyPerMinute,
           revertWorkRule.earlyLeavePenaltyPerMinute,
           revertWorkRule.absencePenalty,
-          oldVals.status
+          oldVals.status,
+          revertWorkRule.checkoutEarliestTime
         );
         revertData.lateMinutes = calc.lateMinutes;
         revertData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -766,7 +771,8 @@ export async function registerRoutes(
           workRule.latePenaltyPerMinute,
           workRule.earlyLeavePenaltyPerMinute,
           workRule.absencePenalty,
-          status || "present"
+          status || "present",
+          workRule.checkoutEarliestTime
         );
         attendanceData.lateMinutes = calc.lateMinutes;
         attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -842,7 +848,8 @@ export async function registerRoutes(
           workRule.latePenaltyPerMinute,
           workRule.earlyLeavePenaltyPerMinute,
           workRule.absencePenalty,
-          finalStatus
+          finalStatus,
+          workRule.checkoutEarliestTime
         );
         updateData.lateMinutes = calc.lateMinutes;
         updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -1083,8 +1090,11 @@ export async function registerRoutes(
           const rawLateMinutes = checkInMin !== null
             ? Math.max(0, checkInMin - workStartMin)
             : 0;
+          // إذا كان هناك أقرب وقت مسموح للخروج، يُحسب الخروج المبكر منه بدلاً من نهاية الدوام
+          const checkoutEarliestMin = workRule?.checkoutEarliestTime ? timeToMin(workRule.checkoutEarliestTime) : null;
+          const earlyLeaveRefMin = checkoutEarliestMin ?? workEndMin;
           const rawEarlyLeaveMinutes = checkOutMin !== null
-            ? Math.max(0, workEndMin - checkOutMin)
+            ? Math.max(0, earlyLeaveRefMin - checkOutMin)
             : 0;
 
           const effectiveLateMinutes = Math.max(0, rawLateMinutes - lateArrivalGrace);
@@ -1949,7 +1959,8 @@ export async function registerRoutes(
             workRule.latePenaltyPerMinute,
             workRule.earlyLeavePenaltyPerMinute,
             workRule.absencePenalty,
-            "present"
+            "present",
+            workRule.checkoutEarliestTime
           );
           attendanceData.lateMinutes = calc.lateMinutes;
           attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -2145,7 +2156,8 @@ export async function registerRoutes(
               workRule.latePenaltyPerMinute,
               workRule.earlyLeavePenaltyPerMinute,
               workRule.absencePenalty,
-              status
+              status,
+              workRule.checkoutEarliestTime
             );
           }
 

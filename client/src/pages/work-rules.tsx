@@ -22,6 +22,7 @@ export default function WorkRules() {
   const [name, setName] = useState("");
   const [workStartTime, setWorkStartTime] = useState("08:00");
   const [workEndTime, setWorkEndTime] = useState("16:00");
+  const [checkoutEarliestTime, setCheckoutEarliestTime] = useState("");
   const [lateGraceMinutes, setLateGraceMinutes] = useState("0");
   const [latePenaltyPerMinute, setLatePenaltyPerMinute] = useState("0");
   const [earlyLeavePenaltyPerMinute, setEarlyLeavePenaltyPerMinute] = useState("0");
@@ -63,6 +64,7 @@ export default function WorkRules() {
 
   function resetForm() {
     setName(""); setWorkStartTime("08:00"); setWorkEndTime("16:00");
+    setCheckoutEarliestTime("");
     setLateGraceMinutes("0"); setLatePenaltyPerMinute("0");
     setEarlyLeavePenaltyPerMinute("0"); setAbsencePenalty("0");
     setIsDefault(false); setEditingRule(null);
@@ -73,6 +75,7 @@ export default function WorkRules() {
     setName(rule.name);
     setWorkStartTime(rule.workStartTime);
     setWorkEndTime(rule.workEndTime);
+    setCheckoutEarliestTime(rule.checkoutEarliestTime ?? "");
     setLateGraceMinutes(String(rule.lateGraceMinutes));
     setLatePenaltyPerMinute(rule.latePenaltyPerMinute);
     setEarlyLeavePenaltyPerMinute(rule.earlyLeavePenaltyPerMinute);
@@ -87,6 +90,7 @@ export default function WorkRules() {
       name,
       workStartTime,
       workEndTime,
+      checkoutEarliestTime: checkoutEarliestTime || null,
       lateGraceMinutes: parseInt(lateGraceMinutes) || 0,
       latePenaltyPerMinute,
       earlyLeavePenaltyPerMinute,
@@ -129,6 +133,10 @@ export default function WorkRules() {
                   <Label>نهاية الدوام</Label>
                   <Input type="time" value={workEndTime} onChange={(e) => setWorkEndTime(e.target.value)} data-testid="input-end-time" />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>أقرب وقت مسموح للخروج <span className="text-muted-foreground text-xs">(اختياري — للسماح بنطاق مرن)</span></Label>
+                <Input type="time" value={checkoutEarliestTime} onChange={(e) => setCheckoutEarliestTime(e.target.value)} data-testid="input-checkout-earliest" placeholder="اتركه فارغاً إذا لم يكن لازماً" />
               </div>
               <div className="space-y-2">
                 <Label>فترة السماح للتأخير (دقيقة)</Label>
@@ -190,7 +198,9 @@ export default function WorkRules() {
                         {rule.isDefault && <Badge variant="default" className="text-xs">افتراضي</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {rule.workStartTime} - {rule.workEndTime} | سماح: {rule.lateGraceMinutes} دقيقة | خصم تأخير: {rule.latePenaltyPerMinute}/دقيقة | خصم غياب: {rule.absencePenalty}
+                        {rule.workStartTime} - {rule.workEndTime}
+                        {rule.checkoutEarliestTime && <span className="text-primary"> | خروج: {rule.checkoutEarliestTime}→{rule.workEndTime}</span>}
+                        {" "}| سماح: {rule.lateGraceMinutes} دقيقة | خصم تأخير: {rule.latePenaltyPerMinute}/دقيقة | خصم غياب: {rule.absencePenalty}
                       </p>
                     </div>
                   </div>
