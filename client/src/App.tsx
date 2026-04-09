@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -25,6 +25,20 @@ import ActivityLog from "@/pages/activity-log";
 import MonthlyArchive from "@/pages/monthly-archive";
 import LeavesGrants from "@/pages/leaves-grants";
 import { Building2, Wrench, Briefcase } from "lucide-react";
+
+function ProtectedRoute({
+  component: Component,
+  allowedUsers,
+}: {
+  component: React.ComponentType;
+  allowedUsers: string[];
+}) {
+  const { user } = useAuth();
+  if (!user || !allowedUsers.includes(user.username)) {
+    return <Redirect to="/" />;
+  }
+  return <Component />;
+}
 
 function Router() {
   return (
@@ -61,9 +75,15 @@ function Router() {
       <Route path="/devices" component={Devices} />
       <Route path="/import" component={ImportData} />
       <Route path="/agent-settings" component={AgentSettings} />
-      <Route path="/activity-log" component={ActivityLog} />
-      <Route path="/monthly-archive" component={MonthlyArchive} />
-      <Route path="/leaves-grants" component={LeavesGrants} />
+      <Route path="/activity-log">
+        <ProtectedRoute component={ActivityLog} allowedUsers={["owner"]} />
+      </Route>
+      <Route path="/monthly-archive">
+        <ProtectedRoute component={MonthlyArchive} allowedUsers={["owner"]} />
+      </Route>
+      <Route path="/leaves-grants">
+        <ProtectedRoute component={LeavesGrants} allowedUsers={["owner", "observer"]} />
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
