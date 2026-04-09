@@ -127,7 +127,7 @@ function scoreColor(score: number, max: number): string {
 export default function Reports() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const isOwner = user?.username === "bachir tedjani";
+  const isOwner = user?.username === "owner";
   const now = new Date();
 
   const [dateMode, setDateMode] = useState<DateMode>("month");

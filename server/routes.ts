@@ -384,7 +384,7 @@ export async function registerRoutes(
 
   // سجل النشاطات — يسمح فقط لـ bachir tedjani
   app.get("/api/activity-logs", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح بالوصول" });
     }
     const logs = await storage.getActivityLogs(500);
@@ -393,7 +393,7 @@ export async function registerRoutes(
 
   // إرجاع تعديل حضور (المالك فقط) — يُعيد القيم القديمة ويقفل السجل
   app.post("/api/activity-logs/:id/revert", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح بالوصول" });
     }
     try {
@@ -458,7 +458,7 @@ export async function registerRoutes(
 
   // حذف سجل نشاط — المسؤول فقط
   app.delete("/api/activity-logs/:id", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح بالوصول" });
     }
     try {
@@ -473,7 +473,7 @@ export async function registerRoutes(
 
   // تسجيل عملية أرشيف مع وصف عربي مفصّل — يستخدمه نظام تأكيد التغييرات
   app.post("/api/archive-action", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح بالوصول" });
     }
     const { description } = req.body;
@@ -640,7 +640,7 @@ export async function registerRoutes(
       if (!employee) return res.status(404).json({ message: "Employee not found" });
 
       // تعديل التقارير مقصور على المالك فقط
-      if (req.session.username !== "bachir tedjani") {
+      if (req.session.username !== "owner") {
         return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
       }
 
@@ -701,7 +701,7 @@ export async function registerRoutes(
       const employeeId = existingRecords.employeeId;
 
       // تعديل التقارير مقصور على المالك فقط
-      if (req.session.username !== "bachir tedjani") {
+      if (req.session.username !== "owner") {
         return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
       }
 
@@ -769,7 +769,7 @@ export async function registerRoutes(
       if (!existing) return res.status(404).json({ message: "Record not found" });
 
       // تعديل التقارير مقصور على المالك فقط
-      if (req.session.username !== "bachir tedjani") {
+      if (req.session.username !== "owner") {
         return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
       }
 
@@ -2201,7 +2201,7 @@ export async function registerRoutes(
 
   // GET /api/frozen-archives?month=YYYY-MM
   app.get("/api/frozen-archives", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح" });
     }
     const month = String(req.query.month || "");
@@ -2214,7 +2214,7 @@ export async function registerRoutes(
 
   // POST /api/frozen-archives — freeze a table snapshot
   app.post("/api/frozen-archives", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح" });
     }
     const { month, workshopId, workRuleId, reportJson } = req.body;
@@ -2234,7 +2234,7 @@ export async function registerRoutes(
 
   // DELETE /api/frozen-archives/:id — unfreeze (owner only)
   app.delete("/api/frozen-archives/:id", async (req, res) => {
-    if (req.session.username !== "bachir tedjani") {
+    if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح" });
     }
     await storage.deleteFrozenArchive(req.params.id);

@@ -191,7 +191,7 @@ export default function MonthlyArchive() {
   const [, navigate] = useLocation();
 
   useEffect(() => {
-    if (user && user.username !== "bachir tedjani") {
+    if (user && user.username !== "owner") {
       navigate("/");
     }
   }, [user, navigate]);
@@ -641,7 +641,7 @@ export default function MonthlyArchive() {
     const emps = displayEmps;
     const tableTotal = emps.reduce((s, r) => s + r.attendanceScore, 0);
     const tableMax = emps.reduce((s, r) => s + (r.normalizedTotalDays ?? r.totalDays), 0);
-    const isOwner = user?.username === "bachir tedjani";
+    const isOwner = user?.username === "owner";
 
     const headerBg = effectiveFrozen
       ? (isPendingFreeze ? "bg-amber-50/80 dark:bg-amber-950/30" : "bg-emerald-50/80 dark:bg-emerald-950/30")

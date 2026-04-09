@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const ADMIN_USERNAME = "bachir tedjani";
+const ADMIN_USERNAME = "owner";
 
 function formatDateTime(iso: string) {
   try {

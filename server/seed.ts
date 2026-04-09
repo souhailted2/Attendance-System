@@ -1,13 +1,21 @@
 import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 
-const ADMIN_USERNAME = "bachir tedjani";
+const ADMIN_USERNAME = "owner";
 const ATTENDANCE_USERNAME = "attendence";
 const OBSERVER_USERNAME = "observer";
 
 async function ensureAdminUser() {
   const target = await storage.getUserByUsername(ADMIN_USERNAME);
   if (target) return;
+
+  // ترقية من الاسم القديم bachir tedjani
+  const oldBachir = await storage.getUserByUsername("bachir tedjani");
+  if (oldBachir) {
+    await storage.renameUser("bachir tedjani", ADMIN_USERNAME);
+    console.log(`✅ تم تغيير اسم المستخدم: bachir tedjani → ${ADMIN_USERNAME}`);
+    return;
+  }
 
   const old = await storage.getUserByUsername("admin");
   if (old) {

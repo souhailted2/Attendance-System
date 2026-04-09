@@ -84,7 +84,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {user?.username === "bachir tedjani" && (
+              {user?.username === "owner" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -142,7 +142,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {user?.username === "bachir tedjani" && (
+              {user?.username === "owner" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild
@@ -166,9 +166,14 @@ export function AppSidebar() {
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <Users className="h-4 w-4 text-primary" />
             </div>
-            <span className="text-sm font-medium truncate" data-testid="text-username">
-              {user?.username}
-            </span>
+            <div className="min-w-0">
+              <span className="text-sm font-medium truncate block" data-testid="text-username">
+                {user?.username === "owner" ? "المدير العام" : user?.username}
+              </span>
+              {user?.username === "owner" && (
+                <span className="text-[10px] text-muted-foreground">owner</span>
+              )}
+            </div>
           </div>
           <Button
             variant="ghost"
