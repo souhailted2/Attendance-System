@@ -360,7 +360,11 @@ export default function Attendance() {
                         {formatArabicDate(mv.date)}
                       </TableCell>
                       <TableCell>
-                        {mv.type === "in" ? (
+                        {!mv.time ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md" data-testid={`badge-type-${mv.id}`}>
+                            لم يُسجل الوقت
+                          </span>
+                        ) : mv.type === "in" ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 px-2 py-1 rounded-md" data-testid={`badge-type-${mv.id}`}>
                             <LogIn className="h-3.5 w-3.5" />
                             تسجيل الدخول
