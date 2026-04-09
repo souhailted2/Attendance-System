@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search } from "lucide-react";
+import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 
 export default function Attendance() {
@@ -332,6 +332,7 @@ export default function Attendance() {
                     <TableHead className="text-right">اسم الموظف</TableHead>
                     <TableHead className="text-right w-32">رقم البطاقة</TableHead>
                     <TableHead className="text-right w-32">التاريخ</TableHead>
+                    <TableHead className="text-right w-36">نوع الحركة</TableHead>
                     <TableHead className="text-right w-32">وقت الحركة</TableHead>
                     <TableHead className="w-12"></TableHead>
                   </TableRow>
@@ -357,6 +358,19 @@ export default function Attendance() {
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {formatArabicDate(mv.date)}
+                      </TableCell>
+                      <TableCell>
+                        {mv.type === "in" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/40 px-2 py-1 rounded-md" data-testid={`badge-type-${mv.id}`}>
+                            <LogIn className="h-3.5 w-3.5" />
+                            تسجيل الدخول
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 px-2 py-1 rounded-md" data-testid={`badge-type-${mv.id}`}>
+                            <LogOut className="h-3.5 w-3.5" />
+                            تسجيل الخروج
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {mv.time ? (
