@@ -35,7 +35,6 @@ const mainItems = [
   { title: "الموظفين", url: "/employees", icon: Users },
   { title: "سجل الحضور", url: "/attendance", icon: ClipboardCheck },
   { title: "التقارير", url: "/reports", icon: BarChart3 },
-  { title: "العطل والمنح", url: "/leaves-grants", icon: CalendarDays },
 ];
 
 const settingsItems = [
@@ -86,6 +85,20 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {(user?.username === "owner" || user?.username === "observer") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/leaves-grants"}
+                    data-testid="link-nav-leaves-grants"
+                  >
+                    <Link href="/leaves-grants">
+                      <CalendarDays className="h-4 w-4" />
+                      <span>العطل والمنح</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {user?.username === "owner" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
