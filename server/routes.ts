@@ -2424,6 +2424,7 @@ export async function registerRoutes(
     try {
       const year = parseInt(req.query.year as string);
       const workshopId = req.query.workshopId as string | undefined;
+      const shift = req.query.shift as string | undefined;
       if (!year || isNaN(year)) return res.status(400).json({ message: "year مطلوب" });
 
       // السنة المالية: جويلية → جوان
@@ -2448,6 +2449,7 @@ export async function registerRoutes(
 
       let filteredEmployees = allEmployees.filter(e => e.isActive);
       if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
+      if (shift) filteredEmployees = filteredEmployees.filter(e => (e.shift || "morning") === shift);
 
       function timeToMin(t: string | null): number | null {
         if (!t) return null;

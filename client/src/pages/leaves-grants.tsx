@@ -18,7 +18,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users } from "lucide-react";
-import type { Workshop } from "@shared/schema";
+import type { Workshop, Employee } from "@shared/schema";
 
 interface Leave {
   id: string;
@@ -338,21 +338,31 @@ function AnnualReportTab() {
   const [selectedWorkshopId, setSelectedWorkshopId] = useState<string | null>(null);
 
   const { data: workshops = [], isLoading: workshopsLoading } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
+  const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
 
-  const shouldFetchReport = view === "employees" && selectedWorkshopId !== null;
+  // الورشات المرتبطة بالفترة المختارة
+  const workshopsForShift = selectedShift
+    ? workshops.filter(ws =>
+        employees.some(e => e.isActive && e.workshopId === ws.id && (e.shift || "morning") === selectedShift)
+      )
+    : workshops;
+
+  const shouldFetchReport = view === "employees" && selectedWorkshopId !== null && selectedShift !== null;
   const { data: report, isLoading: reportLoading } = useQuery<AnnualReport>({
-    queryKey: ["/api/annual-report", selectedYear, selectedWorkshopId],
+    queryKey: ["/api/annual-report", selectedYear, selectedWorkshopId, selectedShift],
     queryFn: async () => {
-      const url = `/api/annual-report?year=${selectedYear}&workshopId=${selectedWorkshopId}`;
-      const res = await fetch(url, { credentials: "include" });
+      const params = new URLSearchParams({ year: String(selectedYear) });
+      if (selectedWorkshopId) params.set("workshopId", selectedWorkshopId);
+      if (selectedShift) params.set("shift", selectedShift);
+      const res = await fetch(`/api/annual-report?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
     enabled: shouldFetchReport,
   });
 
-  // تصفية الورشات حسب الفترة المختارة: نأخذ الورشات التي يوجد فيها عمال بالفترة المحددة
-  // (للتبسيط: نعرض كل الورشات ونترك المستخدم يختار)
+  // الورشات المرتبطة بالفترة المختارة: الورشات التي يوجد فيها عمال بالفترة المحددة
+  // نجلب الموظفين لمعرفة الورشات ذات الصلة
 
   function scoreColor(score: number): string {
     if (score >= 27) return "text-green-600 dark:text-green-400 font-bold";
@@ -398,7 +408,7 @@ function AnnualReportTab() {
                 <div>
                   <p className="font-semibold text-lg">{shift === "morning" ? "الفترة الصباحية" : "الفترة المسائية"}</p>
                   <p className="text-sm text-muted-foreground">
-                    {workshops.filter(() => true).length} ورشة
+                    {workshops.filter(ws => employees.some(e => e.isActive && e.workshopId === ws.id && (e.shift || "morning") === shift)).length} ورشة
                   </p>
                 </div>
                 <ChevronLeft className="h-5 w-5 mr-auto text-muted-foreground" />
@@ -434,11 +444,11 @@ function AnnualReportTab() {
 
         {workshopsLoading ? (
           <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
-        ) : workshops.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8">لا توجد ورشات</p>
+        ) : workshopsForShift.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">لا توجد ورشات مرتبطة بهذه الفترة</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {workshops.map(ws => (
+            {workshopsForShift.map(ws => (
               <Card
                 key={ws.id}
                 className="cursor-pointer hover:border-primary transition-colors"
