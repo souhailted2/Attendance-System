@@ -144,6 +144,12 @@ function filterDuplicateSwipes(times: string[], minGapMinutes: number): string[]
   return result;
 }
 
+function getYesterday(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 async function processAttendanceLogs(
   logs: Array<{ uid: string; date: string; times: string[] }>,
   allEmployees: Awaited<ReturnType<typeof storage.getEmployees>>,
@@ -183,6 +189,99 @@ async function processAttendanceLogs(
     const checkOut = filteredTimes.length > 1 ? filteredTimes[filteredTimes.length - 1] : null;
 
     const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes);
+
+    // ===== معالجة خاصة لنظام المناوبة 24 ساعة =====
+    if (workRule?.is24hShift) {
+      const yesterday = getYesterday(entry.date);
+      const pendingYesterday = await storage.getAttendanceByEmployeeAndDate(employee.id, yesterday);
+
+      if (pendingYesterday && pendingYesterday.checkIn && !pendingYesterday.checkOut) {
+        // البصمة الحالية تُغلق مناوبة الأمس
+        const closeTime = filteredTimes[0] || null;
+        try {
+          await storage.updateAttendance(pendingYesterday.id, {
+            checkOut: closeTime,
+            totalHours: "24",
+            status: "present",
+            lateMinutes: 0,
+            earlyLeaveMinutes: 0,
+            penalty: "0",
+          });
+        } catch (e: any) {
+          errors.push(`${employee.name} - إغلاق مناوبة ${yesterday}: ${e.message}`);
+        }
+        // إنشاء يوم راحة لليوم الحالي إذا لم يكن موجوداً
+        const restToday = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
+        if (!restToday) {
+          try {
+            await storage.createAttendance({
+              employeeId: employee.id,
+              date: entry.date,
+              checkIn: null,
+              checkOut: null,
+              status: "rest",
+              notes: "يوم راحة — مناوبة 24 ساعة",
+              lateMinutes: 0,
+              earlyLeaveMinutes: 0,
+              middleAbsenceMinutes: 0,
+              totalHours: "0",
+              penalty: "0",
+            });
+          } catch (e: any) {
+            errors.push(`${employee.name} - يوم الراحة ${entry.date}: ${e.message}`);
+          }
+        }
+        imported++;
+        continue;
+      } else {
+        // بصمة جديدة = بداية مناوبة جديدة
+        const newCheckIn = filteredTimes[0] || null;
+        const existing24h = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
+        if (existing24h) {
+          if (existing24h.status === "rest") {
+            // لا تُعدّل أيام الراحة
+            duplicates++;
+          } else if (newCheckIn && newCheckIn !== existing24h.checkIn) {
+            try {
+              await storage.updateAttendance(existing24h.id, {
+                checkIn: newCheckIn,
+                checkOut: null,
+                totalHours: "0",
+                status: "present",
+              });
+              imported++;
+            } catch (e: any) {
+              errors.push(`${employee.name} - ${entry.date}: ${e.message}`);
+              skipped++;
+            }
+          } else {
+            duplicates++;
+          }
+        } else {
+          try {
+            await storage.createAttendance({
+              employeeId: employee.id,
+              date: entry.date,
+              checkIn: newCheckIn,
+              checkOut: null,
+              status: "present",
+              notes: `مزامنة من: ${sourceName}`,
+              lateMinutes: 0,
+              earlyLeaveMinutes: 0,
+              middleAbsenceMinutes: 0,
+              totalHours: "0",
+              penalty: "0",
+            });
+            imported++;
+          } catch (e: any) {
+            errors.push(`${employee.name} - ${entry.date}: ${e.message}`);
+            skipped++;
+          }
+        }
+        continue;
+      }
+    }
+    // ===== نهاية معالجة المناوبة 24 ساعة =====
 
     let attendanceData: any = {
       employeeId: employee.id,
@@ -925,9 +1024,13 @@ export async function registerRoutes(
 
         let totalWorkDayMinutes = 480;
         if (workRule) {
-          const [startH, startM] = workRule.workStartTime.split(":").map(Number);
-          const [endH, endM] = workRule.workEndTime.split(":").map(Number);
-          totalWorkDayMinutes = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
+          if (workRule.is24hShift) {
+            totalWorkDayMinutes = 1440; // 24 ساعة
+          } else {
+            const [startH, startM] = workRule.workStartTime.split(":").map(Number);
+            const [endH, endM] = workRule.workEndTime.split(":").map(Number);
+            totalWorkDayMinutes = Math.max(1, (endH * 60 + endM) - (startH * 60 + startM));
+          }
         }
 
         const earlyArrivalGrace = workRule?.earlyArrivalGraceMinutes ?? 0;
@@ -982,6 +1085,10 @@ export async function registerRoutes(
             dailyScore = 0;
           } else if (rec.status === "leave") {
             dailyScore = 1;
+          } else if (rec.status === "rest") {
+            dailyScore = 1;
+          } else if (workRule?.is24hShift && (rec.status === "present" || rec.status === "late")) {
+            dailyScore = 2;
           } else {
             dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes + middleAbsenceMin) / totalWorkDayMinutes);
           }

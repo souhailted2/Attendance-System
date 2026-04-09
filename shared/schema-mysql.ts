@@ -41,6 +41,7 @@ export const workRules = mysqlTable("work_rules", {
   earlyLeavePenaltyPerMinute: text("early_leave_penalty_per_minute").notNull().default("0"),
   absencePenalty: text("absence_penalty").notNull().default("0"),
   isDefault: boolean("is_default").notNull().default(false),
+  is24hShift: boolean("is_24h_shift").notNull().default(false),
 });
 
 export const employees = mysqlTable("employees", {
@@ -149,7 +150,7 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
   name: true, workStartTime: true, workEndTime: true,
   lateGraceMinutes: true, earlyArrivalGraceMinutes: true,
   earlyLeaveGraceMinutes: true, lateLeaveGraceMinutes: true,
-  latePenaltyPerMinute: true, earlyLeavePenaltyPerMinute: true, absencePenalty: true, isDefault: true,
+  latePenaltyPerMinute: true, earlyLeavePenaltyPerMinute: true, absencePenalty: true, isDefault: true, is24hShift: true,
 });
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
   name: true, employeeCode: true, cardNumber: true, positionId: true, workRuleId: true,

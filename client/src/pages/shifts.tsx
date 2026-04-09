@@ -29,6 +29,7 @@ export default function Shifts() {
   const [formLatePenalty, setFormLatePenalty] = useState("0");
   const [formEarlyPenalty, setFormEarlyPenalty] = useState("0");
   const [formAbsence, setFormAbsence] = useState("0");
+  const [form24hShift, setForm24hShift] = useState(false);
 
   const { data: rules = [], isLoading: rulesLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
   const { data: employees = [], isLoading: empsLoading } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
@@ -84,6 +85,7 @@ export default function Shifts() {
   function resetForm() {
     setFormName(""); setFormStart("08:00"); setFormEnd("16:00");
     setFormLate("0"); setFormLatePenalty("0"); setFormEarlyPenalty("0"); setFormAbsence("0");
+    setForm24hShift(false);
   }
 
   function openEdit(rule: WorkRule) {
@@ -95,18 +97,20 @@ export default function Shifts() {
     setFormLatePenalty(rule.latePenaltyPerMinute);
     setFormEarlyPenalty(rule.earlyLeavePenaltyPerMinute);
     setFormAbsence(rule.absencePenalty);
+    setForm24hShift(!!(rule as any).is24hShift);
   }
 
   function submitForm(e: React.FormEvent) {
     e.preventDefault();
     const data = {
       name: formName,
-      workStartTime: formStart,
-      workEndTime: formEnd,
+      workStartTime: form24hShift ? "08:00" : formStart,
+      workEndTime: form24hShift ? "08:00" : formEnd,
       lateGraceMinutes: parseInt(formLate) || 0,
       latePenaltyPerMinute: formLatePenalty,
       earlyLeavePenaltyPerMinute: formEarlyPenalty,
       absencePenalty: formAbsence,
+      is24hShift: form24hShift,
     };
     if (editingRule) {
       updateRuleMutation.mutate({ id: editingRule.id, data });
@@ -176,11 +180,15 @@ export default function Shifts() {
                       <div>
                         <CardTitle className="text-lg">{s.label}</CardTitle>
                         {s.rule ? (
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              {s.rule.workStartTime} — {s.rule.workEndTime}
-                            </span>
+                            {(s.rule as any).is24hShift ? (
+                              <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">مناوبة 24 ساعة</span>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">
+                                {s.rule.workStartTime} — {s.rule.workEndTime}
+                              </span>
+                            )}
                             <span className="text-sm text-muted-foreground">|</span>
                             <span className="text-sm text-muted-foreground">قاعدة: {s.rule.name}</span>
                           </div>
@@ -278,10 +286,13 @@ export default function Shifts() {
                 {rules.filter((r) => !r.name.includes("صباح") && !r.name.includes("مساء")).map((r) => (
                   <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20" data-testid={`row-rule-${r.id}`}>
                     <div>
-                      <p className="font-medium text-sm">{r.name}</p>
+                      <p className="font-medium text-sm flex items-center gap-2">
+                        {r.name}
+                        {(r as any).is24hShift && <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full">24 ساعة</span>}
+                      </p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Clock className="h-3 w-3" />
-                        {r.workStartTime} — {r.workEndTime}
+                        {(r as any).is24hShift ? "مناوبة 24 ساعة دوارة" : `${r.workStartTime} — ${r.workEndTime}`}
                       </p>
                     </div>
                     <div className="flex gap-2">
@@ -324,16 +335,27 @@ export default function Shifts() {
               <Label>اسم الفترة</Label>
               <Input data-testid="input-rule-name" value={formName} onChange={(e) => setFormName(e.target.value)} required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>وقت الدخول</Label>
-                <Input type="time" data-testid="input-rule-start" value={formStart} onChange={(e) => setFormStart(e.target.value)} required />
-              </div>
-              <div className="space-y-1">
-                <Label>وقت الخروج</Label>
-                <Input type="time" data-testid="input-rule-end" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} required />
-              </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+              <input type="checkbox" id="edit-24h-shift" data-testid="checkbox-24h-shift" checked={form24hShift} onChange={(e) => setForm24hShift(e.target.checked)} className="h-4 w-4 accent-orange-500" />
+              <Label htmlFor="edit-24h-shift" className="cursor-pointer text-sm font-medium">مناوبة 24 ساعة دوارة (حراسة)</Label>
             </div>
+            {!form24hShift && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>وقت الدخول</Label>
+                  <Input type="time" data-testid="input-rule-start" value={formStart} onChange={(e) => setFormStart(e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>وقت الخروج</Label>
+                  <Input type="time" data-testid="input-rule-end" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} required />
+                </div>
+              </div>
+            )}
+            {form24hShift && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 rounded p-2">
+                المناوبة: 08:00 ← 08:00 (اليوم التالي) | الحضور = 2.00 | يوم الراحة = 1.00
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>مهلة التأخير (دقيقة)</Label>
@@ -370,16 +392,27 @@ export default function Shifts() {
               <Label>اسم الفترة</Label>
               <Input data-testid="input-new-rule-name" value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="مثال: الفترة الليلية" required />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>وقت الدخول</Label>
-                <Input type="time" data-testid="input-new-rule-start" value={formStart} onChange={(e) => setFormStart(e.target.value)} required />
-              </div>
-              <div className="space-y-1">
-                <Label>وقت الخروج</Label>
-                <Input type="time" data-testid="input-new-rule-end" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} required />
-              </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-orange-50 dark:bg-orange-950/20">
+              <input type="checkbox" id="new-24h-shift" data-testid="checkbox-new-24h-shift" checked={form24hShift} onChange={(e) => setForm24hShift(e.target.checked)} className="h-4 w-4 accent-orange-500" />
+              <Label htmlFor="new-24h-shift" className="cursor-pointer text-sm font-medium">مناوبة 24 ساعة دوارة (حراسة)</Label>
             </div>
+            {!form24hShift && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>وقت الدخول</Label>
+                  <Input type="time" data-testid="input-new-rule-start" value={formStart} onChange={(e) => setFormStart(e.target.value)} required />
+                </div>
+                <div className="space-y-1">
+                  <Label>وقت الخروج</Label>
+                  <Input type="time" data-testid="input-new-rule-end" value={formEnd} onChange={(e) => setFormEnd(e.target.value)} required />
+                </div>
+              </div>
+            )}
+            {form24hShift && (
+              <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/20 rounded p-2">
+                المناوبة: 08:00 ← 08:00 (اليوم التالي) | الحضور = 2.00 | يوم الراحة = 1.00
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>مهلة التأخير (دقيقة)</Label>

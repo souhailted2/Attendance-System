@@ -61,8 +61,8 @@ export default function Attendance() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: ({ recordId, type }: { recordId: string; type: "in" | "out" | "none" }) => {
-      if (type === "none") {
+    mutationFn: ({ recordId, type }: { recordId: string; type: "in" | "out" | "none" | "rest" }) => {
+      if (type === "none" || type === "rest") {
         return apiRequest("DELETE", `/api/attendance/${recordId}`);
       }
       const patch = type === "in" ? { checkIn: null } : { checkOut: null };
@@ -110,11 +110,16 @@ export default function Attendance() {
   }
 
   // توسيع كل سجل يومي إلى حركات فردية (دخول + خروج كصفين منفصلين)
-  const allMovements: Array<{ id: string; recordId: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out"; middleAbsenceMinutes?: number }> = [];
+  const allMovements: Array<{ id: string; recordId: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" | "rest"; middleAbsenceMinutes?: number }> = [];
 
   for (const record of attendance || []) {
     const emp = employees?.find((e) => e.id === record.employeeId);
     const recMiddle = record.middleAbsenceMinutes;
+    // يوم الراحة (مناوبة 24 ساعة)
+    if ((record as any).status === "rest") {
+      allMovements.push({ id: `${record.id}-rest`, recordId: record.id, emp, date: record.date, time: "", type: "rest" });
+      continue;
+    }
     if (record.checkIn) {
       allMovements.push({ id: `${record.id}-in`,  recordId: record.id, emp, date: record.date, time: record.checkIn,  type: "in"  });
     }
@@ -360,7 +365,11 @@ export default function Attendance() {
                         {formatArabicDate(mv.date)}
                       </TableCell>
                       <TableCell>
-                        {!mv.time ? (
+                        {mv.type === "rest" ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 px-2 py-1 rounded-md" data-testid={`badge-type-${mv.id}`}>
+                            يوم راحة — مناوبة 24 ساعة
+                          </span>
+                        ) : !mv.time ? (
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-md" data-testid={`badge-type-${mv.id}`}>
                             لم يُسجل الوقت
                           </span>

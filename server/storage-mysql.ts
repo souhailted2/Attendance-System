@@ -148,6 +148,7 @@ export class MysqlStorage implements IStorage {
       earlyLeavePenaltyPerMinute: data.earlyLeavePenaltyPerMinute,
       absencePenalty: data.absencePenalty,
       isDefault: data.isDefault,
+      is24hShift: data.is24hShift ?? false,
     });
     const [result] = await mysqlDb.select().from(schema.workRules).where(eq(schema.workRules.id, id));
     return result as WorkRule;

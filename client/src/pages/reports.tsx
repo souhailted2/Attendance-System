@@ -82,6 +82,7 @@ function getCellBg(status: string): string {
   if (status === "holiday") return "bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50";
   if (status === "leave") return "bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50";
   if (status === "late") return "bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50";
+  if (status === "rest") return "bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50";
   return "bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50";
 }
 
@@ -89,6 +90,8 @@ function getCellScoreColor(status: string, score: number): string {
   if (status === "absent") return "text-red-600 dark:text-red-400";
   if (status === "holiday") return "text-blue-600 dark:text-blue-400";
   if (status === "leave") return "text-purple-600 dark:text-purple-400";
+  if (status === "rest") return "text-slate-500 dark:text-slate-400";
+  if (score >= 1.95) return "text-orange-600 dark:text-orange-400";
   if (score >= 0.95) return "text-green-700 dark:text-green-400";
   if (score >= 0.80) return "text-amber-700 dark:text-amber-400";
   return "text-red-700 dark:text-red-400";
@@ -887,6 +890,11 @@ export default function Reports() {
                                   >
                                     {rec.status === "absent" ? (
                                       <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                    ) : rec.status === "rest" ? (
+                                      <>
+                                        <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">راحة</span>
+                                      </>
                                     ) : rec.status === "leave" ? (
                                       <span className={`text-xs font-bold ${scoreColorClass}`}>إجازة</span>
                                     ) : rec.status === "holiday" ? (
@@ -998,6 +1006,7 @@ export default function Reports() {
                   <SelectItem value="late">متأخر</SelectItem>
                   <SelectItem value="absent">غائب</SelectItem>
                   <SelectItem value="leave">إجازة</SelectItem>
+                  <SelectItem value="rest">يوم راحة (مناوبة 24 ساعة)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1010,7 +1019,7 @@ export default function Reports() {
                   value={editForm.checkIn}
                   onChange={(e) => setEditForm(f => ({ ...f, checkIn: e.target.value }))}
                   data-testid="input-checkin"
-                  disabled={editForm.status === "absent" || editForm.status === "leave"}
+                  disabled={editForm.status === "absent" || editForm.status === "leave" || editForm.status === "rest"}
                 />
               </div>
               <div className="space-y-1.5">
@@ -1020,7 +1029,7 @@ export default function Reports() {
                   value={editForm.checkOut}
                   onChange={(e) => setEditForm(f => ({ ...f, checkOut: e.target.value }))}
                   data-testid="input-checkout"
-                  disabled={editForm.status === "absent" || editForm.status === "leave"}
+                  disabled={editForm.status === "absent" || editForm.status === "leave" || editForm.status === "rest"}
                 />
               </div>
             </div>
