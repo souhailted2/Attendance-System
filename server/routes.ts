@@ -863,12 +863,21 @@ export async function registerRoutes(
         newRawPunches = newRawArr.length > 0 ? JSON.stringify(newRawArr) : null;
       }
 
+      // إعادة حساب الغياب الوسيط من rawPunches الناتجة إن تغيرت الأوقات
+      let finalMiddleAbsenceMinutes: number = existingRecords.middleAbsenceMinutes ?? 0;
+      if (isRestStatus) {
+        finalMiddleAbsenceMinutes = 0;
+      } else if (timesChanged) {
+        const punchesForCalc: string[] = newRawPunches ? (() => { try { return JSON.parse(newRawPunches); } catch { return []; } })() : [];
+        finalMiddleAbsenceMinutes = punchesForCalc.length >= 2 ? calculateMiddleAbsenceMinutes(punchesForCalc) : 0;
+      }
+
       const updateData: Partial<InsertAttendance> = {
         checkIn: finalCheckIn,
         checkOut: finalCheckOut,
         status: finalStatus,
         notes: notes !== undefined ? notes : existingRecords.notes,
-        middleAbsenceMinutes: (isRestStatus || timesChanged) ? 0 : (existingRecords.middleAbsenceMinutes ?? 0),
+        middleAbsenceMinutes: finalMiddleAbsenceMinutes,
         rawPunches: newRawPunches,
       };
 
