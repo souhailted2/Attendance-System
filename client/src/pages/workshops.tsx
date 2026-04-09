@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Search, ArrowLeftRight, UserMinus, UserPlus, Wrench, X } from "lucide-react";
+import { Users, Search, ArrowLeftRight, UserMinus, UserPlus, Wrench, X, Plus } from "lucide-react";
 import type { Workshop, Employee } from "@shared/schema";
 
 export default function Workshops() {
@@ -18,6 +19,9 @@ export default function Workshops() {
 
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newDescription, setNewDescription] = useState("");
   const [searchInWorkshop, setSearchInWorkshop] = useState("");
   const [searchImport, setSearchImport] = useState("");
   const [transferTarget, setTransferTarget] = useState<string>("");
@@ -55,6 +59,19 @@ export default function Workshops() {
       (e) => e.name.toLowerCase().includes(q) || e.employeeCode.includes(q)
     );
   }, [employeesNotInWorkshop, searchImport]);
+
+  const createWorkshopMutation = useMutation({
+    mutationFn: (data: { name: string; description?: string }) =>
+      apiRequest("POST", "/api/workshops", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workshops"] });
+      toast({ title: "تم إضافة الورشة بنجاح" });
+      setNewName("");
+      setNewDescription("");
+      setAddOpen(false);
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
 
   const updateEmpMutation = useMutation({
     mutationFn: ({ id, workshopId }: { id: string; workshopId: string | null }) =>
@@ -111,10 +128,59 @@ export default function Workshops() {
           <h1 className="text-2xl font-bold" data-testid="text-page-title">الورشات</h1>
           <p className="text-muted-foreground text-sm mt-1">إدارة الورشات وموظفيها</p>
         </div>
-        <Badge variant="secondary" className="gap-1 text-sm px-3 py-1">
-          <Wrench className="h-3.5 w-3.5" />
-          {workshops.length} ورشة
-        </Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="gap-1 text-sm px-3 py-1">
+            <Wrench className="h-3.5 w-3.5" />
+            {workshops.length} ورشة
+          </Badge>
+          <Dialog open={addOpen} onOpenChange={(v) => { setAddOpen(v); if (!v) { setNewName(""); setNewDescription(""); } }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-workshop">
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة ورشة
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm" dir="rtl">
+              <DialogHeader>
+                <DialogTitle>إضافة ورشة جديدة</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newName.trim()) return;
+                  createWorkshopMutation.mutate({ name: newName.trim(), description: newDescription.trim() || undefined });
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label>اسم الورشة *</Label>
+                  <Input
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="مثال: ورشة الكهرباء"
+                    required
+                    data-testid="input-workshop-name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>الوصف <span className="text-muted-foreground text-xs">(اختياري)</span></Label>
+                  <Input
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                    placeholder="وصف مختصر للورشة"
+                    data-testid="input-workshop-description"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => { setAddOpen(false); setNewName(""); setNewDescription(""); }}>إلغاء</Button>
+                  <Button type="submit" disabled={createWorkshopMutation.isPending} data-testid="button-submit-workshop">
+                    إضافة
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {isLoading ? (
