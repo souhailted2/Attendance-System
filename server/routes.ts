@@ -301,6 +301,7 @@ async function processAttendanceLogs(
       middleAbsenceMinutes,
       totalHours: "0",
       penalty: "0",
+      rawPunches: JSON.stringify(filteredTimes),
     };
 
     if (workRule) {
@@ -341,7 +342,7 @@ async function processAttendanceLogs(
 
       const existingMiddle = (existing as { middleAbsenceMinutes?: number }).middleAbsenceMinutes ?? 0;
       if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn || newMiddleAbsenceMinutes !== existingMiddle) {
-        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes };
+        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes, rawPunches: JSON.stringify(allTimes) };
         if (workRule) {
           const calc = calculateAttendanceDetails(
             newCheckIn, newCheckOut,

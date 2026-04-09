@@ -109,26 +109,67 @@ export default function Attendance() {
     return `${dayName} ${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`;
   }
 
-  // توسيع كل سجل يومي إلى حركات فردية (دخول + خروج كصفين منفصلين)
-  const allMovements: Array<{ id: string; recordId: string; emp: Employee | undefined; date: string; time: string; type: "in" | "out" | "rest"; middleAbsenceMinutes?: number }> = [];
+  // توسيع كل سجل يومي إلى حركات فردية
+  // canDelete: "in" | "out" | "none" | "rest" — نوع الحذف المسموح للصف
+  const allMovements: Array<{
+    id: string;
+    recordId: string;
+    emp: Employee | undefined;
+    date: string;
+    time: string;
+    type: "in" | "out" | "rest";
+    middleAbsenceMinutes?: number;
+    canDelete: "in" | "out" | "none" | "rest";
+  }> = [];
 
   for (const record of attendance || []) {
     const emp = employees?.find((e) => e.id === record.employeeId);
     const recMiddle = record.middleAbsenceMinutes;
+
     // يوم الراحة (مناوبة 24 ساعة)
     if ((record as any).status === "rest") {
-      allMovements.push({ id: `${record.id}-rest`, recordId: record.id, emp, date: record.date, time: "", type: "rest" });
+      allMovements.push({ id: `${record.id}-rest`, recordId: record.id, emp, date: record.date, time: "", type: "rest", canDelete: "rest" });
       continue;
     }
-    if (record.checkIn) {
-      allMovements.push({ id: `${record.id}-in`,  recordId: record.id, emp, date: record.date, time: record.checkIn,  type: "in"  });
-    }
-    if (record.checkOut && record.checkOut !== record.checkIn) {
-      allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle });
-    }
-    // إذا لم يوجد أي وقت، أظهر الصف بدون وقت
-    if (!record.checkIn && !record.checkOut) {
-      allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in" });
+
+    // محاولة قراءة البصمات الخام من rawPunches
+    let rawPunches: string[] = [];
+    try {
+      const rp = (record as any).rawPunches;
+      if (rp) rawPunches = JSON.parse(rp);
+    } catch { rawPunches = []; }
+
+    if (rawPunches.length >= 2) {
+      // عرض كل البصمات من rawPunches: index زوجي = دخول، فردي = خروج
+      rawPunches.forEach((punchTime, idx) => {
+        const punchType: "in" | "out" = idx % 2 === 0 ? "in" : "out";
+        const isFirst = idx === 0;
+        const isLast = idx === rawPunches.length - 1;
+        allMovements.push({
+          id: `${record.id}-p${idx}`,
+          recordId: record.id,
+          emp,
+          date: record.date,
+          time: punchTime,
+          type: punchType,
+          middleAbsenceMinutes: isLast ? recMiddle : undefined,
+          canDelete: isFirst ? "in" : isLast ? "out" : "none",
+        });
+      });
+    } else if (rawPunches.length === 1) {
+      // دخول فقط بدون خروج
+      allMovements.push({ id: `${record.id}-p0`, recordId: record.id, emp, date: record.date, time: rawPunches[0], type: "in", canDelete: "in" });
+    } else {
+      // لا توجد rawPunches — الطريقة القديمة
+      if (record.checkIn) {
+        allMovements.push({ id: `${record.id}-in`, recordId: record.id, emp, date: record.date, time: record.checkIn, type: "in", canDelete: "in" });
+      }
+      if (record.checkOut && record.checkOut !== record.checkIn) {
+        allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle, canDelete: "out" });
+      }
+      if (!record.checkIn && !record.checkOut) {
+        allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in", canDelete: "none" });
+      }
     }
   }
 
@@ -395,37 +436,39 @@ export default function Attendance() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                              data-testid={`button-delete-${mv.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>حذف السجل</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                هل أنت متأكد من حذف وقت <strong>{mv.type === "in" ? "الدخول" : "الخروج"}</strong> للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
-                                <br />
-                                سيُمسح هذا الوقت فقط دون حذف بقية بيانات اليوم.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => deleteMutation.mutate({ recordId: mv.recordId, type: mv.type })}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        {mv.canDelete !== "none" ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                data-testid={`button-delete-${mv.id}`}
                               >
-                                حذف
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>حذف السجل</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  هل أنت متأكد من حذف وقت <strong>{mv.canDelete === "in" ? "الدخول" : "الخروج"}</strong> للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
+                                  <br />
+                                  سيُمسح هذا الوقت فقط دون حذف بقية بيانات اليوم.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => deleteMutation.mutate({ recordId: mv.recordId, type: mv.canDelete })}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  حذف
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}
