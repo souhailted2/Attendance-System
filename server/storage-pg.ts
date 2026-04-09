@@ -349,6 +349,7 @@ export class PgStorage implements IStorage {
       targetType: data.targetType ?? "all",
       shiftValue: data.shiftValue ?? null,
       workshopId: data.workshopId ?? null,
+      employeeId: data.employeeId ?? null,
       notes: data.notes ?? null,
       createdAt: data.createdAt,
       createdBy: data.createdBy,

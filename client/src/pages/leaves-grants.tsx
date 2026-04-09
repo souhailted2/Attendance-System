@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users } from "lucide-react";
+import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users, User } from "lucide-react";
 import type { Workshop, Employee } from "@shared/schema";
 
 interface Leave {
@@ -28,6 +28,7 @@ interface Leave {
   targetType: string;
   shiftValue: string | null;
   workshopId: string | null;
+  employeeId: string | null;
   notes: string | null;
   createdAt: string;
   createdBy: string;
@@ -73,13 +74,24 @@ function LeavesTab() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isPaid, setIsPaid] = useState<"paid" | "unpaid">("paid");
-  const [targetType, setTargetType] = useState<"all" | "shift" | "workshop">("all");
+  const [targetType, setTargetType] = useState<"all" | "shift" | "workshop" | "employee">("all");
   const [shiftValue, setShiftValue] = useState<"morning" | "evening">("morning");
   const [workshopId, setWorkshopId] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [employeeSearch, setEmployeeSearch] = useState("");
   const [notes, setNotes] = useState("");
 
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
+  const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: leaves = [], isLoading } = useQuery<Leave[]>({ queryKey: ["/api/leaves"] });
+
+  const activeEmployees = employees.filter(e => e.isActive);
+  const filteredEmployees = employeeSearch.trim()
+    ? activeEmployees.filter(e =>
+        e.name.includes(employeeSearch) ||
+        e.employeeCode.includes(employeeSearch)
+      )
+    : activeEmployees;
 
   const createMutation = useMutation({
     mutationFn: (body: object) => apiRequest("POST", "/api/leaves", body),
@@ -88,6 +100,7 @@ function LeavesTab() {
       toast({ title: "تم تسجيل العطلة", description: "تمت الإضافة بنجاح" });
       setStartDate(""); setEndDate(""); setNotes("");
       setTargetType("all"); setIsPaid("paid");
+      setSelectedEmployeeId(""); setEmployeeSearch("");
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
@@ -110,6 +123,10 @@ function LeavesTab() {
       toast({ title: "خطأ", description: "تاريخ البداية يجب أن يكون قبل النهاية", variant: "destructive" });
       return;
     }
+    if (targetType === "employee" && !selectedEmployeeId) {
+      toast({ title: "خطأ", description: "يجب اختيار العامل", variant: "destructive" });
+      return;
+    }
     const body: Record<string, unknown> = {
       startDate, endDate,
       isPaid: isPaid === "paid",
@@ -118,6 +135,7 @@ function LeavesTab() {
     };
     if (targetType === "shift") body.shiftValue = shiftValue;
     if (targetType === "workshop") body.workshopId = workshopId || null;
+    if (targetType === "employee") body.employeeId = selectedEmployeeId;
     createMutation.mutate(body);
   }
 
@@ -130,6 +148,10 @@ function LeavesTab() {
     if (lv.targetType === "workshop") {
       const ws = workshops.find(w => w.id === lv.workshopId);
       return <Badge variant="outline"><Wrench className="h-3 w-3 ml-1" />{ws?.name || "ورشة"}</Badge>;
+    }
+    if (lv.targetType === "employee") {
+      const emp = employees.find(e => e.id === lv.employeeId);
+      return <Badge variant="outline"><User className="h-3 w-3 ml-1" />{emp ? `${emp.name} — ${emp.employeeCode}` : "عامل محدد"}</Badge>;
     }
     return null;
   }
@@ -181,7 +203,7 @@ function LeavesTab() {
             </div>
             <div className="space-y-1">
               <Label>المعنيون</Label>
-              <Select value={targetType} onValueChange={v => setTargetType(v as "all" | "shift" | "workshop")}>
+              <Select value={targetType} onValueChange={v => { setTargetType(v as "all" | "shift" | "workshop" | "employee"); setSelectedEmployeeId(""); setEmployeeSearch(""); }}>
                 <SelectTrigger data-testid="select-target-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -189,6 +211,7 @@ function LeavesTab() {
                   <SelectItem value="all">كل العمال</SelectItem>
                   <SelectItem value="shift">فترة محددة</SelectItem>
                   <SelectItem value="workshop">ورشة محددة</SelectItem>
+                  <SelectItem value="employee">عامل محدد</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -222,6 +245,51 @@ function LeavesTab() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {targetType === "employee" && (
+            <div className="space-y-2">
+              <Label>اختر العامل</Label>
+              <Input
+                placeholder="ابحث بالاسم أو الرقم..."
+                value={employeeSearch}
+                onChange={e => { setEmployeeSearch(e.target.value); setSelectedEmployeeId(""); }}
+                data-testid="input-employee-search"
+              />
+              {selectedEmployeeId ? (
+                <div className="flex items-center gap-2 p-2 rounded-md border border-primary bg-primary/5">
+                  <User className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium flex-1">
+                    {employees.find(e => e.id === selectedEmployeeId)?.name}
+                    {" — "}
+                    {employees.find(e => e.id === selectedEmployeeId)?.employeeCode}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => { setSelectedEmployeeId(""); setEmployeeSearch(""); }}>
+                    تغيير
+                  </Button>
+                </div>
+              ) : (
+                <div className="max-h-48 overflow-y-auto rounded-md border divide-y">
+                  {filteredEmployees.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">لا توجد نتائج</p>
+                  ) : (
+                    filteredEmployees.slice(0, 30).map(emp => (
+                      <button
+                        key={emp.id}
+                        type="button"
+                        onClick={() => { setSelectedEmployeeId(emp.id); setEmployeeSearch(""); }}
+                        className="w-full flex items-center gap-3 px-3 py-2 hover:bg-accent text-right transition-colors"
+                        data-testid={`button-select-employee-${emp.id}`}
+                      >
+                        <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="flex-1 text-sm">{emp.name}</span>
+                        <span className="text-xs text-muted-foreground">{emp.employeeCode}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           )}
 

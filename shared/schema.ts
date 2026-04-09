@@ -135,6 +135,7 @@ export const leaves = pgTable("leaves", {
   targetType: text("target_type").notNull().default("all"),
   shiftValue: text("shift_value"),
   workshopId: varchar("workshop_id"),
+  employeeId: varchar("employee_id"),
   notes: text("notes"),
   createdAt: text("created_at").notNull(),
   createdBy: text("created_by").notNull(),
@@ -275,7 +276,7 @@ export type FrozenArchive = typeof frozenArchives.$inferSelect;
 
 export const insertLeaveSchema = createInsertSchema(leaves).pick({
   startDate: true, endDate: true, isPaid: true, targetType: true,
-  shiftValue: true, workshopId: true, notes: true, createdAt: true, createdBy: true,
+  shiftValue: true, workshopId: true, employeeId: true, notes: true, createdAt: true, createdBy: true,
 });
 export type InsertLeave = z.infer<typeof insertLeaveSchema>;
 export type Leave = typeof leaves.$inferSelect;

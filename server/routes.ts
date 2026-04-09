@@ -2392,18 +2392,20 @@ export async function registerRoutes(
 
   app.post("/api/leaves", async (req, res) => {
     try {
-      const { startDate, endDate, isPaid, targetType, shiftValue, workshopId, notes } = req.body;
+      const { startDate, endDate, isPaid, targetType, shiftValue, workshopId, employeeId, notes } = req.body;
       if (!startDate || !endDate) return res.status(400).json({ message: "startDate و endDate مطلوبان" });
       if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate))
         return res.status(400).json({ message: "تنسيق التاريخ يجب أن يكون YYYY-MM-DD" });
       if (startDate > endDate) return res.status(400).json({ message: "تاريخ البداية يجب أن يكون قبل نهاية الفترة" });
-      const validTargetTypes = ["all", "shift", "workshop"];
+      const validTargetTypes = ["all", "shift", "workshop", "employee"];
       if (targetType && !validTargetTypes.includes(targetType))
         return res.status(400).json({ message: "targetType غير صحيح" });
       if (targetType === "shift" && !["morning", "evening"].includes(shiftValue))
         return res.status(400).json({ message: "shiftValue مطلوب: morning أو evening" });
       if (targetType === "workshop" && !workshopId)
         return res.status(400).json({ message: "workshopId مطلوب عند targetType=workshop" });
+      if (targetType === "employee" && !employeeId)
+        return res.status(400).json({ message: "employeeId مطلوب عند targetType=employee" });
       const record = await storage.createLeave({
         startDate,
         endDate,
@@ -2411,6 +2413,7 @@ export async function registerRoutes(
         targetType: targetType || "all",
         shiftValue: shiftValue || null,
         workshopId: workshopId || null,
+        employeeId: employeeId || null,
         notes: notes || null,
         createdAt: new Date().toISOString(),
         createdBy: req.session.username ?? "unknown",
@@ -2471,6 +2474,7 @@ export async function registerRoutes(
         if (lv.targetType === "all") return true;
         if (lv.targetType === "shift") return (emp.shift || "morning") === lv.shiftValue;
         if (lv.targetType === "workshop") return emp.workshopId === lv.workshopId;
+        if (lv.targetType === "employee") return emp.id === lv.employeeId;
         return false;
       }
 
