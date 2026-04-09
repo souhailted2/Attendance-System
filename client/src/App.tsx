@@ -23,6 +23,7 @@ import Workshops from "@/pages/workshops";
 import Login from "@/pages/login";
 import ActivityLog from "@/pages/activity-log";
 import MonthlyArchive from "@/pages/monthly-archive";
+import LeavesGrants from "@/pages/leaves-grants";
 import { Building2, Wrench, Briefcase } from "lucide-react";
 
 function Router() {
@@ -62,6 +63,7 @@ function Router() {
       <Route path="/agent-settings" component={AgentSettings} />
       <Route path="/activity-log" component={ActivityLog} />
       <Route path="/monthly-archive" component={MonthlyArchive} />
+      <Route path="/leaves-grants" component={LeavesGrants} />
       <Route component={NotFound} />
     </Switch>
   );

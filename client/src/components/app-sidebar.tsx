@@ -13,6 +13,7 @@ import {
   LogOut,
   History,
   Archive,
+  CalendarDays,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const mainItems = [
   { title: "الموظفين", url: "/employees", icon: Users },
   { title: "سجل الحضور", url: "/attendance", icon: ClipboardCheck },
   { title: "التقارير", url: "/reports", icon: BarChart3 },
+  { title: "العطل والمنح", url: "/leaves-grants", icon: CalendarDays },
 ];
 
 const settingsItems = [

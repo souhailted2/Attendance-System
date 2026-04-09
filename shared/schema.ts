@@ -127,6 +127,19 @@ export const lockedRecords = pgTable("locked_records", {
   activityLogId: text("activity_log_id"),
 });
 
+export const leaves = pgTable("leaves", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  isPaid: boolean("is_paid").notNull().default(true),
+  targetType: text("target_type").notNull().default("all"),
+  shiftValue: text("shift_value"),
+  workshopId: varchar("workshop_id"),
+  notes: text("notes"),
+  createdAt: text("created_at").notNull(),
+  createdBy: text("created_by").notNull(),
+});
+
 export const frozenArchives = pgTable("frozen_archives", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   month: varchar("month", { length: 7 }).notNull(),
@@ -259,3 +272,10 @@ export const insertFrozenArchiveSchema = createInsertSchema(frozenArchives).pick
 });
 export type InsertFrozenArchive = z.infer<typeof insertFrozenArchiveSchema>;
 export type FrozenArchive = typeof frozenArchives.$inferSelect;
+
+export const insertLeaveSchema = createInsertSchema(leaves).pick({
+  startDate: true, endDate: true, isPaid: true, targetType: true,
+  shiftValue: true, workshopId: true, notes: true, createdAt: true, createdBy: true,
+});
+export type InsertLeave = z.infer<typeof insertLeaveSchema>;
+export type Leave = typeof leaves.$inferSelect;

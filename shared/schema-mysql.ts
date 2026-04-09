@@ -100,6 +100,19 @@ export const appSettings = mysqlTable("app_settings", {
   uniqueIndex("app_settings_key_idx").on(table.key),
 ]);
 
+export const leaves = mysqlTable("leaves", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  isPaid: boolean("is_paid").notNull().default(true),
+  targetType: text("target_type").notNull().default("all"),
+  shiftValue: text("shift_value"),
+  workshopId: varchar("workshop_id", { length: 36 }),
+  notes: text("notes"),
+  createdAt: text("created_at").notNull(),
+  createdBy: text("created_by").notNull(),
+});
+
 export const frozenArchives = mysqlTable("frozen_archives", {
   id: varchar("id", { length: 36 }).primaryKey(),
   month: varchar("month", { length: 7 }).notNull(),
@@ -207,3 +220,10 @@ export const insertFrozenArchiveSchema = createInsertSchema(frozenArchives).pick
 });
 export type InsertFrozenArchive = z.infer<typeof insertFrozenArchiveSchema>;
 export type FrozenArchiveMysql = typeof frozenArchives.$inferSelect;
+
+export const insertLeaveSchema = createInsertSchema(leaves).pick({
+  startDate: true, endDate: true, isPaid: true, targetType: true,
+  shiftValue: true, workshopId: true, notes: true, createdAt: true, createdBy: true,
+});
+export type InsertLeave = z.infer<typeof insertLeaveSchema>;
+export type Leave = typeof leaves.$inferSelect;

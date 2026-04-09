@@ -11,6 +11,7 @@ import type {
   InsertActivityLog, ActivityLog,
   InsertFrozenArchive, FrozenArchive,
   InsertLockedRecord, LockedRecord,
+  InsertLeave, Leave,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -81,6 +82,10 @@ export interface IStorage {
   getFrozenArchive(id: string): Promise<FrozenArchive | undefined>;
   createFrozenArchive(data: InsertFrozenArchive): Promise<FrozenArchive>;
   deleteFrozenArchive(id: string): Promise<void>;
+
+  getLeaves(): Promise<Leave[]>;
+  createLeave(data: InsertLeave): Promise<Leave>;
+  deleteLeave(id: string): Promise<void>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -171,6 +176,10 @@ class LazyStorage implements IStorage {
   getFrozenArchive(id: string) { return this.impl().then(s => s.getFrozenArchive(id)); }
   createFrozenArchive(d: InsertFrozenArchive) { return this.impl().then(s => s.createFrozenArchive(d)); }
   deleteFrozenArchive(id: string) { return this.impl().then(s => s.deleteFrozenArchive(id)); }
+
+  getLeaves() { return this.impl().then(s => s.getLeaves()); }
+  createLeave(d: InsertLeave) { return this.impl().then(s => s.createLeave(d)); }
+  deleteLeave(id: string) { return this.impl().then(s => s.deleteLeave(id)); }
 }
 
 export const storage: IStorage = new LazyStorage();

@@ -16,6 +16,7 @@ import type {
   InsertActivityLog, ActivityLog,
   InsertFrozenArchive, FrozenArchive,
   InsertLockedRecord, LockedRecord,
+  InsertLeave, Leave,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -333,5 +334,29 @@ export class PgStorage implements IStorage {
 
   async deleteFrozenArchive(id: string): Promise<void> {
     await pgDb.delete(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
+  }
+
+  async getLeaves(): Promise<Leave[]> {
+    const results = await pgDb.select().from(schema.leaves);
+    return results;
+  }
+
+  async createLeave(data: InsertLeave): Promise<Leave> {
+    const [result] = await pgDb.insert(schema.leaves).values({
+      startDate: data.startDate,
+      endDate: data.endDate,
+      isPaid: data.isPaid ?? true,
+      targetType: data.targetType ?? "all",
+      shiftValue: data.shiftValue ?? null,
+      workshopId: data.workshopId ?? null,
+      notes: data.notes ?? null,
+      createdAt: data.createdAt,
+      createdBy: data.createdBy,
+    }).returning();
+    return result;
+  }
+
+  async deleteLeave(id: string): Promise<void> {
+    await pgDb.delete(schema.leaves).where(eq(schema.leaves.id, id));
   }
 }

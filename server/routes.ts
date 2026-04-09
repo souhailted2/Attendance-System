@@ -2381,6 +2381,252 @@ export async function registerRoutes(
     res.send("OK");
   });
 
+  // ---- Leaves (العطل) ----
+
+  app.get("/api/leaves", async (req, res) => {
+    try {
+      const list = await storage.getLeaves();
+      return res.json(list);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/leaves", async (req, res) => {
+    try {
+      const { startDate, endDate, isPaid, targetType, shiftValue, workshopId, notes } = req.body;
+      if (!startDate || !endDate) return res.status(400).json({ message: "startDate و endDate مطلوبان" });
+      if (startDate > endDate) return res.status(400).json({ message: "تاريخ البداية يجب أن يكون قبل نهاية الفترة" });
+      const record = await storage.createLeave({
+        startDate,
+        endDate,
+        isPaid: isPaid !== false,
+        targetType: targetType || "all",
+        shiftValue: shiftValue || null,
+        workshopId: workshopId || null,
+        notes: notes || null,
+        createdAt: new Date().toISOString(),
+        createdBy: req.session.username ?? "unknown",
+      });
+      return res.json(record);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/leaves/:id", async (req, res) => {
+    try {
+      await storage.deleteLeave(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // ---- Annual Report (التقرير السنوي) ----
+  // GET /api/annual-report?year=2024&workshopId=XXX
+  // السنة المالية: جويلية year → جوان year+1
+  app.get("/api/annual-report", async (req, res) => {
+    try {
+      const year = parseInt(req.query.year as string);
+      const workshopId = req.query.workshopId as string | undefined;
+      if (!year || isNaN(year)) return res.status(400).json({ message: "year مطلوب" });
+
+      // السنة المالية: جويلية → جوان
+      const fiscalStart = `${year}-07-01`;
+      const fiscalEnd = `${year + 1}-06-30`;
+
+      const allEmployees = await storage.getEmployees();
+      const allWorkRules = await storage.getWorkRules();
+      const allWorkshops = await storage.getWorkshops();
+      const allRecords = await storage.getAttendanceByDateRange(fiscalStart, fiscalEnd);
+      const allLeaves = await storage.getLeaves();
+
+      const offDaySetting = await storage.getAppSetting("weeklyOffDays");
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      // بناء الأشهر الـ12 للسنة المالية
+      const fiscalMonths: string[] = [];
+      for (let m = 7; m <= 12; m++) fiscalMonths.push(`${year}-${String(m).padStart(2, "0")}`);
+      for (let m = 1; m <= 6; m++) fiscalMonths.push(`${year + 1}-${String(m).padStart(2, "0")}`);
+
+      let filteredEmployees = allEmployees.filter(e => e.isActive);
+      if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
+
+      function timeToMin(t: string | null): number | null {
+        if (!t) return null;
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+
+      // دالة: هل تنطبق العطلة على هذا الموظف؟
+      function leaveAppliesToEmployee(lv: typeof allLeaves[0], emp: typeof allEmployees[0]): boolean {
+        if (lv.targetType === "all") return true;
+        if (lv.targetType === "shift") return (emp.shift || "morning") === lv.shiftValue;
+        if (lv.targetType === "workshop") return emp.workshopId === lv.workshopId;
+        return false;
+      }
+
+      const result = filteredEmployees.map(emp => {
+        const workRule = allWorkRules.find(r => r.id === emp.workRuleId) || allWorkRules.find(r => r.isDefault) || allWorkRules[0];
+        const workshop = allWorkshops.find(w => w.id === emp.workshopId);
+        const empRecords = allRecords.filter(r => r.employeeId === emp.id);
+
+        let totalWorkDayMinutes = 480;
+        if (workRule) {
+          if (workRule.is24hShift) {
+            totalWorkDayMinutes = 1440;
+          } else {
+            const [sh, sm] = workRule.workStartTime.split(":").map(Number);
+            const [eh, em] = workRule.workEndTime.split(":").map(Number);
+            totalWorkDayMinutes = Math.max(1, (eh * 60 + em) - (sh * 60 + sm));
+          }
+        }
+
+        const workStartMin = timeToMin(workRule?.workStartTime ?? "08:00")!;
+        const workEndMin = timeToMin(workRule?.workEndTime ?? "16:00")!;
+        const lateGrace = workRule?.lateGraceMinutes ?? 0;
+        const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
+        const checkoutEarliestMin = workRule?.checkoutEarliestTime ? timeToMin(workRule.checkoutEarliestTime) : null;
+        const earlyLeaveRefMin = checkoutEarliestMin ?? workEndMin;
+
+        // العطل المنطبقة على هذا الموظف
+        const empLeaves = allLeaves.filter(lv => leaveAppliesToEmployee(lv, emp));
+
+        const monthlyScores: Record<string, number> = {};
+
+        for (const ym of fiscalMonths) {
+          const [ymYear, ymMonth] = ym.split("-").map(Number);
+          const daysInMonth = new Date(ymYear, ymMonth, 0).getDate();
+          const monthStart = `${ym}-01`;
+          const monthEnd = `${ym}-${String(daysInMonth).padStart(2, "0")}`;
+
+          // تطبيع: فيفري → bonus، 31 يوم → يوم 31 خاص
+          let monthBonus = 0;
+          let isFullMonth31 = false;
+          if (daysInMonth === 28 || daysInMonth === 29) monthBonus = 30 - daysInMonth;
+          else if (daysInMonth === 31) isFullMonth31 = true;
+
+          // بناء قائمة الأيام
+          const allDaysInMonth: string[] = [];
+          for (let d = 1; d <= daysInMonth; d++) allDaysInMonth.push(`${ym}-${String(d).padStart(2, "0")}`);
+
+          const holidayDateSet = new Set<string>(
+            weeklyOffDays.length > 0
+              ? allDaysInMonth.filter(d => weeklyOffDays.includes(new Date(d + "T00:00:00").getDay()))
+              : []
+          );
+
+          // بناء سجلات الأيام
+          interface DayRecord { date: string; status: string; dailyScore: number; }
+          const dayRecords: DayRecord[] = [];
+
+          const monthRecords = empRecords.filter(r => r.date >= monthStart && r.date <= monthEnd);
+          for (const rec of monthRecords) {
+            const checkInMin = timeToMin(rec.checkIn);
+            const checkOutMin = timeToMin(rec.checkOut);
+            const rawLate = checkInMin !== null ? Math.max(0, checkInMin - workStartMin) : 0;
+            const rawEarlyLeave = checkOutMin !== null ? Math.max(0, earlyLeaveRefMin - checkOutMin) : 0;
+            const effectiveLate = Math.max(0, rawLate - lateGrace);
+            const effectiveEarly = Math.max(0, rawEarlyLeave - earlyLeaveGrace);
+            const middleAbs = rec.middleAbsenceMinutes ?? 0;
+
+            let score = 0;
+            if (rec.status === "absent") score = 0;
+            else if (rec.status === "leave" || rec.status === "rest") score = 1;
+            else if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
+            else score = Math.max(0, 1 - (effectiveLate + effectiveEarly + middleAbs) / totalWorkDayMinutes);
+
+            dayRecords.push({ date: rec.date, status: rec.status, dailyScore: Math.round(score * 100) / 100 });
+          }
+
+          // حقن أيام العطلة الأسبوعية
+          if (!workRule?.is24hShift) {
+            for (const date of Array.from(holidayDateSet)) {
+              if (date > todayStr) continue;
+              const ex = dayRecords.find(r => r.date === date);
+              if (ex) { ex.status = "holiday"; ex.dailyScore = 1.00; }
+              else dayRecords.push({ date, status: "holiday", dailyScore: 1.00 });
+            }
+          }
+
+          // حقن الغياب للأيام الناقصة
+          for (const date of allDaysInMonth) {
+            if (holidayDateSet.has(date) && !workRule?.is24hShift) continue;
+            if (date > todayStr) continue;
+            if (!dayRecords.some(r => r.date === date)) {
+              dayRecords.push({ date, status: "absent", dailyScore: 0.00 });
+            }
+          }
+
+          dayRecords.sort((a, b) => a.date.localeCompare(b.date));
+
+          // تطبيق قاعدة اليوم 31
+          if (isFullMonth31) {
+            const day31 = `${ym}-31`;
+            const rec31 = dayRecords.find(r => r.date === day31);
+            if (rec31) rec31.dailyScore = rec31.status === "absent" ? -1.00 : 0.00;
+          }
+
+          // خصم العطلة الأسبوعية عند الغياب (نفس منطق التقرير الشهري)
+          {
+            function getWeekStart(dateStr: string): string {
+              const d = new Date(dateStr + "T00:00:00");
+              d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+              return d.toISOString().slice(0, 10);
+            }
+            const holidaysByWeek = new Map<string, DayRecord[]>();
+            for (const rec of dayRecords) {
+              if (rec.status === "holiday") {
+                const wk = getWeekStart(rec.date);
+                if (!holidaysByWeek.has(wk)) holidaysByWeek.set(wk, []);
+                holidaysByWeek.get(wk)!.push(rec);
+              }
+            }
+            for (const [wk, holidays] of holidaysByWeek) {
+              const absenceCount = dayRecords.filter(r => getWeekStart(r.date) === wk && r.status === "absent").length;
+              if (absenceCount === 0) continue;
+              let toDeduct = absenceCount * 0.5;
+              for (const h of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
+                if (toDeduct <= 0) break;
+                const deduct = Math.min(toDeduct, h.dailyScore);
+                h.dailyScore = Math.round((h.dailyScore - deduct) * 100) / 100;
+                toDeduct = Math.round((toDeduct - deduct) * 100) / 100;
+              }
+            }
+          }
+
+          // تطبيق العطل الجماعية (leaves table)
+          for (const lv of empLeaves) {
+            if (lv.startDate > monthEnd || lv.endDate < monthStart) continue;
+            for (const dr of dayRecords) {
+              if (dr.date >= lv.startDate && dr.date <= lv.endDate) {
+                dr.dailyScore = lv.isPaid ? 1.00 : 0.00;
+                dr.status = lv.isPaid ? "leave" : "absent";
+              }
+            }
+          }
+
+          let monthScore = dayRecords.reduce((s, r) => s + r.dailyScore, 0);
+          monthScore += monthBonus; // تعديل فيفري
+          monthlyScores[ym] = Math.round(monthScore * 100) / 100;
+        }
+
+        const annualTotal = Object.values(monthlyScores).reduce((s, v) => s + v, 0);
+        const annualScore = Math.round((annualTotal / 12) * 100) / 100;
+
+        return {
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeCode: emp.employeeCode,
+          workshopId: emp.workshopId || "",
+          workshopName: workshop?.name || "",
+          shift: emp.shift || "morning",
+          months: monthlyScores,
+          annualScore,
+        };
+      });
+
+      return res.json({ year, fiscalMonths, employees: result });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // ---- Frozen Archives ----
 
   // GET /api/frozen-archives?month=YYYY-MM

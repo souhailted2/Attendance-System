@@ -16,6 +16,7 @@ import type {
   InsertActivityLog, ActivityLog,
   InsertFrozenArchive, FrozenArchive,
   InsertLockedRecord, LockedRecord,
+  InsertLeave, Leave,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -444,5 +445,32 @@ export class MysqlStorage implements IStorage {
 
   async deleteFrozenArchive(id: string): Promise<void> {
     await mysqlDb.delete(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
+  }
+
+  async getLeaves(): Promise<Leave[]> {
+    const results = await mysqlDb.select().from(schema.leaves);
+    return results as Leave[];
+  }
+
+  async createLeave(data: InsertLeave): Promise<Leave> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.leaves).values({
+      id,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      isPaid: data.isPaid ?? true,
+      targetType: data.targetType ?? "all",
+      shiftValue: data.shiftValue ?? null,
+      workshopId: data.workshopId ?? null,
+      notes: data.notes ?? null,
+      createdAt: data.createdAt,
+      createdBy: data.createdBy,
+    });
+    const [result] = await mysqlDb.select().from(schema.leaves).where(eq(schema.leaves.id, id));
+    return result as Leave;
+  }
+
+  async deleteLeave(id: string): Promise<void> {
+    await mysqlDb.delete(schema.leaves).where(eq(schema.leaves.id, id));
   }
 }
