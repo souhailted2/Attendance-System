@@ -639,12 +639,9 @@ export async function registerRoutes(
       const employee = await storage.getEmployee(employeeId);
       if (!employee) return res.status(404).json({ message: "Employee not found" });
 
-      // فحص القفل لأي مستخدم غير المسؤول عند إنشاء سجل على تاريخ مقفول
+      // تعديل التقارير مقصور على المالك فقط
       if (req.session.username !== "bachir tedjani") {
-        const locked = await storage.isRecordLocked(employeeId, date);
-        if (locked) {
-          return res.status(403).json({ message: "هذا التعديل لم يعجب المسؤول ولا يمكنك إجراؤه" });
-        }
+        return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
       }
 
       const workRule = await getWorkRuleForEmployee(employeeId);
@@ -703,12 +700,9 @@ export async function registerRoutes(
       const { checkIn, checkOut, status, notes } = req.body;
       const employeeId = existingRecords.employeeId;
 
-      // فحص القفل: أي مستخدم غير المسؤول لا يستطيع تعديل سجل مقفول
+      // تعديل التقارير مقصور على المالك فقط
       if (req.session.username !== "bachir tedjani") {
-        const locked = await storage.isRecordLocked(employeeId, existingRecords.date);
-        if (locked) {
-          return res.status(403).json({ message: "هذا التعديل لم يعجب المسؤول ولا يمكنك إجراؤه" });
-        }
+        return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
       }
 
       const workRule = await getWorkRuleForEmployee(employeeId);
@@ -774,12 +768,9 @@ export async function registerRoutes(
       const existing = await storage.getAttendanceById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Record not found" });
 
-      // فحص القفل لأي مستخدم غير المسؤول
+      // تعديل التقارير مقصور على المالك فقط
       if (req.session.username !== "bachir tedjani") {
-        const locked = await storage.isRecordLocked(existing.employeeId, existing.date);
-        if (locked) {
-          return res.status(403).json({ message: "هذا التعديل لم يعجب المسؤول ولا يمكنك إجراؤه" });
-        }
+        return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
       }
 
       // تسجيل تفصيلي قبل الحذف

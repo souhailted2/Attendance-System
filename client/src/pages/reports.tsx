@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import {
   BarChart3, Clock, Users, ChevronLeft, Pencil, Check, X,
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2,
@@ -125,6 +126,8 @@ function scoreColor(score: number, max: number): string {
 
 export default function Reports() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isOwner = user?.username === "bachir tedjani";
   const now = new Date();
 
   const [dateMode, setDateMode] = useState<DateMode>("month");
@@ -221,6 +224,7 @@ export default function Reports() {
   });
 
   function openEditCell(emp: EmployeeReport, date: string, rec: DailyRecord) {
+    if (!isOwner) return;
     setEditCell({ employeeId: emp.employeeId, employeeName: emp.employeeName, date, record: rec });
     setEditForm({
       status: rec.status === "holiday" ? "present" : rec.status,
@@ -862,7 +866,7 @@ export default function Reports() {
                                 return (
                                   <TableCell key={d} className="p-0">
                                     <button
-                                      className="w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs cursor-pointer hover:bg-muted/40 transition-colors"
+                                      className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOwner ? "cursor-pointer hover:bg-muted/40" : "cursor-default"}`}
                                       onClick={() => openEditCell(r, d, syntheticRec)}
                                       data-testid={`button-edit-cell-${r.employeeId}-${d}`}
                                     >—</button>
@@ -876,7 +880,7 @@ export default function Reports() {
                               return (
                                 <TableCell key={d} className="p-0" data-testid={`cell-${r.employeeId}-${d}`}>
                                   <button
-                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors ${bgClass}`}
+                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${isOwner ? "cursor-pointer" : "cursor-default"}`}
                                     onClick={() => openEditCell(r, d, rec)}
                                     title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
                                     data-testid={`button-edit-cell-${r.employeeId}-${d}`}
