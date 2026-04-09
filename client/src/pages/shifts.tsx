@@ -97,7 +97,7 @@ export default function Shifts() {
     setFormLatePenalty(rule.latePenaltyPerMinute);
     setFormEarlyPenalty(rule.earlyLeavePenaltyPerMinute);
     setFormAbsence(rule.absencePenalty);
-    setForm24hShift(!!(rule as any).is24hShift);
+    setForm24hShift(!!rule.is24hShift);
   }
 
   function submitForm(e: React.FormEvent) {
@@ -182,7 +182,7 @@ export default function Shifts() {
                         {s.rule ? (
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            {(s.rule as any).is24hShift ? (
+                            {s.rule.is24hShift ? (
                               <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">مناوبة 24 ساعة</span>
                             ) : (
                               <span className="text-sm text-muted-foreground">
@@ -288,11 +288,11 @@ export default function Shifts() {
                     <div>
                       <p className="font-medium text-sm flex items-center gap-2">
                         {r.name}
-                        {(r as any).is24hShift && <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full">24 ساعة</span>}
+                        {r.is24hShift && <span className="text-[10px] font-semibold text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-1.5 py-0.5 rounded-full">24 ساعة</span>}
                       </p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                         <Clock className="h-3 w-3" />
-                        {(r as any).is24hShift ? "مناوبة 24 ساعة دوارة" : `${r.workStartTime} — ${r.workEndTime}`}
+                        {r.is24hShift ? "مناوبة 24 ساعة دوارة" : `${r.workStartTime} — ${r.workEndTime}`}
                       </p>
                     </div>
                     <div className="flex gap-2">

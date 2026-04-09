@@ -57,6 +57,10 @@ function calculateAttendanceDetails(checkIn: string | null, checkOut: string | n
     return { lateMinutes: 0, earlyLeaveMinutes: 0, totalHours: 0, penalty: 0, status };
   }
 
+  if (status === "rest") {
+    return { lateMinutes: 0, earlyLeaveMinutes: 0, totalHours: 0, penalty: 0, status };
+  }
+
   if (checkIn && workStartTime) {
     const [checkH, checkM] = checkIn.split(":").map(Number);
     const [startH, startM] = workStartTime.split(":").map(Number);
@@ -806,9 +810,11 @@ export async function registerRoutes(
 
       const workRule = await getWorkRuleForEmployee(employeeId);
 
-      const finalCheckIn = checkIn !== undefined ? (checkIn || null) : existingRecords.checkIn;
-      const finalCheckOut = checkOut !== undefined ? (checkOut || null) : existingRecords.checkOut;
       const finalStatus = status || existingRecords.status;
+      // يوم الراحة: نُصفّر الأوقات والحسابات بشكل قاطع
+      const isRestStatus = finalStatus === "rest";
+      const finalCheckIn = isRestStatus ? null : (checkIn !== undefined ? (checkIn || null) : existingRecords.checkIn);
+      const finalCheckOut = isRestStatus ? null : (checkOut !== undefined ? (checkOut || null) : existingRecords.checkOut);
 
       // نُعيد الغياب الوسيط إلى 0 فقط عند تغيير الأوقات فعلياً (لا مجرد وجود الحقل في الطلب)
       const timesChanged =
@@ -819,10 +825,16 @@ export async function registerRoutes(
         checkOut: finalCheckOut,
         status: finalStatus,
         notes: notes !== undefined ? notes : existingRecords.notes,
-        middleAbsenceMinutes: timesChanged ? 0 : (existingRecords.middleAbsenceMinutes ?? 0),
+        middleAbsenceMinutes: (isRestStatus || timesChanged) ? 0 : (existingRecords.middleAbsenceMinutes ?? 0),
       };
 
-      if (workRule) {
+      if (isRestStatus) {
+        // يوم راحة: نُصفّر كل الحسابات
+        updateData.lateMinutes = 0;
+        updateData.earlyLeaveMinutes = 0;
+        updateData.totalHours = "0";
+        updateData.penalty = "0";
+      } else if (workRule) {
         const calc = calculateAttendanceDetails(
           finalCheckIn, finalCheckOut,
           workRule.workStartTime, workRule.workEndTime,
@@ -1087,7 +1099,7 @@ export async function registerRoutes(
             dailyScore = 1;
           } else if (rec.status === "rest") {
             dailyScore = 1;
-          } else if (workRule?.is24hShift && (rec.status === "present" || rec.status === "late")) {
+          } else if (workRule?.is24hShift && (rec.status === "present" || rec.status === "late") && Number(rec.totalHours || 0) >= 20) {
             dailyScore = 2;
           } else {
             dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes + middleAbsenceMin) / totalWorkDayMinutes);
