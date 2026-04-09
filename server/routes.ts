@@ -764,13 +764,15 @@ export async function registerRoutes(
 
       const workRule = await getWorkRuleForEmployee(employeeId);
 
+      const manualPunches = [checkIn, checkOut].filter(Boolean) as string[];
       let attendanceData: any = {
         employeeId, date,
         checkIn: checkIn || null,
         checkOut: checkOut || null,
         status: status || "present",
         notes: notes || null,
-        lateMinutes: 0, earlyLeaveMinutes: 0, totalHours: "0", penalty: "0",
+        lateMinutes: 0, earlyLeaveMinutes: 0, middleAbsenceMinutes: 0, totalHours: "0", penalty: "0",
+        rawPunches: manualPunches.length > 0 ? JSON.stringify(manualPunches) : null,
       };
 
       if (workRule) {
@@ -836,12 +838,38 @@ export async function registerRoutes(
       const timesChanged =
         (checkIn !== undefined && (checkIn || null) !== existingRecords.checkIn) ||
         (checkOut !== undefined && (checkOut || null) !== existingRecords.checkOut);
+      // إعادة بناء rawPunches عند تغيير الأوقات أو تحويل إلى يوم راحة
+      let newRawPunches: string | null = (existingRecords as any).rawPunches ?? null;
+      if (isRestStatus) {
+        newRawPunches = null;
+      } else if (timesChanged) {
+        let existingRawArr: string[] = [];
+        try {
+          const rp = (existingRecords as any).rawPunches;
+          if (rp) existingRawArr = JSON.parse(rp);
+        } catch { existingRawArr = []; }
+        let newRawArr: string[];
+        if (existingRawArr.length >= 2) {
+          // الاحتفاظ بالبصمات الوسطى وتحديث أول بصمة وآخر بصمة فقط
+          const middle = existingRawArr.slice(1, -1);
+          newRawArr = [
+            ...(finalCheckIn ? [finalCheckIn] : []),
+            ...middle,
+            ...(finalCheckOut ? [finalCheckOut] : []),
+          ];
+        } else {
+          newRawArr = [finalCheckIn, finalCheckOut].filter(Boolean) as string[];
+        }
+        newRawPunches = newRawArr.length > 0 ? JSON.stringify(newRawArr) : null;
+      }
+
       const updateData: Partial<InsertAttendance> = {
         checkIn: finalCheckIn,
         checkOut: finalCheckOut,
         status: finalStatus,
         notes: notes !== undefined ? notes : existingRecords.notes,
         middleAbsenceMinutes: (isRestStatus || timesChanged) ? 0 : (existingRecords.middleAbsenceMinutes ?? 0),
+        rawPunches: newRawPunches,
       };
 
       if (isRestStatus) {
@@ -2174,6 +2202,7 @@ export async function registerRoutes(
           }
 
           try {
+            const zkPunches = [checkIn, checkOut].filter(Boolean) as string[];
             await storage.createAttendance({
               employeeId,
               date,
@@ -2182,9 +2211,11 @@ export async function registerRoutes(
               status: calc.status,
               lateMinutes: calc.lateMinutes,
               earlyLeaveMinutes: calc.earlyLeaveMinutes,
+              middleAbsenceMinutes: 0,
               totalHours: String(calc.totalHours),
               penalty: String(calc.penalty),
               notes: null,
+              rawPunches: zkPunches.length > 0 ? JSON.stringify(zkPunches) : null,
             });
             attCreated++;
           } catch (e: any) {
