@@ -2406,6 +2406,10 @@ export async function registerRoutes(
         return res.status(400).json({ message: "workshopId مطلوب عند targetType=workshop" });
       if (targetType === "employee" && !employeeId)
         return res.status(400).json({ message: "employeeId مطلوب عند targetType=employee" });
+      if (targetType === "employee" && employeeId) {
+        const emp = await storage.getEmployee(employeeId);
+        if (!emp) return res.status(400).json({ message: "العامل غير موجود" });
+      }
       const record = await storage.createLeave({
         startDate,
         endDate,
