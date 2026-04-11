@@ -356,7 +356,10 @@ export default function Employees() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm" data-testid={`text-name-${emp.id}`}>{emp.name}</p>
-                          {!emp.isActive && <Badge variant="destructive" className="text-xs">غير نشط</Badge>}
+                          {emp.isActive
+                            ? <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" data-testid={`badge-status-${emp.id}`}>نشط</Badge>
+                            : <Badge variant="destructive" className="text-xs" data-testid={`badge-status-${emp.id}`}>غير نشط</Badge>
+                          }
                         </div>
                         <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
                           <span className="text-xs text-muted-foreground flex items-center gap-1" data-testid={`text-code-${emp.id}`}>

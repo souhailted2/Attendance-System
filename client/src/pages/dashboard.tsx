@@ -282,41 +282,53 @@ export default function Dashboard() {
               آخر سجلات الحضور
             </CardTitle>
           </CardHeader>
-          <CardContent className="px-5 pb-4">
+          <CardContent className="px-0 pb-2">
             {attendance && attendance.length > 0 ? (
-              <div className="space-y-1.5">
-                {attendance.slice(0, 6).map((record: any) => {
-                  const emp = employees?.find((e) => e.id === record.employeeId);
-                  return (
-                    <div
-                      key={record.id}
-                      className="flex items-center gap-3 py-2 px-2.5 rounded-lg hover:bg-accent/40 transition-colors"
-                      data-testid={`attendance-row-${record.id}`}
-                    >
-                      {emp && (
-                        <div
-                          className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                          style={{ background: getAvatarGradient(emp.name) }}
-                        >
-                          {getInitials(emp.name)}
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{emp?.name || "غير معروف"}</p>
-                        <p className="text-[10px] text-muted-foreground tabular-nums">
-                          {record.checkIn || "--:--"} ← {record.checkOut || "--:--"}
-                        </p>
-                      </div>
-                      <Badge
-                        className="text-[10px] shrink-0"
-                        variant={record.status === "present" ? "default" : record.status === "late" ? "secondary" : "destructive"}
+              <table className="w-full text-xs" data-testid="table-attendance">
+                <thead>
+                  <tr className="border-b bg-muted/40">
+                    <th className="text-right px-5 py-2 font-medium text-muted-foreground w-8"></th>
+                    <th className="text-right px-2 py-2 font-medium text-muted-foreground">الاسم</th>
+                    <th className="text-right px-2 py-2 font-medium text-muted-foreground">الحضور</th>
+                    <th className="text-right px-2 py-2 font-medium text-muted-foreground">الانصراف</th>
+                    <th className="text-right px-3 py-2 font-medium text-muted-foreground">الحالة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendance.slice(0, 6).map((record: any) => {
+                    const emp = employees?.find((e) => e.id === record.employeeId);
+                    return (
+                      <tr
+                        key={record.id}
+                        className="border-b last:border-0 hover:bg-accent/30 transition-colors"
+                        data-testid={`attendance-row-${record.id}`}
                       >
-                        {record.status === "present" ? "حاضر" : record.status === "late" ? "متأخر" : record.status === "absent" ? "غائب" : "إجازة"}
-                      </Badge>
-                    </div>
-                  );
-                })}
-              </div>
+                        <td className="px-5 py-2">
+                          {emp && (
+                            <div
+                              className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                              style={{ background: getAvatarGradient(emp.name) }}
+                            >
+                              {getInitials(emp.name)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-2 py-2 font-medium max-w-[100px] truncate">{emp?.name || "غير معروف"}</td>
+                        <td className="px-2 py-2 tabular-nums text-muted-foreground">{record.checkIn || "—"}</td>
+                        <td className="px-2 py-2 tabular-nums text-muted-foreground">{record.checkOut || "—"}</td>
+                        <td className="px-3 py-2">
+                          <Badge
+                            className="text-[10px]"
+                            variant={record.status === "present" ? "default" : record.status === "late" ? "secondary" : "destructive"}
+                          >
+                            {record.status === "present" ? "حاضر" : record.status === "late" ? "متأخر" : record.status === "absent" ? "غائب" : "إجازة"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">لا توجد سجلات اليوم</p>
             )}

@@ -21,6 +21,7 @@ import {
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
 } from "lucide-react";
 import type { WorkRule, Workshop, Employee, FrozenArchive } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 type DateMode = "day" | "week" | "month" | "year";
 
@@ -444,56 +445,61 @@ export default function Reports() {
     : null;
 
   return (
-    <div className="p-6 space-y-5 max-w-6xl mx-auto" dir="rtl">
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">التقارير</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {breadcrumb ? (
+    <div dir="rtl">
+      <PageHeader
+        title="التقارير"
+        breadcrumb={
+          breadcrumb ? (
+            <>
               <button
                 className="text-primary hover:underline"
                 onClick={() => { setSelectedWorkshop(null); setSelectedRule(null); }}
               >
                 الفترات
               </button>
-            ) : "اختر فترة عمل لعرض التقرير"}
-            {selectedRule && !selectedWorkshop && (
-              <span> ← <span className="text-foreground">{selectedRule.name}</span></span>
-            )}
-            {selectedWorkshop && (
-              <>
-                <span> ← </span>
-                <button className="text-primary hover:underline" onClick={() => setSelectedWorkshop(null)}>
-                  {selectedRule?.name}
+              {selectedRule && !selectedWorkshop && (
+                <span className="flex items-center gap-1">
+                  <span>←</span>
+                  <span className="text-foreground font-medium">{selectedRule.name}</span>
+                </span>
+              )}
+              {selectedWorkshop && (
+                <span className="flex items-center gap-1">
+                  <span>←</span>
+                  <button className="text-primary hover:underline" onClick={() => setSelectedWorkshop(null)}>
+                    {selectedRule?.name}
+                  </button>
+                  <span>←</span>
+                  <span className="text-foreground font-medium">{selectedWorkshop.name}</span>
+                </span>
+              )}
+            </>
+          ) : undefined
+        }
+        subtitle={!breadcrumb ? "اختر فترة عمل لعرض التقرير" : undefined}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-md border overflow-hidden text-xs">
+              {(["day", "week", "month", "year"] as DateMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => handleDateMode(m)}
+                  className={`px-3 py-1.5 transition-colors ${dateMode === m ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  data-testid={`button-mode-${m}`}
+                >
+                  {m === "day" ? "يوم" : m === "week" ? "أسبوع" : m === "month" ? "شهر" : "سنة"}
                 </button>
-                <span> ← <span className="text-foreground">{selectedWorkshop.name}</span></span>
-              </>
-            )}
-          </p>
-        </div>
-
-        {/* Date range picker */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-md border overflow-hidden text-xs">
-            {(["day", "week", "month", "year"] as DateMode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => handleDateMode(m)}
-                className={`px-3 py-1.5 transition-colors ${dateMode === m ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                data-testid={`button-mode-${m}`}
-              >
-                {m === "day" ? "يوم" : m === "week" ? "أسبوع" : m === "month" ? "شهر" : "سنة"}
-              </button>
-            ))}
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <Input type="date" className="h-8 w-36 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} data-testid="input-date-from" />
+              <span className="text-xs text-muted-foreground">إلى</span>
+              <Input type="date" className="h-8 w-36 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} data-testid="input-date-to" />
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <Input type="date" className="h-8 w-36 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} data-testid="input-date-from" />
-            <span className="text-xs text-muted-foreground">إلى</span>
-            <Input type="date" className="h-8 w-36 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} data-testid="input-date-to" />
-          </div>
-        </div>
-      </div>
+        }
+      />
+      <div className="p-6 space-y-5 max-w-6xl mx-auto">
 
       {/* ======================== LEVEL 1: Work Rule Cards ======================== */}
       {!selectedRule && viewMode === "shifts" && (
@@ -1391,6 +1397,7 @@ export default function Reports() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

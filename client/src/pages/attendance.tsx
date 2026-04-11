@@ -192,7 +192,7 @@ export default function Attendance() {
       <PageHeader
         title={
           <span className="flex items-center gap-2">
-            <span data-testid="text-page-title">سجل الحضور</span>
+            <span>سجل الحضور</span>
             {isToday && (
               <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
                 <Radio className="h-3 w-3 animate-pulse" />
