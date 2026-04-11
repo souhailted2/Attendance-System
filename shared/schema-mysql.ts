@@ -59,6 +59,7 @@ export const employees = mysqlTable("employees", {
   contractEndDate: text("contract_end_date"),
   nonRenewalDate: text("non_renewal_date"),
   isActive: boolean("is_active").notNull().default(true),
+  hourlyRate: text("hourly_rate").default("0"),
 }, (table) => [
   uniqueIndex("employees_employee_code_idx").on(table.employeeCode),
 ]);
@@ -171,7 +172,7 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
   name: true, employeeCode: true, cardNumber: true, positionId: true, workRuleId: true,
   companyId: true, workshopId: true, phone: true, shift: true,
-  contractEndDate: true, nonRenewalDate: true, isActive: true,
+  contractEndDate: true, nonRenewalDate: true, isActive: true, hourlyRate: true,
 });
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({
   employeeId: true, date: true, checkIn: true, checkOut: true, status: true,

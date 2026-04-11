@@ -716,6 +716,7 @@ export default function Reports() {
                     <TableRow className="bg-muted/50">
                       <TableHead className="sticky right-0 bg-muted/50 z-20 text-right font-bold">الموظف</TableHead>
                       <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
+                      <TableHead className="text-center font-bold text-xs min-w-[80px]">الورشة</TableHead>
                       {currentWeekDates.map(d => (
                         <TableHead key={d} className="text-center text-xs font-medium min-w-[52px] p-1">
                           <div className="text-muted-foreground text-[10px]">{getArabicDay(d)}</div>
@@ -731,7 +732,7 @@ export default function Reports() {
                     {overtimeWorkshopGroups.map(({ workshopName: wsName, employees: wsEmps }) => {
                       const wsOT = wsEmps.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0);
                       const wsPay = wsEmps.reduce((r, emp) => r + (parseFloat(emp.hourlyRate || "0") * emp.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0)), 0);
-                      const screenColSpan = 2 + currentWeekDates.length + 3;
+                      const screenColSpan = 3 + currentWeekDates.length + 3;
                       return [
                         <TableRow key={`ws-header-${wsName}`} className="bg-indigo-50 dark:bg-indigo-950/40">
                           <TableCell colSpan={screenColSpan} className="font-bold text-indigo-700 dark:text-indigo-300 py-1.5 text-sm">
@@ -747,6 +748,7 @@ export default function Reports() {
                             <TableRow key={r.employeeId} data-testid={`row-overtime-${r.employeeId}`}>
                               <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
                               <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
+                              <TableCell className="text-xs text-center text-muted-foreground">{r.workshopName || "—"}</TableCell>
                               {currentWeekDates.map(d => {
                                 const rec = byDate?.get(d);
                                 const ot = rec?.overtimeHours ?? 0;
@@ -782,6 +784,7 @@ export default function Reports() {
                         <TableRow key={`ws-total-${wsName}`} className="bg-muted/30 border-t">
                           <TableCell className="sticky right-0 bg-muted/30 z-10 text-xs font-bold text-muted-foreground">إجمالي {wsName}</TableCell>
                           <TableCell />
+                          <TableCell />
                           {currentWeekDates.map(d => {
                             const dayTotal = wsEmps.reduce((s, emp) => {
                               const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
@@ -806,6 +809,7 @@ export default function Reports() {
                     {/* Grand totals row */}
                     <TableRow className="bg-muted/50 font-bold border-t-2">
                       <TableCell className="sticky right-0 bg-muted/50 z-10 font-bold">الإجمالي الكلي</TableCell>
+                      <TableCell />
                       <TableCell />
                       {currentWeekDates.map(d => {
                         const dayTotal = employeesWithOvertime.reduce((s, emp) => {
@@ -840,7 +844,9 @@ export default function Reports() {
                 <div className="print-title">
                   <div className="print-title-main">جدول الساعات الإضافية</div>
                   <div className="print-title-sub">
-                    الفترة: {dateFrom?.slice(5).replace("-", "/")}/{dateFrom?.slice(0,4)} — {dateTo?.slice(5).replace("-", "/")}/{dateTo?.slice(0,4)}
+                    {selectedRule && <span>نظام العمل: {selectedRule.name}</span>}
+                    {selectedWorkshop && <span> | الورشة: {selectedWorkshop.name}</span>}
+                    <span> | الفترة: {dateFrom?.slice(5).replace("-", "/")}/{dateFrom?.slice(0,4)} — {dateTo?.slice(5).replace("-", "/")}/{dateTo?.slice(0,4)}</span>
                   </div>
                 </div>
                 <Table>
@@ -848,6 +854,7 @@ export default function Reports() {
                     <TableRow>
                       <TableHead className="text-right font-bold">الموظف</TableHead>
                       <TableHead className="text-center font-bold">الرقم</TableHead>
+                      <TableHead className="text-center font-bold">الورشة</TableHead>
                       {allOvertimeDates.map(d => (
                         <TableHead key={d} className="text-center font-medium p-0.5">
                           {d.slice(5).replace("-", "/")}
@@ -860,7 +867,7 @@ export default function Reports() {
                   </TableHeader>
                   <TableBody>
                     {overtimeWorkshopGroups.map(({ workshopName: wsName, employees: wsEmps }) => {
-                      const printColSpan = 2 + allOvertimeDates.length + 3;
+                      const printColSpan = 3 + allOvertimeDates.length + 3;
                       const wsOT = wsEmps.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0);
                       const wsPay = wsEmps.reduce((s, r) => s + parseFloat(r.hourlyRate || "0") * r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0);
                       return [
@@ -878,6 +885,7 @@ export default function Reports() {
                             <TableRow key={r.employeeId}>
                               <TableCell className="font-medium text-right">{r.employeeName}</TableCell>
                               <TableCell className="text-center">{r.employeeCode}</TableCell>
+                              <TableCell className="text-center">{r.workshopName || "—"}</TableCell>
                               {allOvertimeDates.map(d => {
                                 const rec = byDate?.get(d);
                                 const ot = rec?.overtimeHours ?? 0;
@@ -896,7 +904,7 @@ export default function Reports() {
                           );
                         }),
                         <TableRow key={`ws-pt-${wsName}`} className="print-ws-subtotal">
-                          <TableCell className="font-bold text-right" colSpan={2}>إجمالي {wsName}</TableCell>
+                          <TableCell className="font-bold text-right" colSpan={3}>إجمالي {wsName}</TableCell>
                           {allOvertimeDates.map(d => {
                             const dayTotal = wsEmps.reduce((s, emp) => {
                               const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
@@ -912,7 +920,7 @@ export default function Reports() {
                     })}
                     {/* Grand total */}
                     <TableRow className="print-grand-total">
-                      <TableCell className="font-bold text-right" colSpan={2}>الإجمالي الكلي</TableCell>
+                      <TableCell className="font-bold text-right" colSpan={3}>الإجمالي الكلي</TableCell>
                       {allOvertimeDates.map(d => {
                         const dayTotal = employeesWithOvertime.reduce((s, emp) => {
                           const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
