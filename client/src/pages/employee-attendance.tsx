@@ -256,7 +256,7 @@ export default function EmployeeAttendancePage() {
             <Skeleton className="h-8 w-48" />
           )}
         </div>
-        <Button onClick={() => { setAddForm({ date: todayStr(), status: "present", checkIn: "", checkOut: "" }); setAddDialogOpen(true); }} data-testid="button-add-attendance">
+        <Button onClick={() => { setAddForm({ date: todayStr(), status: "absent", checkIn: "", checkOut: "" }); setAddDialogOpen(true); }} data-testid="button-add-attendance">
           <Plus className="h-4 w-4 ml-2" />
           إضافة سجل
         </Button>
