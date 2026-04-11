@@ -844,9 +844,7 @@ export default function Reports() {
                 <div className="print-title">
                   <div className="print-title-main">جدول الساعات الإضافية</div>
                   <div className="print-title-sub">
-                    {selectedRule && <span>نظام العمل: {selectedRule.name}</span>}
-                    {selectedWorkshop && <span> | الورشة: {selectedWorkshop.name}</span>}
-                    <span> | الفترة: {dateFrom?.slice(5).replace("-", "/")}/{dateFrom?.slice(0,4)} — {dateTo?.slice(5).replace("-", "/")}/{dateTo?.slice(0,4)}</span>
+                    الفترة: {dateFrom?.slice(5).replace("-", "/")}/{dateFrom?.slice(0,4)} — {dateTo?.slice(5).replace("-", "/")}/{dateTo?.slice(0,4)}
                   </div>
                 </div>
                 <Table>
