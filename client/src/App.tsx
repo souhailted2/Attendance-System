@@ -200,8 +200,15 @@ function AppShell() {
             <ThemeToggle />
           </header>
 
-          {/* Main content area — transparent so purple bg shows through */}
-          <main className="flex-1 overflow-auto">
+          {/* Main content area — semi-transparent white for readability over purple bg */}
+          <main
+            className="flex-1 overflow-auto"
+            style={{
+              background: "rgba(255, 255, 255, 0.82)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+            }}
+          >
             <Router />
           </main>
         </div>
