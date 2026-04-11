@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,8 +17,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
-  BarChart3, Clock, Users, ChevronLeft, Pencil, Check, X,
-  Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock,
+  BarChart3, Clock, Users, ChevronLeft, ChevronRight, Pencil, Check, X,
+  Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
 } from "lucide-react";
 import type { WorkRule, Workshop, Employee, FrozenArchive } from "@shared/schema";
 
@@ -151,6 +151,9 @@ export default function Reports() {
 
   const [editCell, setEditCell] = useState<EditCell | null>(null);
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
+  const [overtimeWeekIndex, setOvertimeWeekIndex] = useState(0);
+
+  useEffect(() => { setOvertimeWeekIndex(0); }, [dateFrom, dateTo]);
 
   const { data: workRules = [], isLoading: rulesLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
@@ -364,6 +367,18 @@ export default function Reports() {
     }
     return dates;
   }, [dateFrom, dateTo]);
+
+  // تقسيم التواريخ إلى أسابيع من 7 أيام
+  const overtimeWeeks = useMemo(() => {
+    const weeks: string[][] = [];
+    for (let i = 0; i < allOvertimeDates.length; i += 7) {
+      weeks.push(allOvertimeDates.slice(i, i + 7));
+    }
+    return weeks.length > 0 ? weeks : [[]];
+  }, [allOvertimeDates]);
+
+  const safeWeekIndex = Math.min(overtimeWeekIndex, Math.max(0, overtimeWeeks.length - 1));
+  const currentWeekDates = overtimeWeeks[safeWeekIndex] ?? [];
 
   const overtimeDayMap = useMemo(() => {
     const map = new Map<string, Map<string, DailyRecord>>();
@@ -614,10 +629,22 @@ export default function Reports() {
       {/* ======================== OVERTIME VIEW ======================== */}
       {!selectedRule && viewMode === "overtime" && (
         <div className="space-y-4">
-          <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setViewMode("shifts")} data-testid="button-back-to-shifts">
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-            العودة للفترات
-          </Button>
+          {/* Header row */}
+          <div className="flex items-center justify-between print:hidden">
+            <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setViewMode("shifts")} data-testid="button-back-to-shifts">
+              <ChevronLeft className="h-4 w-4 rotate-180" />
+              العودة للفترات
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              className="gap-1.5"
+              onClick={() => window.print()}
+              data-testid="button-print-overtime"
+            >
+              <Printer className="h-4 w-4" />
+              طباعة
+            </Button>
+          </div>
 
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <Clock className="h-5 w-5 text-indigo-600" />
@@ -634,85 +661,189 @@ export default function Reports() {
               </CardContent>
             </Card>
           ) : (
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="sticky right-0 bg-muted/50 z-10 text-right font-bold">الموظف</TableHead>
-                    <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
-                    {allOvertimeDates.map(d => (
-                      <TableHead key={d} className="text-center text-xs font-medium min-w-[52px] p-1">
-                        <div className="text-muted-foreground text-[10px]">{getArabicDay(d)}</div>
-                        <div>{d.slice(5).replace("-", "/")}</div>
-                      </TableHead>
-                    ))}
-                    <TableHead className="text-center font-bold">المجموع (س)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employeesWithOvertime.map(r => {
-                    const byDate = overtimeDayMap.get(r.employeeId);
-                    const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
-                    return (
-                      <TableRow key={r.employeeId} data-testid={`row-overtime-${r.employeeId}`}>
-                        <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
-                        {allOvertimeDates.map(d => {
-                          const rec = byDate?.get(d);
-                          const ot = rec?.overtimeHours ?? 0;
-                          const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
-                          return (
-                            <TableCell key={d} className="text-center px-1">
-                              {ot > 0 ? (
-                                <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
-                                  title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
-                                  {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
-                                </span>
-                              ) : pendingHoliday ? (
-                                <span className="text-xs text-amber-500 font-semibold"
-                                  title={`دخول: ${rec?.checkIn ?? "—"} | لم يسجّل الخروج بعد`}>
-                                  ؟
-                                </span>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )}
-                            </TableCell>
-                          );
-                        })}
-                        <TableCell className="text-center font-bold">
-                          <span className="text-sm text-indigo-700 dark:text-indigo-400">
-                            {Math.round(totalOT * 10) / 10}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {/* Totals row */}
-                  <TableRow className="bg-muted/50 font-bold border-t-2">
-                    <TableCell className="sticky right-0 bg-muted/50 z-10 font-bold">المجموع</TableCell>
-                    <TableCell />
-                    {allOvertimeDates.map(d => {
-                      const dayTotal = employeesWithOvertime.reduce((s, emp) => {
-                        const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
-                        return s + (rec?.overtimeHours ?? 0);
-                      }, 0);
+            <>
+              {/* Week navigation — screen only */}
+              {overtimeWeeks.length > 1 && (
+                <div className="flex items-center justify-center gap-3 print:hidden">
+                  <Button
+                    variant="outline" size="icon"
+                    className="h-8 w-8"
+                    disabled={safeWeekIndex === 0}
+                    onClick={() => setOvertimeWeekIndex(i => Math.max(0, i - 1))}
+                    data-testid="button-overtime-prev-week"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm font-medium text-muted-foreground">
+                    الأسبوع {safeWeekIndex + 1} من {overtimeWeeks.length}
+                  </span>
+                  <Button
+                    variant="outline" size="icon"
+                    className="h-8 w-8"
+                    disabled={safeWeekIndex === overtimeWeeks.length - 1}
+                    onClick={() => setOvertimeWeekIndex(i => Math.min(overtimeWeeks.length - 1, i + 1))}
+                    data-testid="button-overtime-next-week"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* ---- Screen table: current week only ---- */}
+              <div className="overflow-x-auto rounded-lg border print:hidden" id="overtime-screen-table">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="sticky right-0 bg-muted/50 z-20 text-right font-bold">الموظف</TableHead>
+                      <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
+                      {currentWeekDates.map(d => (
+                        <TableHead key={d} className="text-center text-xs font-medium min-w-[52px] p-1">
+                          <div className="text-muted-foreground text-[10px]">{getArabicDay(d)}</div>
+                          <div>{d.slice(5).replace("-", "/")}</div>
+                        </TableHead>
+                      ))}
+                      <TableHead className="sticky left-0 bg-muted/50 z-20 text-center font-bold border-r">المجموع (س)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {employeesWithOvertime.map(r => {
+                      const byDate = overtimeDayMap.get(r.employeeId);
+                      const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
                       return (
-                        <TableCell key={d} className="text-center text-xs font-bold">
-                          {dayTotal > 0 ? (
-                            <span className="text-indigo-700 dark:text-indigo-400">
-                              {Math.round(dayTotal * 10) / 10}
+                        <TableRow key={r.employeeId} data-testid={`row-overtime-${r.employeeId}`}>
+                          <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
+                          {currentWeekDates.map(d => {
+                            const rec = byDate?.get(d);
+                            const ot = rec?.overtimeHours ?? 0;
+                            const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
+                            return (
+                              <TableCell key={d} className="text-center px-1">
+                                {ot > 0 ? (
+                                  <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
+                                    title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
+                                    {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
+                                  </span>
+                                ) : pendingHoliday ? (
+                                  <span className="text-xs text-amber-500 font-semibold"
+                                    title={`دخول: ${rec?.checkIn ?? "—"} | لم يسجّل الخروج بعد`}>
+                                    ؟
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center font-bold sticky left-0 bg-background z-10 border-r">
+                            <span className="text-sm text-indigo-700 dark:text-indigo-400">
+                              {Math.round(totalOT * 10) / 10}
                             </span>
-                          ) : "—"}
-                        </TableCell>
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                    <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400">
-                      {Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
-                    </TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
+                    {/* Totals row */}
+                    <TableRow className="bg-muted/50 font-bold border-t-2">
+                      <TableCell className="sticky right-0 bg-muted/50 z-10 font-bold">الإجمالي</TableCell>
+                      <TableCell />
+                      {currentWeekDates.map(d => {
+                        const dayTotal = employeesWithOvertime.reduce((s, emp) => {
+                          const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
+                          return s + (rec?.overtimeHours ?? 0);
+                        }, 0);
+                        return (
+                          <TableCell key={d} className="text-center text-xs font-bold">
+                            {dayTotal > 0 ? (
+                              <span className="text-indigo-700 dark:text-indigo-400">
+                                {Math.round(dayTotal * 10) / 10}
+                              </span>
+                            ) : "—"}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/50 z-10 border-r">
+                        {Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* ---- Print table: ALL dates, hidden on screen ---- */}
+              <div className="hidden print:block overflow-x-auto" id="overtime-print-table">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="text-right font-bold text-xs">الموظف</TableHead>
+                      <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
+                      {allOvertimeDates.map(d => (
+                        <TableHead key={d} className="text-center text-[10px] font-medium min-w-[36px] p-0.5">
+                          <div className="text-muted-foreground text-[9px]">{getArabicDay(d)}</div>
+                          <div>{d.slice(5).replace("-", "/")}</div>
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-center font-bold text-xs">المجموع (س)</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {employeesWithOvertime.map(r => {
+                      const byDate = overtimeDayMap.get(r.employeeId);
+                      const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
+                      return (
+                        <TableRow key={r.employeeId}>
+                          <TableCell className="font-medium text-xs">{r.employeeName}</TableCell>
+                          <TableCell className="text-muted-foreground text-[10px] text-center">{r.employeeCode}</TableCell>
+                          {allOvertimeDates.map(d => {
+                            const rec = byDate?.get(d);
+                            const ot = rec?.overtimeHours ?? 0;
+                            const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
+                            return (
+                              <TableCell key={d} className="text-center px-0.5">
+                                {ot > 0 ? (
+                                  <span className="text-[10px] text-indigo-600 font-semibold">
+                                    {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
+                                  </span>
+                                ) : pendingHoliday ? (
+                                  <span className="text-[10px] text-amber-500 font-semibold">؟</span>
+                                ) : (
+                                  <span className="text-[10px] text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-center font-bold text-xs">
+                            <span className="text-indigo-700">
+                              {Math.round(totalOT * 10) / 10}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    <TableRow className="bg-muted/50 font-bold border-t-2">
+                      <TableCell className="font-bold text-xs">الإجمالي</TableCell>
+                      <TableCell />
+                      {allOvertimeDates.map(d => {
+                        const dayTotal = employeesWithOvertime.reduce((s, emp) => {
+                          const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
+                          return s + (rec?.overtimeHours ?? 0);
+                        }, 0);
+                        return (
+                          <TableCell key={d} className="text-center text-[10px] font-bold">
+                            {dayTotal > 0 ? (
+                              <span className="text-indigo-700">{Math.round(dayTotal * 10) / 10}</span>
+                            ) : "—"}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-bold text-xs text-indigo-700">
+                        {Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </div>
       )}

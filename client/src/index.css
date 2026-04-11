@@ -286,3 +286,38 @@
     inset: -1px;
   }
 }
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #overtime-print-table,
+  #overtime-print-table * {
+    visibility: visible;
+  }
+
+  #overtime-print-table {
+    position: absolute;
+    inset: 0;
+    direction: rtl;
+    font-size: 10px;
+  }
+
+  #overtime-print-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  #overtime-print-table th,
+  #overtime-print-table td {
+    border: 1px solid #ccc;
+    padding: 2px 4px;
+    text-align: center;
+  }
+}
