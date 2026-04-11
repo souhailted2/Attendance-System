@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { Users, Search, ArrowLeftRight, UserMinus, UserPlus, Wrench, X, Plus } from "lucide-react";
 import type { Workshop, Employee } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 export default function Workshops() {
   const { toast } = useToast();
@@ -122,17 +123,12 @@ export default function Workshops() {
   const otherWorkshops = workshops.filter((w) => w.id !== selectedWorkshop?.id);
 
   return (
-    <div className="p-6 space-y-6" dir="rtl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">الورشات</h1>
-          <p className="text-muted-foreground text-sm mt-1">إدارة الورشات وموظفيها</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="gap-1 text-sm px-3 py-1">
-            <Wrench className="h-3.5 w-3.5" />
-            {workshops.length} ورشة
-          </Badge>
+    <div dir="rtl">
+      <PageHeader
+        title="الورشات"
+        subtitle="إدارة الورشات وموظفيها"
+        count={workshops.length}
+        action={
           <Dialog open={addOpen} onOpenChange={(v) => { setAddOpen(v); if (!v) { setNewName(""); setNewDescription(""); } }}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-workshop">
@@ -180,9 +176,9 @@ export default function Workshops() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
-
+        }
+      />
+      <div className="p-6 space-y-6">
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-32 w-full" />)}
@@ -417,6 +413,7 @@ export default function Workshops() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
