@@ -15,6 +15,8 @@ import {
   Archive,
   CalendarDays,
   Star,
+  Shield,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -50,32 +52,52 @@ const toolsItems = [
   { title: "Agent المصنع", url: "/agent-settings", icon: Bot },
 ];
 
+const roleInfo: Record<string, { label: string; displayName: string; icon: typeof Shield }> = {
+  owner: { label: "مالك النظام", displayName: "المدير العام", icon: Shield },
+  attendence: { label: "مسؤول الحضور", displayName: "مسؤول الحضور", icon: ClipboardCheck },
+  observer: { label: "مراقب", displayName: "المراقب", icon: Eye },
+};
+
+function getAvatarGradient(username: string): string {
+  const gradients = [
+    "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))",
+    "linear-gradient(135deg, hsl(43 96% 48%), hsl(36 90% 55%))",
+    "linear-gradient(135deg, hsl(160 70% 38%), hsl(155 65% 48%))",
+    "linear-gradient(135deg, hsl(220 80% 50%), hsl(230 75% 60%))",
+  ];
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  return gradients[Math.abs(hash) % gradients.length];
+}
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const role = user ? (roleInfo[user.username] ?? { label: "مستخدم", displayName: user.username, icon: Users }) : null;
 
   return (
     <Sidebar side="right">
-      <SidebarHeader className="p-4">
+      <SidebarHeader className="px-4 py-3 border-b border-white/10">
         <div className="flex items-center gap-3">
           <div
-            className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+            className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
             style={{
               background: "linear-gradient(135deg, hsl(43 96% 52%), hsl(36 90% 58%))",
-              boxShadow: "0 4px 14px hsl(43 96% 52% / 0.45)",
+              boxShadow: "0 3px 12px hsl(43 96% 52% / 0.40)",
             }}
           >
-            <ClipboardCheck className="h-5 w-5 text-white" />
+            <ClipboardCheck className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h2 className="text-sm font-bold" data-testid="text-app-title">نظام الحضور</h2>
-            <p className="text-[11px] text-muted-foreground">إدارة الحضور والانصراف</p>
+            <h2 className="text-sm font-bold leading-tight" data-testid="text-app-title">نظام الحضور</h2>
+            <p className="text-[10px] opacity-50 leading-tight">v2.0 — إدارة الحضور</p>
           </div>
         </div>
       </SidebarHeader>
+
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide uppercase opacity-60">الرئيسية</SidebarGroupLabel>
+          <SidebarGroupLabel>الرئيسية</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -94,11 +116,7 @@ export function AppSidebar() {
               ))}
               {user?.username === "owner" && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === "/favorites"}
-                    data-testid="link-nav-favorites"
-                  >
+                  <SidebarMenuButton asChild isActive={location === "/favorites"} data-testid="link-nav-favorites">
                     <Link href="/favorites">
                       <Star className="h-4 w-4" />
                       <span>المفضلة</span>
@@ -108,11 +126,7 @@ export function AppSidebar() {
               )}
               {(user?.username === "owner" || user?.username === "observer") && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === "/leaves-grants"}
-                    data-testid="link-nav-leaves-grants"
-                  >
+                  <SidebarMenuButton asChild isActive={location === "/leaves-grants"} data-testid="link-nav-leaves-grants">
                     <Link href="/leaves-grants">
                       <CalendarDays className="h-4 w-4" />
                       <span>العطل والمنح</span>
@@ -122,11 +136,7 @@ export function AppSidebar() {
               )}
               {user?.username === "owner" && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === "/monthly-archive"}
-                    data-testid="link-nav-monthly-archive"
-                  >
+                  <SidebarMenuButton asChild isActive={location === "/monthly-archive"} data-testid="link-nav-monthly-archive">
                     <Link href="/monthly-archive">
                       <Archive className="h-4 w-4" />
                       <span>حفظ الاشهر</span>
@@ -139,7 +149,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide uppercase opacity-60">الإعدادات</SidebarGroupLabel>
+          <SidebarGroupLabel>الإعدادات</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
@@ -161,7 +171,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide uppercase opacity-60">أدوات</SidebarGroupLabel>
+          <SidebarGroupLabel>أدوات</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {toolsItems.map((item) => (
@@ -180,11 +190,7 @@ export function AppSidebar() {
               ))}
               {user?.username === "owner" && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === "/activity-log"}
-                    data-testid="link-nav-activity-log"
-                  >
+                  <SidebarMenuButton asChild isActive={location === "/activity-log"} data-testid="link-nav-activity-log">
                     <Link href="/activity-log">
                       <History className="h-4 w-4" />
                       <span>سجل النشاطات</span>
@@ -196,36 +202,49 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t border-sidebar-border/50">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div
-              className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-              style={{
-                background: "linear-gradient(135deg, hsl(271 76% 45% / 0.15), hsl(271 76% 45% / 0.25))",
-                border: "1px solid hsl(271 76% 45% / 0.25)",
-              }}
-            >
-              <Users className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-sm font-medium truncate block" data-testid="text-username">
-                {user?.username === "owner" ? "المدير العام" : user?.username}
-              </span>
-              {user?.username === "owner" && (
-                <span className="text-[10px] text-muted-foreground">owner</span>
-              )}
-            </div>
+
+      {/* Rich Profile Card Footer */}
+      <SidebarFooter className="p-3">
+        <div
+          className="rounded-xl p-3 flex items-center gap-3"
+          style={{
+            background: "rgba(255,255,255,0.07)",
+            border: "1px solid rgba(218,165,32,0.15)",
+          }}
+        >
+          {/* Avatar */}
+          <div
+            className="h-9 w-9 rounded-xl flex items-center justify-center text-xs font-bold text-white shrink-0"
+            style={{
+              background: user ? getAvatarGradient(user.username) : "hsl(271 76% 45%)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+            }}
+            data-testid="text-username"
+          >
+            {user?.username?.slice(0, 2).toUpperCase() ?? "?"}
           </div>
+
+          {/* Name + Role */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-semibold leading-tight truncate">
+              {role?.displayName ?? user?.username}
+            </p>
+            <p className="text-[10px] opacity-50 leading-tight truncate mt-0.5">
+              {role?.label ?? "مستخدم"}
+            </p>
+          </div>
+
+          {/* Logout */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-7 w-7 shrink-0 hover:bg-destructive/20 hover:text-destructive"
+            style={{ color: "rgba(255,255,255,0.45)" }}
             onClick={logout}
             data-testid="button-logout"
             title="تسجيل الخروج"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-3.5 w-3.5" />
           </Button>
         </div>
       </SidebarFooter>

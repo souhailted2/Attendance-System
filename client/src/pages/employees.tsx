@@ -15,6 +15,26 @@ import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/use-favorites";
 import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarGradient(name: string): string {
+  const gradients = [
+    "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))",
+    "linear-gradient(135deg, hsl(43 96% 48%), hsl(36 90% 55%))",
+    "linear-gradient(135deg, hsl(160 70% 38%), hsl(155 65% 48%))",
+    "linear-gradient(135deg, hsl(220 80% 50%), hsl(230 75% 60%))",
+    "linear-gradient(135deg, hsl(320 70% 48%), hsl(330 65% 58%))",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return gradients[Math.abs(hash) % gradients.length];
+}
 
 export default function Employees() {
   const { toast } = useToast();
@@ -133,16 +153,12 @@ export default function Employees() {
   const inactiveCount = (employees?.length || 0) - activeCount;
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">الموظفين</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {employees?.length || 0} موظف إجمالاً · {activeCount} نشط · {inactiveCount} غير نشط
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+    <div>
+      <PageHeader
+        title="الموظفين"
+        subtitle={`${employees?.length || 0} موظف إجمالاً · ${activeCount} نشط · ${inactiveCount} غير نشط`}
+        count={employees?.length}
+        action={
           <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-employee">
@@ -248,9 +264,10 @@ export default function Employees() {
               </form>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+        }
+      />
 
+      <div className="p-6 space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-48">
@@ -330,8 +347,11 @@ export default function Employees() {
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-bold text-primary">{emp.name.charAt(0)}</span>
+                      <div
+                        className="h-9 w-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                        style={{ background: getAvatarGradient(emp.name), boxShadow: "0 2px 6px rgba(0,0,0,0.15)" }}
+                      >
+                        {getInitials(emp.name)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -383,6 +403,7 @@ export default function Employees() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

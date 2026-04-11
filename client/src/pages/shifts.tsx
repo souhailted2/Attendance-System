@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Clock, Users, ChevronDown, ChevronUp, ArrowLeftRight, Sun, Moon } from "lucide-react";
 import type { WorkRule, Employee } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 type ShiftKey = "morning" | "evening";
 
@@ -148,17 +149,18 @@ export default function Shifts() {
   ];
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto" dir="rtl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">الفترات</h1>
-          <p className="text-muted-foreground text-sm mt-1">إدارة فترات العمل الصباحية والمسائية</p>
-        </div>
-        <Button data-testid="button-create-shift" onClick={() => { resetForm(); setCreateOpen(true); }}>
-          <Plus className="h-4 w-4 ml-1" />
-          إنشاء فترة جديدة
-        </Button>
-      </div>
+    <div dir="rtl">
+      <PageHeader
+        title="الفترات"
+        subtitle="إدارة فترات العمل الصباحية والمسائية"
+        action={
+          <Button data-testid="button-create-shift" onClick={() => { resetForm(); setCreateOpen(true); }}>
+            <Plus className="h-4 w-4 ml-1" />
+            إنشاء فترة جديدة
+          </Button>
+        }
+      />
+      <div className="p-6 space-y-6 max-w-4xl mx-auto">
 
       {isLoading ? (
         <div className="space-y-4">
@@ -438,6 +440,7 @@ export default function Shifts() {
           </form>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

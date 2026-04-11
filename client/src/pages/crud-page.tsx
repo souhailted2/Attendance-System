@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, type LucideIcon } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 interface CrudPageProps {
   title: string;
@@ -80,17 +81,18 @@ export default function CrudPage({ title, apiPath, icon: Icon, fields }: CrudPag
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">{title}</h1>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-item">
-              <Plus className="h-4 w-4 ml-2" />
-              إضافة
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
+    <div>
+      <PageHeader
+        title={title}
+        action={
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-item">
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingItem ? "تعديل" : "إضافة جديد"}</DialogTitle>
             </DialogHeader>
@@ -115,9 +117,10 @@ export default function CrudPage({ title, apiPath, icon: Icon, fields }: CrudPag
               </div>
             </form>
           </DialogContent>
-        </Dialog>
-      </div>
-
+          </Dialog>
+        }
+      />
+      <div className="p-6 space-y-6">
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
@@ -174,6 +177,7 @@ export default function CrudPage({ title, apiPath, icon: Icon, fields }: CrudPag
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

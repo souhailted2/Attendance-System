@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Scale } from "lucide-react";
 import type { WorkRule } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 export default function WorkRules() {
   const { toast } = useToast();
@@ -105,16 +106,18 @@ export default function WorkRules() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold" data-testid="text-page-title">قواعد العمل</h1>
-        <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-rule">
-              <Plus className="h-4 w-4 ml-2" />
-              إضافة قاعدة
-            </Button>
-          </DialogTrigger>
+    <div>
+      <PageHeader
+        title="قواعد العمل"
+        subtitle="ضبط أوقات الدوام والغيابات"
+        action={
+          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-rule">
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة قاعدة
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingRule ? "تعديل القاعدة" : "إضافة قاعدة جديدة"}</DialogTitle>
@@ -168,9 +171,10 @@ export default function WorkRules() {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
-      </div>
-
+          </Dialog>
+        }
+      />
+      <div className="p-6 space-y-6">
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
@@ -232,6 +236,7 @@ export default function WorkRules() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

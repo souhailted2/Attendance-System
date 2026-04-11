@@ -276,6 +276,43 @@
   );
 }
 
+/* Card lift on hover */
+.shadcn-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.shadcn-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(109, 40, 217, 0.10);
+}
+
+/* Button press effect */
+button:active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform 0.08s ease;
+}
+
+/* Custom scrollbar — thin + purple */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(271 40% 75% / 0.35);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(271 60% 55% / 0.55);
+}
+
+/* Smooth table row hover in attendance/reports */
+tr:hover td {
+  background: hsl(271 20% 97%);
+  transition: background 0.12s ease;
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

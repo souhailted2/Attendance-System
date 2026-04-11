@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
+import { PageHeader } from "@/components/page-header";
 
 export default function Attendance() {
   const { toast } = useToast();
@@ -187,43 +188,40 @@ export default function Attendance() {
     : allMovements;
 
   return (
-    <div className="p-6 space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold" data-testid="text-page-title">سجل الحضور</h1>
+    <div>
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <span data-testid="text-page-title">سجل الحضور</span>
             {isToday && (
               <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
                 <Radio className="h-3 w-3 animate-pulse" />
                 مباشر
               </span>
             )}
-          </div>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {dateLabel}
-            {isToday && dataUpdatedAt > 0 && (
-              <span className="mr-2 text-xs">
-                · آخر تحديث: {new Date(dataUpdatedAt).toLocaleTimeString("ar-SA")}
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-48"
-            data-testid="input-attendance-date"
-          />
-          <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-attendance">
-                <Plus className="h-4 w-4 ml-2" />
-                تسجيل حضور
-              </Button>
-            </DialogTrigger>
+          </span>
+        }
+        subtitle={
+          isToday && dataUpdatedAt > 0
+            ? `${dateLabel} · آخر تحديث: ${new Date(dataUpdatedAt).toLocaleTimeString("ar-SA")}`
+            : dateLabel
+        }
+        action={
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-48"
+              data-testid="input-attendance-date"
+            />
+            <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-attendance">
+                  <Plus className="h-4 w-4 ml-2" />
+                  تسجيل حضور
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>تسجيل حضور جديد</DialogTitle>
@@ -282,10 +280,11 @@ export default function Attendance() {
                 </div>
               </form>
             </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
+            </Dialog>
+          </div>
+        }
+      />
+      <div className="p-6 space-y-5">
       {/* Summary stats */}
       {!isLoading && attendance && attendance.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -487,6 +486,7 @@ export default function Attendance() {
             : `إجمالي الحركات: ${allMovements.length}`}
         </p>
       )}
+      </div>
     </div>
   );
 }
