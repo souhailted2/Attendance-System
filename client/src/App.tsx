@@ -26,6 +26,7 @@ import ActivityLog from "@/pages/activity-log";
 import MonthlyArchive from "@/pages/monthly-archive";
 import LeavesGrants from "@/pages/leaves-grants";
 import EmployeeAttendance from "@/pages/employee-attendance";
+import Favorites from "@/pages/favorites";
 import { Building2, Wrench, Briefcase } from "lucide-react";
 
 function ProtectedRoute({
@@ -85,6 +86,9 @@ function Router() {
       </Route>
       <Route path="/leaves-grants">
         <ProtectedRoute component={LeavesGrants} allowedUsers={["owner", "observer"]} />
+      </Route>
+      <Route path="/favorites">
+        <ProtectedRoute component={Favorites} allowedUsers={["owner"]} />
       </Route>
       <Route path="/employees/:id/attendance">
         <ProtectedRoute component={EmployeeAttendance} allowedUsers={["owner"]} />

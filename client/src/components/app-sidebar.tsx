@@ -15,13 +15,9 @@ import {
   Archive,
   CalendarDays,
   Star,
-  UserCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useFavorites } from "@/hooks/use-favorites";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import type { Employee } from "@shared/schema";
 import {
   Sidebar,
   SidebarContent,
@@ -57,15 +53,6 @@ const toolsItems = [
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const isOwner = user?.username === "owner";
-  const { favorites } = useFavorites();
-  const { data: employees = [] } = useQuery<Employee[]>({
-    queryKey: ["/api/employees"],
-    enabled: isOwner && favorites.length > 0,
-  });
-  const favoriteEmployees = isOwner
-    ? employees.filter((e) => favorites.includes(e.id))
-    : [];
 
   return (
     <Sidebar side="right">
@@ -99,6 +86,20 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {user?.username === "owner" && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === "/favorites"}
+                    data-testid="link-nav-favorites"
+                  >
+                    <Link href="/favorites">
+                      <Star className="h-4 w-4" />
+                      <span>المفضلة</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               {(user?.username === "owner" || user?.username === "observer") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -188,33 +189,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {isOwner && favoriteEmployees.length > 0 && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-1.5">
-              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-              المفضلة
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {favoriteEmployees.map((emp) => (
-                  <SidebarMenuItem key={emp.id}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location === `/employees/${emp.id}/attendance`}
-                      data-testid={`link-favorite-${emp.id}`}
-                    >
-                      <Link href={`/employees/${emp.id}/attendance`}>
-                        <UserCheck className="h-4 w-4" />
-                        <span className="truncate">{emp.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
       <SidebarFooter className="p-3 border-t">
         <div className="flex items-center justify-between gap-2">
