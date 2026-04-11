@@ -734,7 +734,7 @@ export async function registerRoutes(
     try {
       if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح — المالك فقط" });
       const { hourlyRate } = req.body;
-      if (!hourlyRate && hourlyRate !== "0") return res.status(400).json({ message: "hourlyRate مطلوب" });
+      if (hourlyRate === null || hourlyRate === undefined || hourlyRate === "") return res.status(400).json({ message: "hourlyRate مطلوب" });
       const emp = await storage.updateEmployee(req.params.id, { hourlyRate: String(hourlyRate) });
       if (!emp) return res.status(404).json({ message: "Not found" });
       res.json(emp);
