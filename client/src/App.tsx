@@ -27,7 +27,7 @@ import MonthlyArchive from "@/pages/monthly-archive";
 import LeavesGrants from "@/pages/leaves-grants";
 import EmployeeAttendance from "@/pages/employee-attendance";
 import Favorites from "@/pages/favorites";
-import { Building2, Wrench, Briefcase } from "lucide-react";
+import { Building2, Briefcase } from "lucide-react";
 
 function ProtectedRoute({
   component: Component,
@@ -103,8 +103,11 @@ function AppShell() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: "linear-gradient(135deg, hsl(271 70% 15%) 0%, hsl(260 65% 20%) 50%, hsl(280 60% 18%) 100%)" }}
+      >
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400" />
       </div>
     );
   }
@@ -113,20 +116,91 @@ function AppShell() {
     return <Login />;
   }
 
-  const style = {
+  const sidebarStyle = {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
 
   return (
-    <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
+    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+      <div
+        className="flex h-screen w-full relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, hsl(271 70% 15%) 0%, hsl(258 65% 22%) 45%, hsl(280 60% 18%) 100%)",
+        }}
+      >
+        {/* Decorative background orbs */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: "-10%",
+            right: "-8%",
+            width: "520px",
+            height: "520px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(218,165,32,0.18) 0%, transparent 65%)",
+            filter: "blur(40px)",
+          }}
+        />
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            bottom: "-15%",
+            left: "-10%",
+            width: "600px",
+            height: "600px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 65%)",
+            filter: "blur(50px)",
+          }}
+        />
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: "40%",
+            left: "30%",
+            width: "320px",
+            height: "320px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(218,165,32,0.10) 0%, transparent 65%)",
+            filter: "blur(35px)",
+          }}
+        />
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            top: "10%",
+            left: "15%",
+            width: "250px",
+            height: "250px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 65%)",
+            filter: "blur(30px)",
+          }}
+        />
+
         <AppSidebar />
-        <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between gap-2 p-2 border-b border-border/60 bg-white/60 dark:bg-black/20 backdrop-blur-md">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+
+        <div className="flex flex-col flex-1 min-w-0 relative">
+          {/* Glass header bar */}
+          <header
+            className="flex items-center justify-between gap-2 p-2 shrink-0"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              backdropFilter: "blur(16px) saturate(1.5)",
+              WebkitBackdropFilter: "blur(16px) saturate(1.5)",
+              borderBottom: "1px solid rgba(218,165,32,0.18)",
+              boxShadow: "0 1px 0 rgba(218,165,32,0.08)",
+            }}
+          >
+            <SidebarTrigger
+              data-testid="button-sidebar-toggle"
+              className="text-white/80 hover:text-white hover:bg-white/10"
+            />
             <ThemeToggle />
           </header>
+
+          {/* Main content area — transparent so purple bg shows through */}
           <main className="flex-1 overflow-auto">
             <Router />
           </main>
