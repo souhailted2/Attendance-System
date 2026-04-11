@@ -4,6 +4,7 @@ import MySQLStoreFactory from "express-mysql-session";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import { IS_MYSQL, pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
@@ -27,26 +28,24 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-const dbUrl = process.env.DATABASE_URL || "";
-const isMySql = dbUrl.startsWith("mysql2://") || dbUrl.startsWith("mysql://");
-
 let sessionStore: session.Store | undefined;
-if (isMySql) {
+if (IS_MYSQL) {
   const MySQLStore = MySQLStoreFactory(session);
-  const mysqlMatch = dbUrl.match(/mysql2?:\/\/([^:]+):([^@]+)@([^:\/]+):?(\d*)\/(.+)/);
-  if (mysqlMatch) {
-    sessionStore = new MySQLStore({
-      host: mysqlMatch[3],
-      port: mysqlMatch[4] ? parseInt(mysqlMatch[4]) : 3306,
-      user: mysqlMatch[1],
-      password: mysqlMatch[2],
-      database: mysqlMatch[5],
-      clearExpired: true,
-      checkExpirationInterval: 900000,
-      expiration: 7 * 24 * 60 * 60 * 1000,
-      createDatabaseTable: true,
-    }) as unknown as session.Store;
-  }
+  const rawPool = pool as import("mysql2/promise").Pool;
+  sessionStore = new MySQLStore({
+    clearExpired: true,
+    checkExpirationInterval: 900000,
+    expiration: 7 * 24 * 60 * 60 * 1000,
+    createDatabaseTable: true,
+    schema: {
+      tableName: "sessions",
+      columnNames: {
+        session_id: "session_id",
+        expires: "expires",
+        data: "data",
+      },
+    },
+  }, rawPool) as unknown as session.Store;
 }
 
 app.use(session({
