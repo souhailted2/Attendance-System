@@ -771,7 +771,7 @@ export default function Reports() {
               </div>
 
               {/* ---- Print table: ALL dates, hidden on screen ---- */}
-              <div className="hidden print:block overflow-x-auto" id="overtime-print-table">
+              <div className="hidden print:block" id="overtime-print-table">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50">
