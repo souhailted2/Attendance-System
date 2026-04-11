@@ -153,6 +153,7 @@ export default function Reports() {
   const [editCell, setEditCell] = useState<EditCell | null>(null);
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
   const [overtimeWeekIndex, setOvertimeWeekIndex] = useState(0);
+  const [editingRate, setEditingRate] = useState<{ employeeId: string; value: string } | null>(null);
 
   useEffect(() => { setOvertimeWeekIndex(0); }, [dateFrom, dateTo]);
 
@@ -203,6 +204,30 @@ export default function Reports() {
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
+
+  const saveRateMutation = useMutation({
+    mutationFn: ({ employeeId, hourlyRate }: { employeeId: string; hourlyRate: string }) =>
+      apiRequest("PATCH", `/api/employees/${employeeId}`, { hourlyRate }),
+    onSuccess: (_data, { employeeId, hourlyRate }) => {
+      queryClient.setQueryData(
+        ["/api/reports/range", dateFrom, dateTo, "overtime"],
+        (old: EmployeeReport[] | undefined) =>
+          old?.map(r => r.employeeId === employeeId ? { ...r, hourlyRate } : r) ?? []
+      );
+      setEditingRate(null);
+      toast({ description: "تم حفظ سعر الساعة بنجاح" });
+    },
+    onError: () => toast({ description: "فشل حفظ سعر الساعة", variant: "destructive" }),
+  });
+
+  function commitRate(employeeId: string, value: string) {
+    const parsed = parseFloat(value);
+    if (isNaN(parsed) || parsed < 0) {
+      toast({ description: "أدخل قيمة صحيحة", variant: "destructive" });
+      return;
+    }
+    saveRateMutation.mutate({ employeeId, hourlyRate: parsed.toString() });
+  }
 
   const saveAttendanceMutation = useMutation({
     mutationFn: async ({ attendanceId, employeeId, date, data }: {
@@ -772,8 +797,39 @@ export default function Reports() {
                               <TableCell className="text-center font-bold sticky left-0 bg-background z-10 border-r">
                                 <span className="text-sm text-indigo-700 dark:text-indigo-400">{Math.round(totalOT * 10) / 10}</span>
                               </TableCell>
-                              <TableCell className="text-center text-xs text-muted-foreground">
-                                {rate > 0 ? formatDZD(rate) : "—"}
+                              <TableCell className="text-center text-xs p-1">
+                                {isOwner && editingRate?.employeeId === r.employeeId ? (
+                                  <div className="flex items-center gap-0.5 justify-center">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className="h-6 w-20 text-xs text-center px-1"
+                                      value={editingRate.value}
+                                      autoFocus
+                                      onChange={e => setEditingRate({ employeeId: r.employeeId, value: e.target.value })}
+                                      onKeyDown={e => {
+                                        if (e.key === "Enter") commitRate(r.employeeId, editingRate.value);
+                                        if (e.key === "Escape") setEditingRate(null);
+                                      }}
+                                      onBlur={() => commitRate(r.employeeId, editingRate.value)}
+                                      data-testid={`input-hourly-rate-${r.employeeId}`}
+                                    />
+                                  </div>
+                                ) : isOwner ? (
+                                  <button
+                                    type="button"
+                                    className="group flex items-center gap-1 justify-center w-full text-muted-foreground hover:text-foreground transition-colors"
+                                    title="انقر لتعديل سعر الساعة"
+                                    onClick={() => setEditingRate({ employeeId: r.employeeId, value: r.hourlyRate || "0" })}
+                                    data-testid={`button-edit-rate-${r.employeeId}`}
+                                  >
+                                    <span>{rate > 0 ? formatDZD(rate) : "—"}</span>
+                                    <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
+                                  </button>
+                                ) : (
+                                  <span className="text-muted-foreground">{rate > 0 ? formatDZD(rate) : "—"}</span>
+                                )}
                               </TableCell>
                               <TableCell className="text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                                 {rate > 0 && totalOT > 0 ? formatDZD(totalPay) : "—"}
