@@ -79,6 +79,7 @@ export interface IStorage {
   lockRecord(data: InsertLockedRecord): Promise<LockedRecord>;
 
   getFrozenArchives(month: string): Promise<FrozenArchive[]>;
+  getAllFrozenArchives(): Promise<FrozenArchive[]>;
   getFrozenArchive(id: string): Promise<FrozenArchive | undefined>;
   createFrozenArchive(data: InsertFrozenArchive): Promise<FrozenArchive>;
   deleteFrozenArchive(id: string): Promise<void>;
@@ -173,6 +174,7 @@ class LazyStorage implements IStorage {
   lockRecord(d: InsertLockedRecord) { return this.impl().then(s => s.lockRecord(d)); }
 
   getFrozenArchives(month: string) { return this.impl().then(s => s.getFrozenArchives(month)); }
+  getAllFrozenArchives() { return this.impl().then(s => s.getAllFrozenArchives()); }
   getFrozenArchive(id: string) { return this.impl().then(s => s.getFrozenArchive(id)); }
   createFrozenArchive(d: InsertFrozenArchive) { return this.impl().then(s => s.createFrozenArchive(d)); }
   deleteFrozenArchive(id: string) { return this.impl().then(s => s.deleteFrozenArchive(id)); }

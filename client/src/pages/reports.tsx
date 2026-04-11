@@ -18,9 +18,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
   BarChart3, Clock, Users, ChevronLeft, Pencil, Check, X,
-  Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2,
+  Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock,
 } from "lucide-react";
-import type { WorkRule, Workshop, Employee } from "@shared/schema";
+import type { WorkRule, Workshop, Employee, FrozenArchive } from "@shared/schema";
 
 type DateMode = "day" | "week" | "month" | "year";
 
@@ -156,6 +156,11 @@ export default function Reports() {
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
 
+  const { data: frozenArchives = [] } = useQuery<FrozenArchive[]>({
+    queryKey: ["/api/frozen-archives"],
+    enabled: isOwner,
+  });
+
   const activeEmployees = employees.filter((e) => e.isActive !== false);
 
   const reportKey = selectedRule
@@ -226,8 +231,23 @@ export default function Reports() {
     onError: (err: Error) => toast({ title: "خطأ في الحذف", description: err.message, variant: "destructive" }),
   });
 
+  function isCellFrozen(date: string, workshopId: string, workRuleId: string): boolean {
+    const month = date.slice(0, 7);
+    return frozenArchives.some(
+      (a) => a.month === month && a.workshopId === workshopId && a.workRuleId === workRuleId
+    );
+  }
+
   function openEditCell(emp: EmployeeReport, date: string, rec: DailyRecord) {
     if (!isOwner) return;
+    if (isCellFrozen(date, emp.workshopId, emp.workRuleId)) {
+      toast({
+        title: "الشهر مجمّد",
+        description: "هذا الشهر محفوظ في الأرشيف ولا يمكن التعديل عليه",
+        variant: "destructive",
+      });
+      return;
+    }
     setEditCell({ employeeId: emp.employeeId, employeeName: emp.employeeName, date, record: rec });
     setEditForm({
       status: rec.status === "holiday" ? "present" : rec.status,
@@ -866,28 +886,35 @@ export default function Reports() {
                                   effectiveEarlyLeaveMinutes: 0, totalHours: null, dailyScore: 0,
                                   pending: false, overtimeHours: 0,
                                 };
+                                const frozenEmpty = isOwner && isCellFrozen(d, r.workshopId, r.workRuleId);
                                 return (
                                   <TableCell key={d} className="p-0">
                                     <button
-                                      className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOwner ? "cursor-pointer hover:bg-muted/40" : "cursor-default"}`}
+                                      className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOwner && !frozenEmpty ? "cursor-pointer hover:bg-muted/40" : "cursor-default"}`}
                                       onClick={() => openEditCell(r, d, syntheticRec)}
                                       data-testid={`button-edit-cell-${r.employeeId}-${d}`}
-                                    >—</button>
+                                    >
+                                      {frozenEmpty ? <Lock className="h-3 w-3 text-muted-foreground/40" /> : "—"}
+                                    </button>
                                   </TableCell>
                                 );
                               }
 
+                              const frozen = isOwner && isCellFrozen(d, r.workshopId, r.workRuleId);
                               const bgClass = getCellBg(rec.status);
                               const scoreColorClass = getCellScoreColor(rec.status, rec.dailyScore);
 
                               return (
                                 <TableCell key={d} className="p-0" data-testid={`cell-${r.employeeId}-${d}`}>
                                   <button
-                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${isOwner ? "cursor-pointer" : "cursor-default"}`}
+                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${isOwner && !frozen ? "cursor-pointer" : "cursor-default"}`}
                                     onClick={() => openEditCell(r, d, rec)}
-                                    title={`${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
+                                    title={frozen ? `${r.employeeName} — ${d}\nالشهر مجمّد في الأرشيف` : `${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
                                     data-testid={`button-edit-cell-${r.employeeId}-${d}`}
                                   >
+                                    {frozen && (
+                                      <Lock className="h-3 w-3 text-muted-foreground/50 mb-0.5" />
+                                    )}
                                     {rec.status === "absent" ? (
                                       <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
                                     ) : rec.status === "rest" ? (

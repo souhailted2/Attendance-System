@@ -749,6 +749,17 @@ export async function registerRoutes(
     res.json(data);
   });
 
+  // دالة مساعدة: هل الشهر مجمّد لهذا الموظف؟
+  async function isMonthFrozenForEmployee(employeeId: string, date: string): Promise<boolean> {
+    const employee = await storage.getEmployee(employeeId);
+    if (!employee || !employee.workshopId || !employee.workRuleId) return false;
+    const month = date.slice(0, 7); // YYYY-MM
+    const archives = await storage.getFrozenArchives(month);
+    return archives.some(
+      (a) => a.workshopId === employee.workshopId && a.workRuleId === employee.workRuleId
+    );
+  }
+
   app.post("/api/attendance", async (req, res) => {
     try {
       const { employeeId, date, checkIn, checkOut, status, notes } = req.body;
@@ -760,6 +771,11 @@ export async function registerRoutes(
       // تعديل التقارير مقصور على المالك فقط
       if (req.session.username !== "owner") {
         return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
+      }
+
+      // منع التعديل إذا كان الشهر مجمّداً في الأرشيف
+      if (await isMonthFrozenForEmployee(employeeId, date)) {
+        return res.status(423).json({ message: "هذا الشهر محفوظ في الأرشيف ولا يمكن التعديل عليه" });
       }
 
       const workRule = await getWorkRuleForEmployee(employeeId);
@@ -824,6 +840,11 @@ export async function registerRoutes(
       // تعديل التقارير مقصور على المالك فقط
       if (req.session.username !== "owner") {
         return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
+      }
+
+      // منع التعديل إذا كان الشهر مجمّداً في الأرشيف
+      if (await isMonthFrozenForEmployee(employeeId, existingRecords.date)) {
+        return res.status(423).json({ message: "هذا الشهر محفوظ في الأرشيف ولا يمكن التعديل عليه" });
       }
 
       const workRule = await getWorkRuleForEmployee(employeeId);
@@ -936,6 +957,11 @@ export async function registerRoutes(
       // تعديل التقارير مقصور على المالك فقط
       if (req.session.username !== "owner") {
         return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
+      }
+
+      // منع الحذف إذا كان الشهر مجمّداً في الأرشيف
+      if (await isMonthFrozenForEmployee(existing.employeeId, existing.date)) {
+        return res.status(423).json({ message: "هذا الشهر محفوظ في الأرشيف ولا يمكن التعديل عليه" });
       }
 
       // تسجيل تفصيلي قبل الحذف
@@ -2650,16 +2676,20 @@ export async function registerRoutes(
 
   // ---- Frozen Archives ----
 
-  // GET /api/frozen-archives?month=YYYY-MM
+  // GET /api/frozen-archives?month=YYYY-MM  (أو بدون month لإرجاع الكل)
   app.get("/api/frozen-archives", async (req, res) => {
     if (req.session.username !== "owner") {
       return res.status(403).json({ message: "غير مصرح" });
     }
     const month = String(req.query.month || "");
-    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-      return res.status(400).json({ message: "month مطلوب بصيغة YYYY-MM" });
+    if (month) {
+      if (!/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ message: "month يجب أن يكون بصيغة YYYY-MM" });
+      }
+      const list = await storage.getFrozenArchives(month);
+      return res.json(list);
     }
-    const list = await storage.getFrozenArchives(month);
+    const list = await storage.getAllFrozenArchives();
     return res.json(list);
   });
 

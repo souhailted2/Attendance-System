@@ -431,6 +431,11 @@ export class MysqlStorage implements IStorage {
     return results as FrozenArchive[];
   }
 
+  async getAllFrozenArchives(): Promise<FrozenArchive[]> {
+    const results = await mysqlDb.select().from(schema.frozenArchives);
+    return results as FrozenArchive[];
+  }
+
   async getFrozenArchive(id: string): Promise<FrozenArchive | undefined> {
     const [result] = await mysqlDb.select().from(schema.frozenArchives).where(eq(schema.frozenArchives.id, id));
     return result as FrozenArchive | undefined;
