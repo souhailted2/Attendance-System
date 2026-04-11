@@ -306,8 +306,28 @@
     position: absolute;
     inset: 0;
     direction: rtl;
-    font-size: 9px;
+    font-size: 11px;
     overflow: visible !important;
+  }
+
+  /* عنوان الجدول */
+  .print-title {
+    text-align: center;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #333;
+  }
+
+  .print-title-main {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a1a1a;
+  }
+
+  .print-title-sub {
+    font-size: 11px;
+    color: #555;
+    margin-top: 2px;
   }
 
   #overtime-print-table table {
@@ -318,26 +338,74 @@
 
   #overtime-print-table th,
   #overtime-print-table td {
-    border: 1px solid #ccc;
-    padding: 1px 2px;
+    border: 1px solid #bbb;
+    padding: 2px 3px;
     text-align: center;
     min-width: unset !important;
     word-break: break-word;
   }
 
+  /* عمود الاسم */
   #overtime-print-table th:first-child,
   #overtime-print-table td:first-child {
-    width: 14%;
+    width: 18%;
     text-align: right;
+    font-weight: 600;
   }
 
+  /* عمود الرقم */
   #overtime-print-table th:nth-child(2),
   #overtime-print-table td:nth-child(2) {
     width: 4%;
   }
 
+  /* عمود المجموع (ما قبل الأخير بمقدار 2) */
+  #overtime-print-table th:nth-last-child(3),
+  #overtime-print-table td:nth-last-child(3) {
+    width: 5%;
+    font-weight: 700;
+  }
+
+  /* عمود سعر الساعة */
+  #overtime-print-table th:nth-last-child(2),
+  #overtime-print-table td:nth-last-child(2) {
+    width: 5%;
+  }
+
+  /* عمود المبلغ الإجمالي */
   #overtime-print-table th:last-child,
   #overtime-print-table td:last-child {
-    width: 5%;
+    width: 7%;
+    font-weight: 700;
+  }
+
+  /* صف رأس الورشة */
+  .print-ws-header td {
+    background-color: #e8eaf6 !important;
+    color: #1a237e !important;
+    font-weight: 700 !important;
+    font-size: 12px !important;
+    padding: 3px 5px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* صف إجمالي الورشة */
+  .print-ws-subtotal td {
+    background-color: #f3f4f6 !important;
+    font-weight: 700 !important;
+    border-top: 2px solid #999 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* صف الإجمالي الكلي */
+  .print-grand-total td {
+    background-color: #dbeafe !important;
+    font-weight: 700 !important;
+    border-top: 3px solid #333 !important;
+    font-size: 12px !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

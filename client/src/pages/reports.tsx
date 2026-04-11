@@ -49,6 +49,7 @@ interface EmployeeReport {
   workshopId: string;
   workshopName: string;
   workRuleId: string;
+  hourlyRate?: string;
   totalDays: number;
   presentDays: number;
   lateDays: number;
@@ -351,10 +352,29 @@ export default function Reports() {
   }, [reportData]);
 
   const employeesWithOvertime = useMemo(() =>
-    overtimeData.filter(emp =>
-      emp.dailyRecords.some(r => r.overtimeHours > 0 || (r.pending && r.status === "holiday"))
-    ),
+    overtimeData
+      .filter(emp => emp.dailyRecords.some(r => r.overtimeHours > 0 || (r.pending && r.status === "holiday")))
+      .sort((a, b) => {
+        const ws = (a.workshopName || "").localeCompare(b.workshopName || "", "ar");
+        if (ws !== 0) return ws;
+        return (a.employeeName || "").localeCompare(b.employeeName || "", "ar");
+      }),
     [overtimeData]);
+
+  const overtimeWorkshopGroups = useMemo(() => {
+    const groups: { workshopName: string; employees: typeof employeesWithOvertime }[] = [];
+    for (const emp of employeesWithOvertime) {
+      const wsName = emp.workshopName || "بدون ورشة";
+      const existing = groups.find(g => g.workshopName === wsName);
+      if (existing) existing.employees.push(emp);
+      else groups.push({ workshopName: wsName, employees: [emp] });
+    }
+    return groups;
+  }, [employeesWithOvertime]);
+
+  function formatDZD(value: number): string {
+    return value.toFixed(2) + " د.ج";
+  }
 
   const allOvertimeDates = useMemo(() => {
     if (!dateFrom || !dateTo) return [];
@@ -702,50 +722,90 @@ export default function Reports() {
                           <div>{d.slice(5).replace("-", "/")}</div>
                         </TableHead>
                       ))}
-                      <TableHead className="sticky left-0 bg-muted/50 z-20 text-center font-bold border-r">المجموع (س)</TableHead>
+                      <TableHead className="sticky left-0 bg-muted/50 z-20 text-center font-bold border-r min-w-[70px]">المجموع (س)</TableHead>
+                      <TableHead className="text-center font-bold text-xs min-w-[90px]">سعر الساعة</TableHead>
+                      <TableHead className="text-center font-bold text-xs min-w-[100px]">المبلغ الإجمالي</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {employeesWithOvertime.map(r => {
-                      const byDate = overtimeDayMap.get(r.employeeId);
-                      const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
-                      return (
-                        <TableRow key={r.employeeId} data-testid={`row-overtime-${r.employeeId}`}>
-                          <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
-                          <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
+                    {overtimeWorkshopGroups.map(({ workshopName: wsName, employees: wsEmps }) => {
+                      const wsOT = wsEmps.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0);
+                      const wsPay = wsEmps.reduce((r, emp) => r + (parseFloat(emp.hourlyRate || "0") * emp.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0)), 0);
+                      const screenColSpan = 2 + currentWeekDates.length + 3;
+                      return [
+                        <TableRow key={`ws-header-${wsName}`} className="bg-indigo-50 dark:bg-indigo-950/40">
+                          <TableCell colSpan={screenColSpan} className="font-bold text-indigo-700 dark:text-indigo-300 py-1.5 text-sm">
+                            ▶ {wsName}
+                          </TableCell>
+                        </TableRow>,
+                        ...wsEmps.map(r => {
+                          const byDate = overtimeDayMap.get(r.employeeId);
+                          const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
+                          const rate = parseFloat(r.hourlyRate || "0");
+                          const totalPay = totalOT * rate;
+                          return (
+                            <TableRow key={r.employeeId} data-testid={`row-overtime-${r.employeeId}`}>
+                              <TableCell className="font-medium sticky right-0 bg-background z-10">{r.employeeName}</TableCell>
+                              <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
+                              {currentWeekDates.map(d => {
+                                const rec = byDate?.get(d);
+                                const ot = rec?.overtimeHours ?? 0;
+                                const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
+                                return (
+                                  <TableCell key={d} className="text-center px-1">
+                                    {ot > 0 ? (
+                                      <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
+                                        title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
+                                        {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
+                                      </span>
+                                    ) : pendingHoliday ? (
+                                      <span className="text-xs text-amber-500 font-semibold"
+                                        title={`دخول: ${rec?.checkIn ?? "—"} | لم يسجّل الخروج بعد`}>؟</span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">—</span>
+                                    )}
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell className="text-center font-bold sticky left-0 bg-background z-10 border-r">
+                                <span className="text-sm text-indigo-700 dark:text-indigo-400">{Math.round(totalOT * 10) / 10}</span>
+                              </TableCell>
+                              <TableCell className="text-center text-xs text-muted-foreground">
+                                {rate > 0 ? formatDZD(rate) : "—"}
+                              </TableCell>
+                              <TableCell className="text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                {rate > 0 && totalOT > 0 ? formatDZD(totalPay) : "—"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }),
+                        <TableRow key={`ws-total-${wsName}`} className="bg-muted/30 border-t">
+                          <TableCell className="sticky right-0 bg-muted/30 z-10 text-xs font-bold text-muted-foreground">إجمالي {wsName}</TableCell>
+                          <TableCell />
                           {currentWeekDates.map(d => {
-                            const rec = byDate?.get(d);
-                            const ot = rec?.overtimeHours ?? 0;
-                            const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
+                            const dayTotal = wsEmps.reduce((s, emp) => {
+                              const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
+                              return s + (rec?.overtimeHours ?? 0);
+                            }, 0);
                             return (
-                              <TableCell key={d} className="text-center px-1">
-                                {ot > 0 ? (
-                                  <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
-                                    title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
-                                    {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
-                                  </span>
-                                ) : pendingHoliday ? (
-                                  <span className="text-xs text-amber-500 font-semibold"
-                                    title={`دخول: ${rec?.checkIn ?? "—"} | لم يسجّل الخروج بعد`}>
-                                    ؟
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
+                              <TableCell key={d} className="text-center text-xs font-bold">
+                                {dayTotal > 0 ? <span className="text-indigo-600 dark:text-indigo-400">{Math.round(dayTotal * 10) / 10}</span> : "—"}
                               </TableCell>
                             );
                           })}
-                          <TableCell className="text-center font-bold sticky left-0 bg-background z-10 border-r">
-                            <span className="text-sm text-indigo-700 dark:text-indigo-400">
-                              {Math.round(totalOT * 10) / 10}
-                            </span>
+                          <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/30 z-10 border-r text-xs">
+                            {Math.round(wsOT * 10) / 10}
                           </TableCell>
-                        </TableRow>
-                      );
+                          <TableCell />
+                          <TableCell className="text-center text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                            {wsPay > 0 ? formatDZD(wsPay) : "—"}
+                          </TableCell>
+                        </TableRow>,
+                      ];
                     })}
-                    {/* Totals row */}
+                    {/* Grand totals row */}
                     <TableRow className="bg-muted/50 font-bold border-t-2">
-                      <TableCell className="sticky right-0 bg-muted/50 z-10 font-bold">الإجمالي</TableCell>
+                      <TableCell className="sticky right-0 bg-muted/50 z-10 font-bold">الإجمالي الكلي</TableCell>
                       <TableCell />
                       {currentWeekDates.map(d => {
                         const dayTotal = employeesWithOvertime.reduce((s, emp) => {
@@ -754,16 +814,20 @@ export default function Reports() {
                         }, 0);
                         return (
                           <TableCell key={d} className="text-center text-xs font-bold">
-                            {dayTotal > 0 ? (
-                              <span className="text-indigo-700 dark:text-indigo-400">
-                                {Math.round(dayTotal * 10) / 10}
-                              </span>
-                            ) : "—"}
+                            {dayTotal > 0 ? <span className="text-indigo-700 dark:text-indigo-400">{Math.round(dayTotal * 10) / 10}</span> : "—"}
                           </TableCell>
                         );
                       })}
                       <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/50 z-10 border-r">
                         {Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="text-center font-bold text-emerald-700 dark:text-emerald-400 text-xs">
+                        {formatDZD(employeesWithOvertime.reduce((s, r) => {
+                          const rate = parseFloat(r.hourlyRate || "0");
+                          const ot = r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0);
+                          return s + rate * ot;
+                        }, 0))}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -772,72 +836,100 @@ export default function Reports() {
 
               {/* ---- Print table: ALL dates, hidden on screen ---- */}
               <div className="hidden print:block" id="overtime-print-table">
+                {/* عنوان الجدول */}
+                <div className="print-title">
+                  <div className="print-title-main">جدول الساعات الإضافية</div>
+                  <div className="print-title-sub">
+                    الفترة: {dateFrom?.slice(5).replace("-", "/")}/{dateFrom?.slice(0,4)} — {dateTo?.slice(5).replace("-", "/")}/{dateTo?.slice(0,4)}
+                  </div>
+                </div>
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="text-right font-bold text-xs">الموظف</TableHead>
-                      <TableHead className="text-center font-bold text-xs">الرقم</TableHead>
+                    <TableRow>
+                      <TableHead className="text-right font-bold">الموظف</TableHead>
+                      <TableHead className="text-center font-bold">الرقم</TableHead>
                       {allOvertimeDates.map(d => (
-                        <TableHead key={d} className="text-center text-[10px] font-medium min-w-[36px] p-0.5">
-                          <div className="text-muted-foreground text-[9px]">{getArabicDay(d)}</div>
-                          <div>{d.slice(5).replace("-", "/")}</div>
+                        <TableHead key={d} className="text-center font-medium p-0.5">
+                          {d.slice(5).replace("-", "/")}
                         </TableHead>
                       ))}
-                      <TableHead className="text-center font-bold text-xs">المجموع (س)</TableHead>
+                      <TableHead className="text-center font-bold">المجموع</TableHead>
+                      <TableHead className="text-center font-bold">سعر/س</TableHead>
+                      <TableHead className="text-center font-bold">المبلغ (د.ج)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {employeesWithOvertime.map(r => {
-                      const byDate = overtimeDayMap.get(r.employeeId);
-                      const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
-                      return (
-                        <TableRow key={r.employeeId}>
-                          <TableCell className="font-medium text-xs">{r.employeeName}</TableCell>
-                          <TableCell className="text-muted-foreground text-[10px] text-center">{r.employeeCode}</TableCell>
-                          {allOvertimeDates.map(d => {
-                            const rec = byDate?.get(d);
-                            const ot = rec?.overtimeHours ?? 0;
-                            const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
-                            return (
-                              <TableCell key={d} className="text-center px-0.5">
-                                {ot > 0 ? (
-                                  <span className="text-[10px] text-indigo-600 font-semibold">
-                                    {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
-                                  </span>
-                                ) : pendingHoliday ? (
-                                  <span className="text-[10px] text-amber-500 font-semibold">؟</span>
-                                ) : (
-                                  <span className="text-[10px] text-muted-foreground">—</span>
-                                )}
-                              </TableCell>
-                            );
-                          })}
-                          <TableCell className="text-center font-bold text-xs">
-                            <span className="text-indigo-700">
-                              {Math.round(totalOT * 10) / 10}
-                            </span>
+                    {overtimeWorkshopGroups.map(({ workshopName: wsName, employees: wsEmps }) => {
+                      const printColSpan = 2 + allOvertimeDates.length + 3;
+                      const wsOT = wsEmps.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0);
+                      const wsPay = wsEmps.reduce((s, r) => s + parseFloat(r.hourlyRate || "0") * r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0);
+                      return [
+                        <TableRow key={`ws-ph-${wsName}`} className="print-ws-header">
+                          <TableCell colSpan={printColSpan} className="font-bold">
+                            ▶ {wsName}
                           </TableCell>
-                        </TableRow>
-                      );
+                        </TableRow>,
+                        ...wsEmps.map(r => {
+                          const byDate = overtimeDayMap.get(r.employeeId);
+                          const totalOT = r.dailyRecords.reduce((s, rec) => s + (rec.overtimeHours || 0), 0);
+                          const rate = parseFloat(r.hourlyRate || "0");
+                          const totalPay = totalOT * rate;
+                          return (
+                            <TableRow key={r.employeeId}>
+                              <TableCell className="font-medium text-right">{r.employeeName}</TableCell>
+                              <TableCell className="text-center">{r.employeeCode}</TableCell>
+                              {allOvertimeDates.map(d => {
+                                const rec = byDate?.get(d);
+                                const ot = rec?.overtimeHours ?? 0;
+                                const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
+                                return (
+                                  <TableCell key={d} className="text-center">
+                                    {ot > 0 ? (ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1))
+                                      : pendingHoliday ? "؟" : "—"}
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell className="text-center font-bold">{Math.round(totalOT * 10) / 10}</TableCell>
+                              <TableCell className="text-center">{rate > 0 ? rate.toFixed(2) : "—"}</TableCell>
+                              <TableCell className="text-center font-bold">{rate > 0 && totalOT > 0 ? totalPay.toFixed(2) : "—"}</TableCell>
+                            </TableRow>
+                          );
+                        }),
+                        <TableRow key={`ws-pt-${wsName}`} className="print-ws-subtotal">
+                          <TableCell className="font-bold text-right" colSpan={2}>إجمالي {wsName}</TableCell>
+                          {allOvertimeDates.map(d => {
+                            const dayTotal = wsEmps.reduce((s, emp) => {
+                              const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
+                              return s + (rec?.overtimeHours ?? 0);
+                            }, 0);
+                            return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.round(dayTotal * 10) / 10 : "—"}</TableCell>;
+                          })}
+                          <TableCell className="text-center font-bold">{Math.round(wsOT * 10) / 10}</TableCell>
+                          <TableCell />
+                          <TableCell className="text-center font-bold">{wsPay > 0 ? wsPay.toFixed(2) : "—"}</TableCell>
+                        </TableRow>,
+                      ];
                     })}
-                    <TableRow className="bg-muted/50 font-bold border-t-2">
-                      <TableCell className="font-bold text-xs">الإجمالي</TableCell>
-                      <TableCell />
+                    {/* Grand total */}
+                    <TableRow className="print-grand-total">
+                      <TableCell className="font-bold text-right" colSpan={2}>الإجمالي الكلي</TableCell>
                       {allOvertimeDates.map(d => {
                         const dayTotal = employeesWithOvertime.reduce((s, emp) => {
                           const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
                           return s + (rec?.overtimeHours ?? 0);
                         }, 0);
-                        return (
-                          <TableCell key={d} className="text-center text-[10px] font-bold">
-                            {dayTotal > 0 ? (
-                              <span className="text-indigo-700">{Math.round(dayTotal * 10) / 10}</span>
-                            ) : "—"}
-                          </TableCell>
-                        );
+                        return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.round(dayTotal * 10) / 10 : "—"}</TableCell>;
                       })}
-                      <TableCell className="text-center font-bold text-xs text-indigo-700">
+                      <TableCell className="text-center font-bold">
                         {Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                      </TableCell>
+                      <TableCell />
+                      <TableCell className="text-center font-bold">
+                        {employeesWithOvertime.reduce((s, r) => {
+                          const rate = parseFloat(r.hourlyRate || "0");
+                          const ot = r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0);
+                          return s + rate * ot;
+                        }, 0).toFixed(2)}
                       </TableCell>
                     </TableRow>
                   </TableBody>

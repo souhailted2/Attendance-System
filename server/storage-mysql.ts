@@ -196,6 +196,7 @@ export class MysqlStorage implements IStorage {
       contractEndDate: data.contractEndDate ?? null,
       nonRenewalDate: data.nonRenewalDate ?? null,
       isActive: data.isActive ?? true,
+      hourlyRate: data.hourlyRate ?? "0",
     });
     const [result] = await mysqlDb.select().from(schema.employees).where(eq(schema.employees.id, id));
     return result as Employee;

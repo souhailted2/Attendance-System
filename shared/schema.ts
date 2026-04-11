@@ -58,6 +58,7 @@ export const employees = pgTable("employees", {
   contractEndDate: text("contract_end_date"),
   nonRenewalDate: text("non_renewal_date"),
   isActive: boolean("is_active").notNull().default(true),
+  hourlyRate: text("hourly_rate").default("0"),
 });
 
 export const attendanceRecords = pgTable("attendance_records", {
@@ -202,6 +203,7 @@ export const insertEmployeeSchema = createInsertSchema(employees).pick({
   contractEndDate: true,
   nonRenewalDate: true,
   isActive: true,
+  hourlyRate: true,
 });
 
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({

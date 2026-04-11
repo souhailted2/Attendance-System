@@ -1350,6 +1350,7 @@ export async function registerRoutes(
           workshopId: emp.workshopId || "",
           workshopName: workshop?.name || "",
           workRuleId: emp.workRuleId || "",
+          hourlyRate: emp.hourlyRate || "0",
           totalDays: dailyRecords.length,
           presentDays: dailyRecords.filter(r => r.status === "present").length,
           lateDays: dailyRecords.filter(r => r.status === "late").length,

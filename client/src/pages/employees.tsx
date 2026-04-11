@@ -39,6 +39,7 @@ export default function Employees() {
   const [shift, setShift] = useState("morning");
   const [contractEndDate, setContractEndDate] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [hourlyRate, setHourlyRate] = useState("0");
 
   const { data: employees, isLoading } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: companies } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
@@ -71,7 +72,7 @@ export default function Employees() {
   function resetForm() {
     setName(""); setEmployeeCode(""); setCardNumber(""); setPositionId(""); setWorkRuleId("");
     setCompanyId(""); setWorkshopId(""); setPhone("");
-    setShift("morning"); setContractEndDate(""); setIsActive(true);
+    setShift("morning"); setContractEndDate(""); setIsActive(true); setHourlyRate("0");
     setEditingEmployee(null);
   }
 
@@ -88,6 +89,7 @@ export default function Employees() {
     setShift(emp.shift || "morning");
     setContractEndDate(emp.contractEndDate || "");
     setIsActive(emp.isActive);
+    setHourlyRate(emp.hourlyRate || "0");
     setOpen(true);
   }
 
@@ -104,6 +106,7 @@ export default function Employees() {
       shift,
       contractEndDate: contractEndDate || null,
       isActive,
+      hourlyRate: hourlyRate || "0",
     };
     if (editingEmployee) {
       updateMutation.mutate({ id: editingEmployee.id, data });
@@ -226,6 +229,10 @@ export default function Employees() {
                   <div className="space-y-2">
                     <Label>تاريخ انتهاء العقد</Label>
                     <Input type="date" value={contractEndDate} onChange={(e) => setContractEndDate(e.target.value)} data-testid="input-contract-end" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>سعر الساعة (د.ج)</Label>
+                    <Input type="number" min="0" step="0.01" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} data-testid="input-hourly-rate" placeholder="0.00" />
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
