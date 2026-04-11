@@ -123,7 +123,7 @@ function AppShell() {
       <div className="flex h-screen w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 min-w-0">
-          <header className="flex items-center justify-between gap-2 p-2 border-b">
+          <header className="flex items-center justify-between gap-2 p-2 border-b border-border/60 bg-white/60 dark:bg-black/20 backdrop-blur-md">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <ThemeToggle />
           </header>

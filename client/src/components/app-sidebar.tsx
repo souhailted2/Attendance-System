@@ -58,18 +58,24 @@ export function AppSidebar() {
     <Sidebar side="right">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary">
-            <ClipboardCheck className="h-5 w-5 text-primary-foreground" />
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
+            style={{
+              background: "linear-gradient(135deg, hsl(43 96% 52%), hsl(36 90% 58%))",
+              boxShadow: "0 4px 14px hsl(43 96% 52% / 0.45)",
+            }}
+          >
+            <ClipboardCheck className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-sm font-semibold" data-testid="text-app-title">نظام الحضور</h2>
-            <p className="text-xs text-muted-foreground">إدارة الحضور والانصراف</p>
+            <h2 className="text-sm font-bold" data-testid="text-app-title">نظام الحضور</h2>
+            <p className="text-[11px] text-muted-foreground">إدارة الحضور والانصراف</p>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>الرئيسية</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide uppercase opacity-60">الرئيسية</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {mainItems.map((item) => (
@@ -133,7 +139,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>الإعدادات</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide uppercase opacity-60">الإعدادات</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsItems.map((item) => (
@@ -155,7 +161,7 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>أدوات</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-[11px] font-semibold tracking-wide uppercase opacity-60">أدوات</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {toolsItems.map((item) => (
@@ -190,10 +196,16 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter className="p-3 border-t">
+      <SidebarFooter className="p-3 border-t border-sidebar-border/50">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <div
+              className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
+              style={{
+                background: "linear-gradient(135deg, hsl(271 76% 45% / 0.15), hsl(271 76% 45% / 0.25))",
+                border: "1px solid hsl(271 76% 45% / 0.25)",
+              }}
+            >
               <Users className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">
