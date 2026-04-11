@@ -39,7 +39,7 @@ export default function Favorites() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-20 gap-3">
             <Star className="h-14 w-14 text-muted-foreground/30" />
-            <p className="text-lg font-medium text-muted-foreground">لا يوجد موظفون في المفضلة</p>
+            <p className="text-lg font-medium text-muted-foreground">لم تقم بإضافة أي موظف للمفضلة بعد</p>
             <p className="text-sm text-muted-foreground text-center max-w-xs">
               اذهب إلى صفحة الموظفين واضغط على أيقونة النجمة ⭐ بجانب أي موظف لإضافته هنا
             </p>
