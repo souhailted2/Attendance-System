@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { FavoritesContext, useFavoritesProvider } from "@/hooks/use-favorites";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Employees from "@/pages/employees";
@@ -131,13 +132,24 @@ function AppShell() {
   );
 }
 
+function FavoritesWrapper({ children }: { children: React.ReactNode }) {
+  const favValue = useFavoritesProvider();
+  return (
+    <FavoritesContext.Provider value={favValue}>
+      {children}
+    </FavoritesContext.Provider>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <AuthProvider>
-            <AppShell />
+            <FavoritesWrapper>
+              <AppShell />
+            </FavoritesWrapper>
           </AuthProvider>
           <Toaster />
         </TooltipProvider>
