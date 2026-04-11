@@ -11,11 +11,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { useFavorites } from "@/hooks/use-favorites";
+import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 
 export default function Employees() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isOwner = user?.username === "owner";
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [search, setSearch] = useState("");
   const [filterWorkshop, setFilterWorkshop] = useState("all");
   const [filterCompany, setFilterCompany] = useState("all");
@@ -347,6 +352,18 @@ export default function Employees() {
                       </Badge>
                       {emp.contractEndDate && (
                         <span className="text-xs text-muted-foreground hidden md:block">{emp.contractEndDate}</span>
+                      )}
+                      {isOwner && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(emp.id); }}
+                          data-testid={`button-favorite-${emp.id}`}
+                          title={isFavorite(emp.id) ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
+                          className="h-8 w-8"
+                        >
+                          <Star className={`h-4 w-4 transition-colors ${isFavorite(emp.id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                        </Button>
                       )}
                       <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-${emp.id}`}>
                         <Pencil className="h-4 w-4" />

@@ -1016,6 +1016,7 @@ export async function registerRoutes(
       const to = req.query.to as string;
       const workRuleId = req.query.workRuleId as string | undefined;
       const workshopId = req.query.workshopId as string | undefined;
+      const employeeId = req.query.employeeId as string | undefined;
 
       if (!from || !to) return res.status(400).json({ message: "from and to dates required" });
       if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to))
@@ -1082,6 +1083,7 @@ export async function registerRoutes(
       let filteredEmployees = allEmployees.filter(e => e.isActive);
       if (workRuleId) filteredEmployees = filteredEmployees.filter(e => e.workRuleId === workRuleId);
       if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
+      if (employeeId) filteredEmployees = filteredEmployees.filter(e => e.id === employeeId);
 
       const report = filteredEmployees.map(emp => {
         const workRule = allWorkRules.find(r => r.id === emp.workRuleId) || allWorkRules.find(r => r.isDefault) || allWorkRules[0];
