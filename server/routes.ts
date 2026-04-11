@@ -730,6 +730,15 @@ export async function registerRoutes(
     res.json(emp);
   });
 
+  app.patch("/api/employees/:id/hourly-rate", async (req, res) => {
+    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح — المالك فقط" });
+    const { hourlyRate } = req.body;
+    if (typeof hourlyRate !== "string") return res.status(400).json({ message: "hourlyRate مطلوب" });
+    const emp = await storage.updateEmployee(req.params.id, { hourlyRate });
+    if (!emp) return res.status(404).json({ message: "Not found" });
+    res.json(emp);
+  });
+
   // SSE endpoint — يستمع المتصفح هنا لأي حركة جديدة
   app.get("/api/attendance/events", (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");

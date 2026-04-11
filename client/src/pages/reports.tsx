@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -154,6 +154,7 @@ export default function Reports() {
   const [editForm, setEditForm] = useState({ status: "present", checkIn: "", checkOut: "" });
   const [overtimeWeekIndex, setOvertimeWeekIndex] = useState(0);
   const [editingRate, setEditingRate] = useState<{ employeeId: string; value: string } | null>(null);
+  const rateEscapedRef = useRef(false);
 
   useEffect(() => { setOvertimeWeekIndex(0); }, [dateFrom, dateTo]);
 
@@ -207,13 +208,14 @@ export default function Reports() {
 
   const saveRateMutation = useMutation({
     mutationFn: ({ employeeId, hourlyRate }: { employeeId: string; hourlyRate: string }) =>
-      apiRequest("PATCH", `/api/employees/${employeeId}`, { hourlyRate }),
+      apiRequest("PATCH", `/api/employees/${employeeId}/hourly-rate`, { hourlyRate }),
     onSuccess: (_data, { employeeId, hourlyRate }) => {
       queryClient.setQueryData(
         ["/api/reports/range", dateFrom, dateTo, "overtime"],
         (old: EmployeeReport[] | undefined) =>
           old?.map(r => r.employeeId === employeeId ? { ...r, hourlyRate } : r) ?? []
       );
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       setEditingRate(null);
       toast({ description: "تم حفظ سعر الساعة بنجاح" });
     },
@@ -810,9 +812,12 @@ export default function Reports() {
                                       onChange={e => setEditingRate({ employeeId: r.employeeId, value: e.target.value })}
                                       onKeyDown={e => {
                                         if (e.key === "Enter") commitRate(r.employeeId, editingRate.value);
-                                        if (e.key === "Escape") setEditingRate(null);
+                                        if (e.key === "Escape") { rateEscapedRef.current = true; setEditingRate(null); }
                                       }}
-                                      onBlur={() => commitRate(r.employeeId, editingRate.value)}
+                                      onBlur={() => {
+                                        if (rateEscapedRef.current) { rateEscapedRef.current = false; return; }
+                                        commitRate(r.employeeId, editingRate.value);
+                                      }}
                                       data-testid={`input-hourly-rate-${r.employeeId}`}
                                     />
                                   </div>
