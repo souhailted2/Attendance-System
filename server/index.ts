@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
+import MySQLStoreFactory from "express-mysql-session";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -26,10 +27,33 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
+const dbUrl = process.env.DATABASE_URL || "";
+const isMySql = dbUrl.startsWith("mysql2://") || dbUrl.startsWith("mysql://");
+
+let sessionStore: session.Store | undefined;
+if (isMySql) {
+  const MySQLStore = MySQLStoreFactory(session);
+  const mysqlMatch = dbUrl.match(/mysql2?:\/\/([^:]+):([^@]+)@([^:\/]+):?(\d*)\/(.+)/);
+  if (mysqlMatch) {
+    sessionStore = new MySQLStore({
+      host: mysqlMatch[3],
+      port: mysqlMatch[4] ? parseInt(mysqlMatch[4]) : 3306,
+      user: mysqlMatch[1],
+      password: mysqlMatch[2],
+      database: mysqlMatch[5],
+      clearExpired: true,
+      checkExpirationInterval: 900000,
+      expiration: 7 * 24 * 60 * 60 * 1000,
+      createDatabaseTable: true,
+    }) as unknown as session.Store;
+  }
+}
+
 app.use(session({
   secret: process.env.SESSION_SECRET || "fallback-secret-change-me",
   resave: false,
   saveUninitialized: false,
+  store: sessionStore,
   cookie: {
     httpOnly: true,
     secure: false,

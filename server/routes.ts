@@ -731,12 +731,17 @@ export async function registerRoutes(
   });
 
   app.patch("/api/employees/:id/hourly-rate", async (req, res) => {
-    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح — المالك فقط" });
-    const { hourlyRate } = req.body;
-    if (typeof hourlyRate !== "string") return res.status(400).json({ message: "hourlyRate مطلوب" });
-    const emp = await storage.updateEmployee(req.params.id, { hourlyRate });
-    if (!emp) return res.status(404).json({ message: "Not found" });
-    res.json(emp);
+    try {
+      if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح — المالك فقط" });
+      const { hourlyRate } = req.body;
+      if (!hourlyRate && hourlyRate !== "0") return res.status(400).json({ message: "hourlyRate مطلوب" });
+      const emp = await storage.updateEmployee(req.params.id, { hourlyRate: String(hourlyRate) });
+      if (!emp) return res.status(404).json({ message: "Not found" });
+      res.json(emp);
+    } catch (err) {
+      console.error("[hourly-rate] ERROR:", err);
+      res.status(500).json({ message: "خطأ في الخادم" });
+    }
   });
 
   // SSE endpoint — يستمع المتصفح هنا لأي حركة جديدة
