@@ -1,6 +1,12 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
+
+function setNoCacheHeaders(res: Response) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+}
 
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
@@ -10,21 +16,15 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath, {
-    setHeaders(res, filePath) {
-      if (filePath.endsWith("index.html")) {
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
-      }
-    },
-  }));
+  const indexHtmlPath = path.resolve(distPath, "index.html");
 
-  // fall through to index.html if the file doesn't exist
-  app.use("/{*path}", (_req, res) => {
-    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.sendFile(path.resolve(distPath, "index.html"));
+  // Serve static assets (JS, CSS, images) WITHOUT serving index.html
+  // index: false prevents express.static from serving index.html for directory requests
+  app.use(express.static(distPath, { index: false }));
+
+  // All non-asset routes serve index.html with strict no-cache headers
+  app.use("/{*path}", (_req: Request, res: Response) => {
+    setNoCacheHeaders(res);
+    res.sendFile(indexHtmlPath);
   });
 }
