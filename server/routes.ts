@@ -730,6 +730,18 @@ export async function registerRoutes(
     res.json(emp);
   });
 
+  app.delete("/api/employees/:id", async (req, res) => {
+    try {
+      const emp = await storage.getEmployee(req.params.id);
+      if (!emp) return res.status(404).json({ message: "الموظف غير موجود" });
+      await storage.deleteEmployee(req.params.id);
+      res.json({ message: "تم حذف الموظف بنجاح" });
+    } catch (err) {
+      console.error("[delete-employee] ERROR:", err);
+      res.status(500).json({ message: "خطأ في الخادم أثناء حذف الموظف" });
+    }
+  });
+
   app.patch("/api/employees/:id/hourly-rate", async (req, res) => {
     try {
       if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح — المالك فقط" });

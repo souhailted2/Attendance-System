@@ -208,6 +208,11 @@ export class MysqlStorage implements IStorage {
     return result as Employee | undefined;
   }
 
+  async deleteEmployee(id: string): Promise<void> {
+    await mysqlDb.delete(schema.attendanceRecords).where(eq(schema.attendanceRecords.employeeId, id));
+    await mysqlDb.delete(schema.employees).where(eq(schema.employees.id, id));
+  }
+
   async getAttendanceById(id: string): Promise<AttendanceRecord | undefined> {
     const [record] = await mysqlDb.select().from(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
     return record as AttendanceRecord | undefined;
