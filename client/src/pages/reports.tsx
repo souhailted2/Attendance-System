@@ -492,22 +492,87 @@ export default function Reports() {
 
   function exportReportToExcel() {
     if (!reportData.length) return;
-    const rows = reportData.map((r) => ({
-      "الاسم": r.employeeName,
-      "الرقم": r.employeeCode,
-      "الورشة": r.workshopName,
-      "إجمالي الأيام": r.totalDays,
-      "حاضر": r.presentDays,
-      "متأخر": r.lateDays,
-      "غائب": r.absentDays,
-      "إجازة": r.leaveDays,
-      "دقائق التأخر": r.totalLateMinutes,
-      "إجمالي الساعات": r.totalHours,
-      "نقاط الالتزام": r.attendanceScore.toFixed(2),
-    }));
-    const ws = XLSX.utils.json_to_sheet(rows);
+
+    const statusSymbol: Record<string, string> = {
+      present: "ح", late: "ت", absent: "غ",
+      leave: "إج", holiday: "ع", rest: "ر",
+    };
+    const DAY_SHORT = ["أح", "إث", "ثل", "أر", "خم", "جم", "سب"];
+
+    // Group employees by workshopName
+    const groups = new Map<string, EmployeeReport[]>();
+    for (const emp of reportData) {
+      const wsName = emp.workshopName || "بدون ورشة";
+      if (!groups.has(wsName)) groups.set(wsName, []);
+      groups.get(wsName)!.push(emp);
+    }
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "التقرير");
+
+    for (const [workshopName, emps] of groups) {
+      // Collect all dates for this workshop group
+      const dateSet = new Set<string>();
+      for (const emp of emps) {
+        for (const rec of emp.dailyRecords) dateSet.add(rec.date);
+      }
+      const dates = [...dateSet].sort();
+
+      // Row 1 — title
+      const titleCell = `${workshopName} — ${selectedRule?.name ?? ""} — ${dateFrom} إلى ${dateTo}`;
+
+      // Row 2 — column headers
+      const headers = [
+        "الموظف", "الرقم",
+        ...dates.map((d) => {
+          const dow = new Date(d + "T00:00:00").getDay();
+          return `${DAY_SHORT[dow]} ${d.slice(5).replace("-", "/")}`;
+        }),
+        "الإجمالي",
+      ];
+
+      // Employee rows
+      const empRows = emps.map((emp) => {
+        const byDate = new Map<string, DailyRecord>();
+        for (const rec of emp.dailyRecords) byDate.set(rec.date, rec);
+
+        const dayCells = dates.map((d) => {
+          const rec = byDate.get(d);
+          if (!rec) return "غ";
+          const sym = statusSymbol[rec.status] ?? rec.status;
+          return rec.checkIn ? `${sym} ${rec.checkIn}` : sym;
+        });
+
+        return [emp.employeeName, emp.employeeCode, ...dayCells, emp.attendanceScore.toFixed(2)];
+      });
+
+      // Total row — sum of dailyScore per day + sum of attendanceScore
+      const totalRow = [
+        "المجموع", "",
+        ...dates.map((d) => {
+          const sum = emps.reduce((s, emp) => {
+            const rec = emp.dailyRecords.find((r) => r.date === d);
+            return s + (rec?.dailyScore ?? 0);
+          }, 0);
+          return sum.toFixed(2);
+        }),
+        emps.reduce((s, emp) => s + emp.attendanceScore, 0).toFixed(2),
+      ];
+
+      const aoa = [[titleCell], headers, ...empRows, totalRow];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Set column widths: name col wider, date cols narrow
+      ws["!cols"] = [
+        { wch: 20 }, { wch: 8 },
+        ...dates.map(() => ({ wch: 10 })),
+        { wch: 10 },
+      ];
+
+      // Sheet name limited to 31 chars (Excel limit)
+      const sheetName = workshopName.slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    }
+
     const filename = `تقرير_الحضور_${dateFrom}_${dateTo}.xlsx`;
     XLSX.writeFile(wb, filename);
   }
