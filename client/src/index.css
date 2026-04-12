@@ -609,12 +609,13 @@ tr:hover td {
    ============================================= */
 @media print {
   @page {
-    size: 297mm 210mm;
-    margin: 5mm;
+    size: A4 portrait;
+    margin: 12mm 10mm;
   }
 
   body * { visibility: hidden; }
 
+  /* ---- Overtime table print ---- */
   #overtime-print-table,
   #overtime-print-table * { visibility: visible; }
 
@@ -624,6 +625,103 @@ tr:hover td {
     direction: rtl;
     font-size: 11px;
     overflow: visible !important;
+  }
+
+  /* ---- Employee attendance print ---- */
+  #employee-print-content,
+  #employee-print-content * { visibility: visible; }
+
+  #employee-print-content {
+    position: absolute;
+    inset: 0;
+    direction: rtl;
+    font-size: 11px;
+    background: #fff !important;
+    color: #111 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  #employee-print-header {
+    display: block !important;
+    visibility: visible;
+    text-align: center;
+    border-bottom: 2px solid #333;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  .print-emp-org {
+    font-size: 11px;
+    color: #555;
+    margin-bottom: 2px;
+  }
+
+  .print-emp-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 3px;
+  }
+
+  .print-emp-meta {
+    font-size: 10px;
+    color: #666;
+    margin-bottom: 1px;
+  }
+
+  #employee-print-content .print\:hidden,
+  #employee-print-content [class*="print:hidden"] {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  #employee-print-content table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+
+  #employee-print-content th,
+  #employee-print-content td {
+    border: 1px solid #bbb;
+    padding: 3px 4px;
+    text-align: right;
+  }
+
+  #employee-print-content th {
+    background-color: #e8eaf6 !important;
+    color: #1a237e !important;
+    font-weight: 700;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #employee-print-content tr:nth-child(even) td {
+    background-color: #f9f9fb !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  #employee-print-content .shadow-sm,
+  #employee-print-content .shadow,
+  #employee-print-content .shadow-md {
+    box-shadow: none !important;
+  }
+
+  #employee-print-content button,
+  #employee-print-content [role="button"] {
+    display: none !important;
+  }
+
+  #employee-print-content input,
+  #employee-print-content select {
+    display: none !important;
+  }
+
+  #employee-print-content [data-sidebar] {
+    display: none !important;
   }
 
   .print-title {

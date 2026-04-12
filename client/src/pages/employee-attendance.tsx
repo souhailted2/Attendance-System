@@ -17,7 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronRight, Calendar, Pencil, Trash2, Plus, Clock, User, Building2,
-  CreditCard, CheckCircle2, XCircle, AlarmClock, Umbrella, Timer, FileSpreadsheet,
+  CreditCard, CheckCircle2, XCircle, AlarmClock, Umbrella, Timer, FileSpreadsheet, Printer,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import type { Employee, Workshop, Position } from "@shared/schema";
@@ -297,10 +297,28 @@ export default function EmployeeAttendancePage() {
     XLSX.writeFile(wb, filename);
   }
 
+  const arabicDateRange = `${dateFrom} — ${dateTo}`;
+  const printDate = new Date().toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+
   return (
-    <div className="p-6 space-y-5" dir="rtl">
+    <div className="p-6 space-y-5" dir="rtl" id="employee-print-content">
+
+      {/* Print-only header — hidden on screen, visible only when printing */}
+      <div id="employee-print-header" className="hidden" aria-hidden="true">
+        <div className="print-emp-org">نظام إدارة الحضور والانصراف</div>
+        <div className="print-emp-title">{employee?.name ?? ""}</div>
+        <div className="print-emp-meta">
+          {employee && <>كود: {employee.employeeCode}</>}
+          {workshop && <> &nbsp;|&nbsp; ورشة: {workshop.name}</>}
+          {position && <> &nbsp;|&nbsp; منصب: {position.name}</>}
+        </div>
+        <div className="print-emp-meta">
+          الفترة: {arabicDateRange} &nbsp;|&nbsp; تاريخ الطباعة: {printDate}
+        </div>
+      </div>
+
       {/* Header — Employee Profile Card */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-4 print:hidden">
         <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate("/employees")} data-testid="button-back">
           <ChevronRight className="h-5 w-5" />
         </Button>
@@ -378,6 +396,16 @@ export default function EmployeeAttendancePage() {
                   تصدير Excel
                 </Button>
               )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.print()}
+                className="text-slate-700 border-slate-300 hover:bg-slate-50 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-800/50"
+                data-testid="button-print-employee"
+              >
+                <Printer className="h-4 w-4 ml-2" />
+                طباعة
+              </Button>
             </div>
           </div>
         ) : (
@@ -386,7 +414,7 @@ export default function EmployeeAttendancePage() {
       </div>
 
       {/* Date filter */}
-      <Card>
+      <Card className="print:hidden">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex gap-1">
@@ -536,7 +564,7 @@ export default function EmployeeAttendancePage() {
                     <th className="p-3 text-right font-medium">الحالة</th>
                     <th className="p-3 text-right font-medium">التأخر</th>
                     <th className="p-3 text-right font-medium">الدرجة</th>
-                    <th className="p-3 text-center font-medium">تعديل</th>
+                    <th className="p-3 text-center font-medium print:hidden">تعديل</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -565,7 +593,7 @@ export default function EmployeeAttendancePage() {
                         ) : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="p-3 font-mono text-xs">{rec.dailyScore.toFixed(2)}</td>
-                      <td className="p-3 text-center">
+                      <td className="p-3 text-center print:hidden">
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(rec)} data-testid={`button-edit-attendance-${rec.date}`}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
