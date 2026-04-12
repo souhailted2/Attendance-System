@@ -2928,11 +2928,6 @@ export async function registerRoutes(
           }
 
           if (!cancelled) {
-            // تحقق من وجود شرط غياب أيام أسبوع محدد (أولوية على العام)
-            const hasWeekdayCond = conditions.some(
-              c => c.conditionType === "absence" && c.absenceMode === "weekday"
-            );
-
             for (const cond of conditions) {
               if (cancelled) break;
               if (cond.conditionType === "violations_exceed") continue;
@@ -2942,7 +2937,6 @@ export async function registerRoutes(
 
               if (cond.conditionType === "absence") {
                 if (cond.absenceMode === "count") {
-                  if (hasWeekdayCond) continue; // الشرط المحدد يلغي العام
                   triggered = absenceThresholdMet(absentDays, cond.daysThreshold ?? null);
                 } else if (cond.absenceMode === "weekday") {
                   let weekdays: string[] = [];
