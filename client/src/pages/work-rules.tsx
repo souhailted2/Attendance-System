@@ -9,9 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Scale } from "lucide-react";
+import { Plus, Scale, Pencil, Trash2 } from "lucide-react";
+import { RowActions } from "@/components/row-actions";
 import type { WorkRule } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 
@@ -208,28 +208,24 @@ export default function WorkRules() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(rule)} data-testid={`button-edit-${rule.id}`}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="ghost" data-testid={`button-delete-${rule.id}`}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                          <AlertDialogDescription>هل أنت متأكد من حذف هذه القاعدة؟</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteMutation.mutate(rule.id)} data-testid="button-confirm-delete">حذف</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                  <RowActions
+                    testId={`button-actions-${rule.id}`}
+                    actions={[
+                      {
+                        label: "تعديل",
+                        icon: <Pencil className="h-3.5 w-3.5" />,
+                        onClick: () => openEdit(rule),
+                      },
+                      {
+                        label: "حذف",
+                        icon: <Trash2 className="h-3.5 w-3.5" />,
+                        onClick: () => deleteMutation.mutate(rule.id),
+                        destructive: true,
+                        confirmTitle: "تأكيد الحذف",
+                        confirmDescription: "هل أنت متأكد من حذف هذه القاعدة؟",
+                      },
+                    ]}
+                  />
                 </div>
               </CardContent>
             </Card>

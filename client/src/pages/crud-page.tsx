@@ -7,10 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { RowActions } from "@/components/row-actions";
 
 interface CrudPageProps {
   title: string;
@@ -149,28 +149,24 @@ export default function CrudPage({ title, apiPath, icon: Icon, fields }: CrudPag
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="icon" variant="ghost" onClick={() => openEdit(item)} data-testid={`button-edit-${item.id}`}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="ghost" data-testid={`button-delete-${item.id}`}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                          <AlertDialogDescription>هل أنت متأكد من حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteMutation.mutate(item.id)} data-testid="button-confirm-delete">حذف</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                  <RowActions
+                    testId={`button-actions-${item.id}`}
+                    actions={[
+                      {
+                        label: "تعديل",
+                        icon: <Pencil className="h-3.5 w-3.5" />,
+                        onClick: () => openEdit(item),
+                      },
+                      {
+                        label: "حذف",
+                        icon: <Trash2 className="h-3.5 w-3.5" />,
+                        onClick: () => deleteMutation.mutate(item.id),
+                        destructive: true,
+                        confirmTitle: "تأكيد الحذف",
+                        confirmDescription: "هل أنت متأكد من حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.",
+                      },
+                    ]}
+                  />
                 </div>
               </CardContent>
             </Card>

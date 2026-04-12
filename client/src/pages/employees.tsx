@@ -13,9 +13,10 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/use-favorites";
-import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star } from "lucide-react";
+import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star, UserCheck, UserX } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
+import { RowActions } from "@/components/row-actions";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -85,6 +86,16 @@ export default function Employees() {
       toast({ title: "تم تحديث بيانات الموظف" });
       resetForm();
       setOpen(false);
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiRequest("PATCH", `/api/employees/${id}`, { isActive }),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      toast({ title: vars.isActive ? "تم تفعيل الموظف" : "تم تعطيل الموظف" });
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
@@ -383,21 +394,28 @@ export default function Employees() {
                       {emp.contractEndDate && (
                         <span className="text-xs text-muted-foreground hidden md:block">{emp.contractEndDate}</span>
                       )}
-                      {isOwner && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => { e.stopPropagation(); toggleFavorite(emp.id); }}
-                          data-testid={`button-favorite-${emp.id}`}
-                          title={isFavorite(emp.id) ? "إزالة من المفضلة" : "إضافة إلى المفضلة"}
-                          className="h-8 w-8"
-                        >
-                          <Star className={`h-4 w-4 transition-colors ${isFavorite(emp.id) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
-                        </Button>
-                      )}
-                      <Button size="icon" variant="ghost" onClick={() => openEdit(emp)} data-testid={`button-edit-${emp.id}`}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <RowActions
+                        testId={`button-actions-${emp.id}`}
+                        actions={[
+                          {
+                            label: "تعديل",
+                            icon: <Pencil className="h-3.5 w-3.5" />,
+                            onClick: () => openEdit(emp),
+                          },
+                          {
+                            label: emp.isActive ? "تعطيل" : "تفعيل",
+                            icon: emp.isActive
+                              ? <UserX className="h-3.5 w-3.5" />
+                              : <UserCheck className="h-3.5 w-3.5" />,
+                            onClick: () => toggleActiveMutation.mutate({ id: emp.id, isActive: !emp.isActive }),
+                          },
+                          ...(isOwner ? [{
+                            label: isFavorite(emp.id) ? "إزالة من المفضلة" : "إضافة للمفضلة",
+                            icon: <Star className="h-3.5 w-3.5" />,
+                            onClick: () => toggleFavorite(emp.id),
+                          }] : []),
+                        ]}
+                      />
                     </div>
                   </div>
                 </CardContent>

@@ -16,7 +16,6 @@ import Employees from "@/pages/employees";
 import Attendance from "@/pages/attendance";
 import Reports from "@/pages/reports";
 import WorkRules from "@/pages/work-rules";
-import Devices from "@/pages/devices";
 import ImportData from "@/pages/import-data";
 import CrudPage from "@/pages/crud-page";
 import AgentSettings from "@/pages/agent-settings";
@@ -40,7 +39,6 @@ const routeLabels: Record<string, string> = {
   "/positions": "المناصب",
   "/shifts": "الفترات",
   "/work-rules": "قواعد العمل",
-  "/devices": "الأجهزة",
   "/import": "استيراد البيانات",
   "/agent-settings": "إعدادات Agent",
   "/activity-log": "سجل النشاطات",
@@ -182,7 +180,6 @@ function Router() {
       </Route>
       <Route path="/shifts" component={Shifts} />
       <Route path="/work-rules" component={WorkRules} />
-      <Route path="/devices" component={Devices} />
       <Route path="/import" component={ImportData} />
       <Route path="/agent-settings" component={AgentSettings} />
       <Route path="/activity-log">
