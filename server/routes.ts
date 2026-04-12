@@ -2726,6 +2726,208 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // ---- Grants Report (تقرير المنح) ----
+  // GET /api/grants/report?month=YYYY-MM[&grantId=ID]
+  app.get("/api/grants/report", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const month = req.query.month as string;
+      const grantId = (req.query.grantId as string) || "all";
+
+      if (!month || !/^\d{4}-\d{2}$/.test(month))
+        return res.status(400).json({ message: "month يجب أن يكون بتنسيق YYYY-MM" });
+
+      const [year, monthNum] = month.split("-").map(Number);
+      const from = `${month}-01`;
+      const daysInMonth = new Date(year, monthNum, 0).getDate();
+      const to = `${month}-${String(daysInMonth).padStart(2, "0")}`;
+
+      const [allGrantsRaw, allEmployees, allWorkshops, allWorkRules, records, offDaySetting] = await Promise.all([
+        storage.getGrants(),
+        storage.getEmployees(),
+        storage.getWorkshops(),
+        storage.getWorkRules(),
+        storage.getAttendanceByDateRange(from, to),
+        storage.getAppSetting("weeklyOffDays"),
+      ]);
+
+      const targetGrants = grantId === "all"
+        ? allGrantsRaw
+        : allGrantsRaw.filter(g => g.id === grantId);
+      if (!targetGrants.length) return res.json([]);
+
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
+      const activeEmployees = allEmployees.filter(e => e.isActive);
+      const workshopsMap = new Map(allWorkshops.map(w => [w.id, w]));
+      const workRulesMap = new Map(allWorkRules.map(r => [r.id, r]));
+      const defaultRule = allWorkRules.find(r => r.isDefault) ?? allWorkRules[0];
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      // Build date list for the month
+      const allDates: string[] = [];
+      { const cur = new Date(from + "T00:00:00"); const end = new Date(to + "T00:00:00");
+        while (cur <= end) { allDates.push(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
+      }
+      const holidayDateSet = new Set<string>(
+        allDates.filter(d => weeklyOffDays.includes(new Date(d + "T00:00:00").getDay()))
+      );
+
+      const recordsByEmployee = new Map<string, typeof records>();
+      for (const rec of records) {
+        const list = recordsByEmployee.get(rec.employeeId);
+        if (list) list.push(rec);
+        else recordsByEmployee.set(rec.employeeId, [rec]);
+      }
+
+      function timeToMinLocal(t: string | null): number | null {
+        if (!t) return null;
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+
+      interface GrantReportRow {
+        employeeId: string; employeeName: string; employeeCode: string; workshopName: string;
+        grantId: string; grantName: string; grantType: string;
+        baseAmount: number; finalAmount: number; cancelled: boolean;
+      }
+
+      const results: GrantReportRow[] = [];
+
+      for (const grant of targetGrants) {
+        let targetEmps = activeEmployees;
+        if (grant.targetType === "shift") {
+          targetEmps = activeEmployees.filter(e => (e.shift || "morning") === grant.shiftValue);
+        } else if (grant.targetType === "workshop") {
+          targetEmps = activeEmployees.filter(e => e.workshopId === grant.workshopId);
+        } else if (grant.targetType === "employee") {
+          let empIds: string[] = [];
+          try { empIds = JSON.parse(grant.employeeIds ?? "[]"); } catch { empIds = []; }
+          targetEmps = activeEmployees.filter(e => empIds.includes(e.id));
+        }
+
+        const baseAmount = parseFloat(grant.amount);
+        const conditions = grant.conditions;
+
+        for (const emp of targetEmps) {
+          const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
+          const workshop = workshopsMap.get(emp.workshopId ?? "");
+          const is24h = workRule?.is24hShift ?? false;
+          const lateGrace = workRule?.lateGraceMinutes ?? 0;
+          const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
+          const workStartMin = timeToMinLocal(workRule?.workStartTime ?? "08:00")!;
+          const workEndMin = timeToMinLocal(workRule?.workEndTime ?? "16:00")!;
+          const checkoutEarliestMin = workRule?.checkoutEarliestTime
+            ? timeToMinLocal(workRule.checkoutEarliestTime) : null;
+          const earlyLeaveRefMin = checkoutEarliestMin ?? workEndMin;
+
+          const empRecords = recordsByEmployee.get(emp.id) ?? [];
+          const empRecordsByDate = new Map(empRecords.map(r => [r.date, r]));
+
+          let absentDays = 0;
+          let lateDays = 0;
+          let totalLateMinutes = 0;
+          let totalEarlyLeaveMinutes = 0;
+          const weekdayAbsences: Record<number, number> = {};
+
+          for (const date of allDates) {
+            if (date > todayStr) continue;
+            const dow = new Date(date + "T00:00:00").getDay();
+            const isHoliday = !is24h && holidayDateSet.has(date);
+            if (isHoliday) continue;
+
+            const rec = empRecordsByDate.get(date);
+            if (!rec || rec.status === "absent") {
+              absentDays++;
+              weekdayAbsences[dow] = (weekdayAbsences[dow] || 0) + 1;
+            } else if (rec.status === "present" || rec.status === "late") {
+              const checkInMin = timeToMinLocal(rec.checkIn);
+              if (checkInMin !== null) {
+                const rawLate = Math.max(0, checkInMin - workStartMin);
+                const effLate = Math.max(0, rawLate - lateGrace);
+                if (effLate > 0) { lateDays++; totalLateMinutes += effLate; }
+              }
+              const checkOutMin = timeToMinLocal(rec.checkOut ?? null);
+              if (checkOutMin !== null) {
+                const rawEarly = Math.max(0, earlyLeaveRefMin - checkOutMin);
+                const effEarly = Math.max(0, rawEarly - earlyLeaveGrace);
+                if (effEarly > 0) totalEarlyLeaveMinutes += effEarly;
+              }
+            }
+          }
+
+          let finalAmount = baseAmount;
+          let cancelled = false;
+
+          // 1) تجاوز العقوبات أولاً
+          for (const cond of conditions) {
+            if (cond.conditionType !== "violations_exceed") continue;
+            const threshold = cond.violationsThreshold ?? 0;
+            if ((absentDays + lateDays) > threshold) { cancelled = true; finalAmount = 0; break; }
+          }
+
+          if (!cancelled) {
+            // تحقق من وجود شرط غياب محدد (أولوية على العام)
+            const hasWeekdayCond = conditions.some(
+              c => c.conditionType === "absence" && c.absenceMode === "weekday"
+            );
+
+            for (const cond of conditions) {
+              if (cancelled) break;
+              if (cond.conditionType === "violations_exceed" || cond.conditionType === "attendance") continue;
+
+              let triggered = false;
+              const effAmt = parseFloat(cond.effectAmount ?? "0") || 0;
+
+              if (cond.conditionType === "absence") {
+                if (cond.absenceMode === "count") {
+                  if (hasWeekdayCond) continue; // الشرط المحدد يلغي العام
+                  const threshold = parseFloat(cond.daysThreshold ?? "0");
+                  triggered = absentDays >= threshold;
+                } else if (cond.absenceMode === "weekday") {
+                  let weekdays: number[] = [];
+                  try { weekdays = JSON.parse(cond.weekdays ?? "[]"); } catch { weekdays = []; }
+                  triggered = weekdays.some(wd => (weekdayAbsences[wd] ?? 0) > 0);
+                }
+              } else if (cond.conditionType === "late") {
+                triggered = totalLateMinutes >= (cond.minutesThreshold ?? 0);
+              } else if (cond.conditionType === "early_leave") {
+                triggered = totalEarlyLeaveMinutes >= (cond.minutesThreshold ?? 0);
+              }
+
+              if (triggered) {
+                if (cond.effectType === "cancel") { cancelled = true; finalAmount = 0; break; }
+                else if (cond.effectType === "deduct") finalAmount = Math.max(0, finalAmount - effAmt);
+                else if (cond.effectType === "add") finalAmount += effAmt;
+              }
+            }
+          }
+
+          results.push({
+            employeeId: emp.id,
+            employeeName: emp.name,
+            employeeCode: emp.employeeCode,
+            workshopName: workshop?.name ?? "",
+            grantId: grant.id,
+            grantName: grant.name,
+            grantType: grant.type,
+            baseAmount,
+            finalAmount: Math.round(finalAmount * 100) / 100,
+            cancelled,
+          });
+        }
+      }
+
+      // Sort: workshopName → employeeName
+      results.sort((a, b) => {
+        const ws = a.workshopName.localeCompare(b.workshopName, "ar");
+        if (ws !== 0) return ws;
+        return a.employeeName.localeCompare(b.employeeName, "ar");
+      });
+
+      return res.json(results);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // ---- Annual Report (التقرير السنوي) ----
   // GET /api/annual-report?year=2024&workshopId=XXX
   // السنة المالية: جويلية year → جوان year+1

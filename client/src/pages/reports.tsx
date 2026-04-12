@@ -25,7 +25,7 @@ import * as XLSXStyle from "xlsx-js-style";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
-import type { WorkRule, Workshop, Employee, FrozenArchive, Company } from "@shared/schema";
+import type { WorkRule, Workshop, Employee, FrozenArchive, Company, GrantWithConditions } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 
 type DateMode = "day" | "week" | "month" | "year";
@@ -75,6 +75,19 @@ interface EditCell {
   employeeName: string;
   date: string;
   record: DailyRecord;
+}
+
+interface GrantReportRow {
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  workshopName: string;
+  grantId: string;
+  grantName: string;
+  grantType: string;
+  baseAmount: number;
+  finalAmount: number;
+  cancelled: boolean;
 }
 
 const ARABIC_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -163,6 +176,14 @@ export default function Reports() {
   const [editingRate, setEditingRate] = useState<{ employeeId: string; value: string } | null>(null);
   const rateEscapedRef = useRef(false);
 
+  // تقرير المنح state
+  const [grantsMonth, setGrantsMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [grantsGrantId, setGrantsGrantId] = useState("all");
+  const [grantsEnabled, setGrantsEnabled] = useState(false);
+
   useEffect(() => { setOvertimeWeekIndex(0); }, [dateFrom, dateTo]);
 
   const { data: workRules = [], isLoading: rulesLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
@@ -173,6 +194,24 @@ export default function Reports() {
   const { data: frozenArchives = [] } = useQuery<FrozenArchive[]>({
     queryKey: ["/api/frozen-archives"],
     enabled: isOwner,
+  });
+
+  const isOwnerOrAttendence = user?.username === "owner" || user?.username === "attendence";
+
+  const { data: allGrants = [] } = useQuery<GrantWithConditions[]>({
+    queryKey: ["/api/grants"],
+    enabled: isOwnerOrAttendence,
+  });
+
+  const { data: grantsReportData = [], isLoading: grantsReportLoading } = useQuery<GrantReportRow[]>({
+    queryKey: ["/api/grants/report", grantsMonth, grantsGrantId],
+    enabled: isOwnerOrAttendence && grantsEnabled && !!grantsMonth,
+    queryFn: async () => {
+      const url = `/api/grants/report?month=${grantsMonth}&grantId=${grantsGrantId}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("فشل تحميل تقرير المنح");
+      return res.json();
+    },
   });
 
   const activeEmployees = employees.filter((e) => e.isActive !== false);
@@ -701,6 +740,107 @@ export default function Reports() {
 
     const filename = `تقرير_الحضور_${dateFrom}_${dateTo}.xlsx`;
     XLSXStyle.writeFile(wb, filename);
+  }
+
+  function exportGrantsReportToExcel() {
+    if (!grantsReportData.length) return;
+
+    const border = {
+      top:    { style: "thin" as const, color: { rgb: "D1D5DB" } },
+      bottom: { style: "thin" as const, color: { rgb: "D1D5DB" } },
+      left:   { style: "thin" as const, color: { rgb: "D1D5DB" } },
+      right:  { style: "thin" as const, color: { rgb: "D1D5DB" } },
+    };
+    const centerAlign = { horizontal: "center" as const, vertical: "center" as const, readingOrder: 2 };
+    const rightAlign  = { horizontal: "right"  as const, vertical: "center" as const, readingOrder: 2 };
+
+    const headerStyle = {
+      fill: { fgColor: { rgb: "1E3A5F" } },
+      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 10 },
+      alignment: centerAlign, border,
+    };
+    const titleStyle = {
+      fill: { fgColor: { rgb: "1E3A5F" } },
+      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 },
+      alignment: centerAlign, border,
+    };
+    const approvedStyle = {
+      fill: { fgColor: { rgb: "DCFCE7" } },
+      font: { color: { rgb: "15803D" }, sz: 10 },
+      alignment: centerAlign, border,
+    };
+    const cancelledStyle = {
+      fill: { fgColor: { rgb: "FEE2E2" } },
+      font: { color: { rgb: "DC2626" }, sz: 10 },
+      alignment: centerAlign, border,
+    };
+    const nameStyle = { font: { sz: 10 }, alignment: rightAlign, border };
+    const totalRowStyle = {
+      fill: { fgColor: { rgb: "E5E7EB" } },
+      font: { bold: true, sz: 10 },
+      alignment: centerAlign, border,
+    };
+
+    const totalFinal = grantsReportData.reduce((s, r) => s + r.finalAmount, 0);
+    const selectedGrantName = grantsGrantId === "all"
+      ? "كل المنح"
+      : (allGrants.find(g => g.id === grantsGrantId)?.name ?? grantsGrantId);
+
+    const headers = ["اسم الموظف", "الرقم", "الورشة", "اسم المنحة", "النوع", "المبلغ الأساسي", "المبلغ المحسوب", "الحالة"];
+
+    const aoa: (string | number)[][] = [
+      [`تقرير المنح — ${grantsMonth} — ${selectedGrantName}`, ...Array(headers.length - 1).fill("")],
+      headers,
+      ...grantsReportData.map(r => [
+        r.employeeName, r.employeeCode, r.workshopName, r.grantName,
+        r.grantType === "grant" ? "منحة" : "عقوبة",
+        r.baseAmount, r.finalAmount,
+        r.cancelled ? "ملغى" : "مقبول",
+      ]),
+      ["الإجمالي", "", "", "", "", "", totalFinal, ""],
+    ];
+
+    const ws = XLSXStyle.utils.aoa_to_sheet(aoa);
+
+    const encodeCell = XLSXStyle.utils.encode_cell;
+    const totalCols = headers.length;
+
+    // Title row style
+    for (let c = 0; c < totalCols; c++) {
+      const ref = encodeCell({ r: 0, c });
+      if (ws[ref]) ws[ref].s = titleStyle;
+    }
+    // Header row style
+    for (let c = 0; c < totalCols; c++) {
+      const ref = encodeCell({ r: 1, c });
+      if (ws[ref]) ws[ref].s = headerStyle;
+    }
+    // Data rows
+    for (let i = 0; i < grantsReportData.length; i++) {
+      const r = i + 2;
+      const row = grantsReportData[i];
+      for (let c = 0; c < totalCols; c++) {
+        const ref = encodeCell({ r, c });
+        if (!ws[ref]) continue;
+        if (c === 0) ws[ref].s = nameStyle;
+        else if (c === 7) ws[ref].s = row.cancelled ? cancelledStyle : approvedStyle;
+        else ws[ref].s = { font: { sz: 10 }, alignment: centerAlign, border };
+      }
+    }
+    // Total row
+    const totalRow = grantsReportData.length + 2;
+    for (let c = 0; c < totalCols; c++) {
+      const ref = encodeCell({ r: totalRow, c });
+      if (ws[ref]) ws[ref].s = totalRowStyle;
+    }
+
+    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }];
+    ws["!cols"] = [{ wch: 22 }, { wch: 10 }, { wch: 18 }, { wch: 20 }, { wch: 8 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
+    ws["!rows"] = [{ hpt: 30 }, { hpt: 22 }, ...grantsReportData.map(() => ({ hpt: 20 })), { hpt: 22 }];
+
+    const wb = XLSXStyle.utils.book_new();
+    XLSXStyle.utils.book_append_sheet(wb, ws, "تقرير المنح");
+    XLSXStyle.writeFile(wb, `تقرير_المنح_${grantsMonth}.xlsx`);
   }
 
   const breadcrumb = selectedWorkshop
@@ -1660,6 +1800,149 @@ export default function Reports() {
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات كافية</p>
                 )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ======================== GRANTS REPORT SECTION ======================== */}
+      {isOwnerOrAttendence && (
+        <div className="space-y-4 mt-6 mx-4 mb-6">
+          <div className="flex items-center gap-3">
+            <TrendingUp className="h-5 w-5 text-primary shrink-0" />
+            <h2 className="text-lg font-bold">تقرير المنح والعقوبات</h2>
+          </div>
+
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">الشهر</Label>
+                  <Input
+                    type="month"
+                    value={grantsMonth}
+                    onChange={e => { setGrantsMonth(e.target.value); setGrantsEnabled(false); }}
+                    className="w-44"
+                    data-testid="input-grants-month"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">المنحة / العقوبة</Label>
+                  <Select value={grantsGrantId} onValueChange={v => { setGrantsGrantId(v); setGrantsEnabled(false); }}>
+                    <SelectTrigger className="w-52" data-testid="select-grants-grant">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">كل المنح والعقوبات</SelectItem>
+                      {allGrants.filter(g => g.type === "grant").length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-bold text-green-600 dark:text-green-400">المنح</div>
+                          {allGrants.filter(g => g.type === "grant").map(g => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </>
+                      )}
+                      {allGrants.filter(g => g.type === "penalty").length > 0 && (
+                        <>
+                          <div className="px-2 py-1 text-xs font-bold text-red-600 dark:text-red-400">العقوبات</div>
+                          {allGrants.filter(g => g.type === "penalty").map(g => (
+                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  onClick={() => setGrantsEnabled(true)}
+                  disabled={grantsReportLoading}
+                  data-testid="button-compute-grants-report"
+                >
+                  {grantsReportLoading ? "جاري الحساب..." : "احتساب التقرير"}
+                </Button>
+                {grantsReportData.length > 0 && (
+                  <Button variant="outline" className="gap-1.5" onClick={exportGrantsReportToExcel} data-testid="button-export-grants-excel">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    تصدير Excel
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {grantsEnabled && !grantsReportLoading && grantsReportData.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center py-10 text-muted-foreground">
+                <TrendingUp className="h-10 w-10 mb-3 opacity-20" />
+                <p>لا توجد بيانات — تأكد من تعريف منح وموظفين مستهدفين</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {grantsReportData.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="text-right font-bold">اسم الموظف</TableHead>
+                      <TableHead className="text-center font-bold">الرقم</TableHead>
+                      <TableHead className="text-right font-bold">الورشة</TableHead>
+                      <TableHead className="text-right font-bold">المنحة</TableHead>
+                      <TableHead className="text-center font-bold">النوع</TableHead>
+                      <TableHead className="text-center font-bold">المبلغ الأساسي</TableHead>
+                      <TableHead className="text-center font-bold">المبلغ المحسوب</TableHead>
+                      <TableHead className="text-center font-bold">الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {grantsReportData.map((row, i) => (
+                      <TableRow
+                        key={`${row.grantId}-${row.employeeId}`}
+                        className={i % 2 === 0 ? "bg-background" : "bg-muted/20"}
+                        data-testid={`row-grant-${i}`}
+                      >
+                        <TableCell className="font-medium">{row.employeeName}</TableCell>
+                        <TableCell className="text-center font-mono text-xs">{row.employeeCode}</TableCell>
+                        <TableCell>{row.workshopName || "—"}</TableCell>
+                        <TableCell>{row.grantName}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className={row.grantType === "grant"
+                            ? "border-green-300 text-green-700 dark:text-green-400"
+                            : "border-red-300 text-red-700 dark:text-red-400"}>
+                            {row.grantType === "grant" ? "منحة" : "عقوبة"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-center text-muted-foreground">{row.baseAmount.toFixed(2)} د.ج</TableCell>
+                        <TableCell className="text-center font-bold">
+                          {row.cancelled ? "—" : `${row.finalAmount.toFixed(2)} د.ج`}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {row.cancelled ? (
+                            <Badge className="bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400 gap-1 border-0" data-testid={`status-cancelled-${i}`}>
+                              <X className="h-3 w-3" /> ملغى
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400 gap-1 border-0" data-testid={`status-approved-${i}`}>
+                              <Check className="h-3 w-3" /> مقبول
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {/* صف الإجمالي */}
+                    <TableRow className="bg-muted font-bold border-t-2">
+                      <TableCell colSpan={6} className="text-right">
+                        الإجمالي ({grantsReportData.filter(r => !r.cancelled).length} موظف مقبول)
+                      </TableCell>
+                      <TableCell className="text-center text-primary font-bold" data-testid="text-grants-total">
+                        {grantsReportData.reduce((s, r) => s + r.finalAmount, 0).toFixed(2)} د.ج
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           )}
