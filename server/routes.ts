@@ -2661,7 +2661,17 @@ export async function registerRoutes(
   });
 
   // ---- Grants (المنح والعقوبات) ----
+  // الوصول مقيّد لـ owner و attendence فقط
+  function requireOwnerOrAttendence(req: Request, res: Response): boolean {
+    if (!["owner", "attendence"].includes(req.session.username ?? "")) {
+      res.status(403).json({ message: "غير مصرح — هذه الميزة للمالك ومسؤول الحضور فقط" });
+      return false;
+    }
+    return true;
+  }
+
   app.get("/api/grants", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
     try {
       const list = await storage.getGrants();
       return res.json(list);
@@ -2669,6 +2679,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/grants", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
     try {
       const { name, amount, type, targetType, shiftValue, workshopId, employeeIds, conditions } = req.body;
       if (!name || !name.trim()) return res.status(400).json({ message: "اسم المنحة مطلوب" });
@@ -2701,6 +2712,7 @@ export async function registerRoutes(
   });
 
   app.delete("/api/grants/:id", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
     try {
       await storage.deleteGrant(req.params.id);
       return res.status(204).send();

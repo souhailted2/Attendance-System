@@ -649,6 +649,7 @@ interface GrantFull {
 interface ConditionDraft {
   localId: string; conditionType: string;
   attendancePeriodType: string; attendancePeriodValue: string; monthsCount: string;
+  specificWeeksDates: string[];
   absenceMode: string; daysThreshold: string; weekdayCount: string; weekdays: string[];
   minutesThreshold: string; violationsThreshold: string;
   effectType: string; effectAmount: string;
@@ -657,7 +658,8 @@ interface ConditionDraft {
 const WEEKDAYS_AR = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
 const PERIOD_LABELS: Record<string, string> = {
   day: "يوم", week: "أسبوع", month: "شهر", months: "أشهر (حدد العدد)", year: "سنة",
-  specific_day: "يوم محدد", specific_week: "أسبوع محدد", specific_month: "شهر محدد",
+  specific_day: "يوم محدد", specific_week: "أسبوع محدد",
+  specific_weeks: "أسابيع محددة (تواريخ متعددة)", specific_month: "شهر محدد",
 };
 
 function conditionSummary(c: GrantConditionFull): string {
@@ -671,9 +673,16 @@ function conditionSummary(c: GrantConditionFull): string {
     return `خروج مبكر > ${c.minutesThreshold} دق ${eff}`;
   if (c.conditionType === "attendance") {
     const pt = PERIOD_LABELS[c.attendancePeriodType ?? ""] ?? c.attendancePeriodType;
-    const pv = c.attendancePeriodType === "months" ? `${c.attendancePeriodValue} أشهر` :
-      c.attendancePeriodType === "specific_day" || c.attendancePeriodType === "specific_week" || c.attendancePeriodType === "specific_month"
-        ? c.attendancePeriodValue ?? "" : pt;
+    let pv: string;
+    if (c.attendancePeriodType === "months") {
+      pv = `${c.attendancePeriodValue} أشهر`;
+    } else if (c.attendancePeriodType === "specific_weeks") {
+      try { const weeks = JSON.parse(c.attendancePeriodValue ?? "[]") as string[]; pv = `${weeks.length} أسابيع محددة`; } catch { pv = "أسابيع محددة"; }
+    } else if (["specific_day", "specific_week", "specific_month"].includes(c.attendancePeriodType ?? "")) {
+      pv = c.attendancePeriodValue ?? "";
+    } else {
+      pv = pt;
+    }
     return `حضور كامل (${pv}) ${eff}`;
   }
   if (c.conditionType === "absence") {
@@ -706,6 +715,7 @@ function newCondition(): ConditionDraft {
   return {
     localId: Math.random().toString(36).slice(2),
     conditionType: "", attendancePeriodType: "month", attendancePeriodValue: "", monthsCount: "2",
+    specificWeeksDates: [],
     absenceMode: "count", daysThreshold: "1", weekdayCount: "1", weekdays: [],
     minutesThreshold: "30", violationsThreshold: "3", effectType: "deduct", effectAmount: "",
   };
@@ -713,11 +723,13 @@ function newCondition(): ConditionDraft {
 
 function conditionToPayload(c: ConditionDraft) {
   const base = { conditionType: c.conditionType, effectType: c.effectType, effectAmount: c.effectAmount || null };
-  if (c.conditionType === "attendance") return {
-    ...base,
-    attendancePeriodType: c.attendancePeriodType,
-    attendancePeriodValue: c.attendancePeriodType === "months" ? c.monthsCount : c.attendancePeriodValue || null,
-  };
+  if (c.conditionType === "attendance") {
+    let periodValue: string | null = null;
+    if (c.attendancePeriodType === "months") periodValue = c.monthsCount;
+    else if (c.attendancePeriodType === "specific_weeks") periodValue = JSON.stringify(c.specificWeeksDates);
+    else if (["specific_day", "specific_week", "specific_month"].includes(c.attendancePeriodType)) periodValue = c.attendancePeriodValue || null;
+    return { ...base, attendancePeriodType: c.attendancePeriodType, attendancePeriodValue: periodValue };
+  }
   if (c.conditionType === "late" || c.conditionType === "early_leave")
     return { ...base, minutesThreshold: parseInt(c.minutesThreshold) || 0 };
   if (c.conditionType === "absence") return {
@@ -780,6 +792,7 @@ function ConditionRow({ cond, onChange, onDelete }: {
               <SelectItem value="year">سنة</SelectItem>
               <SelectItem value="specific_day">يوم محدد</SelectItem>
               <SelectItem value="specific_week">أسبوع محدد (تاريخ البداية)</SelectItem>
+              <SelectItem value="specific_weeks">أسابيع محددة (تواريخ متعددة)</SelectItem>
               <SelectItem value="specific_month">شهر محدد</SelectItem>
             </SelectContent>
           </Select>
@@ -801,6 +814,31 @@ function ConditionRow({ cond, onChange, onDelete }: {
           {cond.attendancePeriodType === "specific_month" && (
             <Input type="month" value={cond.attendancePeriodValue}
               onChange={e => set({ attendancePeriodValue: e.target.value })} data-testid="input-specific-month" />
+          )}
+          {cond.attendancePeriodType === "specific_weeks" && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">تواريخ بداية الأسابيع</Label>
+              {cond.specificWeeksDates.map((date, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input type="date" value={date}
+                    onChange={e => {
+                      const updated = [...cond.specificWeeksDates];
+                      updated[idx] = e.target.value;
+                      set({ specificWeeksDates: updated });
+                    }}
+                    data-testid={`input-specific-week-${idx}`} />
+                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive shrink-0"
+                    onClick={() => set({ specificWeeksDates: cond.specificWeeksDates.filter((_, i) => i !== idx) })}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="gap-1"
+                onClick={() => set({ specificWeeksDates: [...cond.specificWeeksDates, ""] })}
+                data-testid="button-add-specific-week">
+                <Plus className="h-3 w-3" /> إضافة أسبوع
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -1124,7 +1162,7 @@ function GrantsTab() {
               {/* النطاق */}
               <div className="space-y-2">
                 <Label>نطاق التطبيق</Label>
-                <Select value={targetType} onValueChange={v => setTargetType(v as any)}>
+                <Select value={targetType} onValueChange={v => setTargetType(v as "all" | "shift" | "workshop" | "employee")}>
                   <SelectTrigger data-testid="select-target-type">
                     <SelectValue />
                   </SelectTrigger>
@@ -1136,7 +1174,7 @@ function GrantsTab() {
                   </SelectContent>
                 </Select>
                 {targetType === "shift" && (
-                  <Select value={shiftValue} onValueChange={v => setShiftValue(v as any)}>
+                  <Select value={shiftValue} onValueChange={v => setShiftValue(v as "morning" | "evening")}>
                     <SelectTrigger data-testid="select-shift-value"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="morning"><Sun className="h-4 w-4 inline ml-1" />صباحية</SelectItem>

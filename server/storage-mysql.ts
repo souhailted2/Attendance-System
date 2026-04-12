@@ -489,11 +489,36 @@ export class MysqlStorage implements IStorage {
 
   async getGrants(): Promise<GrantWithConditions[]> {
     const grantList = await mysqlDb.select().from(schema.grants).orderBy(desc(schema.grants.createdAt));
-    const conditions = await mysqlDb.select().from(schema.grantConditions);
-    return grantList.map((g: any) => ({
-      ...g,
-      conditions: conditions.filter((c: any) => c.grantId === g.id),
-    })) as GrantWithConditions[];
+    const condList = await mysqlDb.select().from(schema.grantConditions);
+    return grantList.map(g => ({
+      id: g.id,
+      name: g.name,
+      amount: g.amount,
+      type: g.type,
+      targetType: g.targetType,
+      shiftValue: g.shiftValue ?? null,
+      workshopId: g.workshopId ?? null,
+      employeeIds: g.employeeIds ?? null,
+      createdAt: g.createdAt,
+      createdBy: g.createdBy,
+      conditions: condList
+        .filter(c => c.grantId === g.id)
+        .map(c => ({
+          id: c.id,
+          grantId: c.grantId,
+          conditionType: c.conditionType,
+          attendancePeriodType: c.attendancePeriodType ?? null,
+          attendancePeriodValue: c.attendancePeriodValue ?? null,
+          absenceMode: c.absenceMode ?? null,
+          daysThreshold: c.daysThreshold ?? null,
+          weekdayCount: c.weekdayCount ?? null,
+          weekdays: c.weekdays ?? null,
+          minutesThreshold: c.minutesThreshold ?? null,
+          violationsThreshold: c.violationsThreshold ?? null,
+          effectType: c.effectType,
+          effectAmount: c.effectAmount ?? null,
+        })),
+    }));
   }
 
   async createGrant(data: InsertGrant, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions> {
@@ -502,16 +527,16 @@ export class MysqlStorage implements IStorage {
       id,
       name: data.name,
       amount: data.amount,
-      type: (data.type as string) ?? "grant",
-      targetType: (data.targetType as string) ?? "all",
+      type: String(data.type ?? "grant"),
+      targetType: String(data.targetType ?? "all"),
       shiftValue: data.shiftValue ?? null,
       workshopId: data.workshopId ?? null,
       employeeIds: data.employeeIds ?? null,
       createdAt: data.createdAt,
       createdBy: data.createdBy,
     });
-    const [grant] = await mysqlDb.select().from(schema.grants).where(eq(schema.grants.id, id));
-    const condRows: GrantCondition[] = [];
+    const [g] = await mysqlDb.select().from(schema.grants).where(eq(schema.grants.id, id));
+    const builtConditions: GrantCondition[] = [];
     for (const c of conditions) {
       const cid = randomUUID();
       await mysqlDb.insert(schema.grantConditions).values({
@@ -520,9 +545,9 @@ export class MysqlStorage implements IStorage {
         conditionType: c.conditionType,
         attendancePeriodType: c.attendancePeriodType ?? null,
         attendancePeriodValue: c.attendancePeriodValue ?? null,
-        absenceMode: (c.absenceMode as string) ?? null,
-        daysThreshold: (c.daysThreshold as string) ?? null,
-        weekdayCount: (c.weekdayCount as string) ?? null,
+        absenceMode: c.absenceMode != null ? String(c.absenceMode) : null,
+        daysThreshold: c.daysThreshold != null ? String(c.daysThreshold) : null,
+        weekdayCount: c.weekdayCount != null ? String(c.weekdayCount) : null,
         weekdays: c.weekdays ?? null,
         minutesThreshold: c.minutesThreshold ?? null,
         violationsThreshold: c.violationsThreshold ?? null,
@@ -530,9 +555,35 @@ export class MysqlStorage implements IStorage {
         effectAmount: c.effectAmount ?? null,
       });
       const [row] = await mysqlDb.select().from(schema.grantConditions).where(eq(schema.grantConditions.id, cid));
-      condRows.push(row as GrantCondition);
+      builtConditions.push({
+        id: row.id,
+        grantId: row.grantId,
+        conditionType: row.conditionType,
+        attendancePeriodType: row.attendancePeriodType ?? null,
+        attendancePeriodValue: row.attendancePeriodValue ?? null,
+        absenceMode: row.absenceMode ?? null,
+        daysThreshold: row.daysThreshold ?? null,
+        weekdayCount: row.weekdayCount ?? null,
+        weekdays: row.weekdays ?? null,
+        minutesThreshold: row.minutesThreshold ?? null,
+        violationsThreshold: row.violationsThreshold ?? null,
+        effectType: row.effectType,
+        effectAmount: row.effectAmount ?? null,
+      });
     }
-    return { ...(grant as any), conditions: condRows } as GrantWithConditions;
+    return {
+      id: g.id,
+      name: g.name,
+      amount: g.amount,
+      type: g.type,
+      targetType: g.targetType,
+      shiftValue: g.shiftValue ?? null,
+      workshopId: g.workshopId ?? null,
+      employeeIds: g.employeeIds ?? null,
+      createdAt: g.createdAt,
+      createdBy: g.createdBy,
+      conditions: builtConditions,
+    };
   }
 
   async deleteGrant(id: string): Promise<void> {
