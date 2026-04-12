@@ -85,6 +85,7 @@ interface MonthlySummary {
   lastWeekRate: number;
   lastWeekPresent: number;
   totalActive: number;
+  workshopRates: { workshopId: string; name: string; present: number; total: number; rate: number }[];
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -127,15 +128,19 @@ export default function Dashboard() {
   const lastWeekRate = monthlySummary?.lastWeekRate ?? null;
   const rateDiff = lastWeekRate !== null ? attendanceRate - lastWeekRate : null;
 
-  const workshopRates = (workshops || []).map((ws) => {
-    const wsEmployees = activeEmployees.filter((e) => e.workshopId === ws.id);
-    const wsPresent = (attendance || []).filter((a: any) => {
-      const emp = activeEmployees.find((e) => e.id === a.employeeId);
-      return emp?.workshopId === ws.id && (a.status === "present" || a.status === "late");
-    }).length;
-    const rate = wsEmployees.length > 0 ? Math.round((wsPresent / wsEmployees.length) * 100) : 0;
-    return { id: ws.id, name: ws.name, total: wsEmployees.length, present: wsPresent, rate };
-  }).filter((ws) => ws.total > 0).sort((a, b) => b.rate - a.rate);
+  const workshopRates = (
+    monthlySummary?.workshopRates
+      ? monthlySummary.workshopRates.map((w) => ({ id: w.workshopId, name: w.name, total: w.total, present: w.present, rate: w.rate }))
+      : (workshops || []).map((ws) => {
+          const wsEmployees = activeEmployees.filter((e) => e.workshopId === ws.id);
+          const wsPresent = (attendance || []).filter((a: any) => {
+            const emp = activeEmployees.find((e) => e.id === a.employeeId);
+            return emp?.workshopId === ws.id && (a.status === "present" || a.status === "late");
+          }).length;
+          const rate = wsEmployees.length > 0 ? Math.round((wsPresent / wsEmployees.length) * 100) : 0;
+          return { id: ws.id, name: ws.name, total: wsEmployees.length, present: wsPresent, rate };
+        })
+  ).filter((ws) => ws.total > 0).sort((a, b) => b.rate - a.rate);
 
   const expiringContracts = activeEmployees.filter((emp) => {
     if (!emp.contractEndDate) return false;

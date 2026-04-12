@@ -824,7 +824,22 @@ export async function registerRoutes(
           ? Math.round((lastWeekPresent / activeEmployees.length) * 100)
           : 0;
 
-      res.json({ topLate, lastWeekRate, lastWeekPresent, totalActive: activeEmployees.length });
+      const todayRecords = await storage.getAttendanceByDate(todayStr);
+      const workshops = await storage.getWorkshops();
+      const workshopRates = workshops
+        .map((ws) => {
+          const wsEmps = activeEmployees.filter((e) => e.workshopId === ws.id);
+          if (wsEmps.length === 0) return null;
+          const wsEmpIds = new Set(wsEmps.map((e) => e.id));
+          const present = todayRecords.filter(
+            (r) => wsEmpIds.has(r.employeeId) && (r.status === "present" || r.status === "late")
+          ).length;
+          const rate = Math.round((present / wsEmps.length) * 100);
+          return { workshopId: ws.id, name: ws.name, present, total: wsEmps.length, rate };
+        })
+        .filter(Boolean);
+
+      res.json({ topLate, lastWeekRate, lastWeekPresent, totalActive: activeEmployees.length, workshopRates });
     } catch (err: any) {
       res.status(500).json({ message: "خطأ في جلب الإحصائيات الشهرية" });
     }
