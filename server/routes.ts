@@ -868,16 +868,22 @@ export async function registerRoutes(
       const now = new Date();
       const arabicMonths = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
-      // Build date ranges for all months
+      const todayStr = now.toISOString().slice(0, 10);
+
+      // Build date ranges for all months (cap current month at today to exclude future days)
       const ranges = Array.from({ length: months }, (_, i) => {
         const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1);
         const year = d.getFullYear();
         const month = d.getMonth();
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-        const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+        const fullLastDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+        // For the current (or future) month, cap at today so future days don't deflate the rate
+        const lastDay = fullLastDay > todayStr ? todayStr : fullLastDay;
+        // Count only working days up to lastDay
+        const capDay = parseInt(lastDay.slice(8));
         let workingDays = 0;
-        for (let day = 1; day <= daysInMonth; day++) {
+        for (let day = 1; day <= capDay; day++) {
           const dow = new Date(year, month, day).getDay();
           if (!weeklyOffDays.includes(dow)) workingDays++;
         }
