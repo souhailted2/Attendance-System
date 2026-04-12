@@ -1,10 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Users, ClipboardCheck, AlertTriangle, Clock, Building2, TrendingUp, TrendingDown, Minus, UserCheck, CalendarClock, BarChart3, ExternalLink } from "lucide-react";
+import {
+  Users, ClipboardCheck, AlertTriangle, Clock, Building2,
+  TrendingUp, TrendingDown, Minus, UserCheck, CalendarClock,
+  BarChart3, ExternalLink, ChevronDown, ChevronUp, FileSpreadsheet, UserX,
+} from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import * as XLSX from "xlsx";
 import type { Employee, Company, Workshop } from "@shared/schema";
 
 function getInitials(name: string): string {
@@ -88,6 +95,8 @@ interface MonthlySummary {
   workshopRates: { workshopId: string; name: string; present: number; total: number; rate: number }[];
 }
 
+const ABSENT_PREVIEW = 8;
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   return (
@@ -105,6 +114,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function Dashboard() {
+  const [absentExpanded, setAbsentExpanded] = useState(false);
+
   const { data: employees, isLoading: loadingEmp } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: companies } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
   const { data: workshops } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
@@ -127,6 +138,26 @@ export default function Dashboard() {
 
   const lastWeekRate = monthlySummary?.lastWeekRate ?? null;
   const rateDiff = lastWeekRate !== null ? attendanceRate - lastWeekRate : null;
+
+  const attendedIds = new Set((attendance || []).map((a: any) => a.employeeId));
+  const absentEmployees = activeEmployees.filter((e) => !attendedIds.has(e.id));
+  const absentVisible = absentExpanded ? absentEmployees : absentEmployees.slice(0, ABSENT_PREVIEW);
+
+  function exportAbsentExcel() {
+    const dateStr = new Date().toLocaleDateString("ar-DZ");
+    const rows = absentEmployees.map((emp) => {
+      const ws = workshops?.find((w) => w.id === emp.workshopId);
+      return {
+        "الاسم": emp.name,
+        "الكود": emp.employeeCode || "",
+        "الورشة": ws?.name || "—",
+      };
+    });
+    const wb = XLSX.utils.book_new();
+    const ws2 = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws2, "غائبون");
+    XLSX.writeFile(wb, `غائبون_${today}.xlsx`);
+  }
 
   const workshopRates = (
     monthlySummary?.workshopRates
@@ -375,6 +406,95 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Absent Employees Today */}
+      {absentEmployees.length > 0 && (
+        <Card style={{ borderColor: "hsl(0 72% 51% / 0.15)" }}>
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-sm font-semibold flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <UserX className="h-4 w-4" style={{ color: "hsl(0 72% 51%)" }} />
+                غائبون اليوم
+                <Badge
+                  className="text-[10px] px-1.5"
+                  style={{
+                    background: "hsl(0 72% 51% / 0.12)",
+                    color: "hsl(0 72% 45%)",
+                    border: "1px solid hsl(0 72% 51% / 0.25)",
+                  }}
+                  data-testid="text-absent-count"
+                >
+                  {absentEmployees.length}
+                </Badge>
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                onClick={exportAbsentExcel}
+                data-testid="button-export-absent"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                تصدير Excel
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-0 pb-3">
+            <div className="divide-y divide-border/50">
+              {absentVisible.map((emp) => {
+                const ws = workshops?.find((w) => w.id === emp.workshopId);
+                return (
+                  <div
+                    key={emp.id}
+                    className="flex items-center gap-3 px-5 py-2 hover:bg-destructive/5 transition-colors"
+                    data-testid={`absent-row-${emp.id}`}
+                  >
+                    <div
+                      className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                      style={{ background: getAvatarGradient(emp.name) }}
+                    >
+                      {getInitials(emp.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate">{emp.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{emp.employeeCode}</p>
+                    </div>
+                    {ws && (
+                      <Badge variant="outline" className="text-[10px] shrink-0">
+                        {ws.name}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {absentEmployees.length > ABSENT_PREVIEW && (
+              <div className="px-5 pt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full h-7 text-xs text-muted-foreground hover:text-foreground gap-1"
+                  onClick={() => setAbsentExpanded((v) => !v)}
+                  data-testid="button-toggle-absent"
+                >
+                  {absentExpanded ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      عرض أقل
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      عرض الكل ({absentEmployees.length - ABSENT_PREVIEW} إضافي)
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Top Late Employees This Month */}
       {(loadingMonthly || (monthlySummary?.topLate && monthlySummary.topLate.length > 0)) && (
