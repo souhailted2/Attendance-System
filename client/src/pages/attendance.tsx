@@ -15,12 +15,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
+
+const ATTENDANCE_PAGE_SIZE = 30;
 
 export default function Attendance() {
   const { toast } = useToast();
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [date, searchQuery]);
 
   const [employeeId, setEmployeeId] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -179,13 +185,17 @@ export default function Attendance() {
 
   // تصفية البحث بالاسم أو رقم الموظف
   const q = searchQuery.trim().toLowerCase();
-  const movements = q
+  const filteredMovements = q
     ? allMovements.filter((mv) =>
         mv.emp?.name?.toLowerCase().includes(q) ||
         mv.emp?.employeeCode?.toLowerCase().includes(q) ||
         mv.emp?.cardNumber?.toLowerCase().includes(q)
       )
     : allMovements;
+
+  const attendanceTotalPages = Math.max(1, Math.ceil(filteredMovements.length / ATTENDANCE_PAGE_SIZE));
+  const safePage = Math.min(page, attendanceTotalPages);
+  const movements = filteredMovements.slice((safePage - 1) * ATTENDANCE_PAGE_SIZE, safePage * ATTENDANCE_PAGE_SIZE);
 
   return (
     <div>
@@ -359,7 +369,7 @@ export default function Attendance() {
             <p className="text-muted-foreground">لا توجد سجلات حضور لهذا التاريخ</p>
           </CardContent>
         </Card>
-      ) : movements.length === 0 && q ? (
+      ) : filteredMovements.length === 0 && q ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Search className="h-12 w-12 text-muted-foreground mb-3" />
@@ -478,13 +488,24 @@ export default function Attendance() {
         </Card>
       )}
 
-      {/* Total count */}
+      {/* Count + Pagination */}
       {allMovements.length > 0 && (
-        <p className="text-sm text-muted-foreground text-center">
-          {q && movements.length !== allMovements.length
-            ? `${movements.length} من ${allMovements.length} حركة`
-            : `إجمالي الحركات: ${allMovements.length}`}
-        </p>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground text-center" data-testid="text-movements-count">
+            {q && filteredMovements.length !== allMovements.length
+              ? `${filteredMovements.length} من ${allMovements.length} حركة`
+              : `إجمالي الحركات: ${allMovements.length}`}
+          </p>
+          {filteredMovements.length > ATTENDANCE_PAGE_SIZE && (
+            <Pagination
+              currentPage={safePage}
+              totalPages={attendanceTotalPages}
+              onPageChange={setPage}
+              totalItems={filteredMovements.length}
+              pageSize={ATTENDANCE_PAGE_SIZE}
+            />
+          )}
+        </div>
       )}
       </div>
     </div>

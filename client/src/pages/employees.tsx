@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +17,9 @@ import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHori
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
+import { Pagination } from "@/components/pagination";
+
+const EMPLOYEES_PAGE_SIZE = 20;
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -46,7 +49,10 @@ export default function Employees() {
   const [filterWorkshop, setFilterWorkshop] = useState("all");
   const [filterCompany, setFilterCompany] = useState("all");
   const [filterActive, setFilterActive] = useState("all");
+  const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => { setPage(1); }, [search, filterWorkshop, filterCompany, filterActive]);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
   const [name, setName] = useState("");
@@ -169,6 +175,10 @@ export default function Employees() {
       const nb = parseInt(b.employeeCode) || 0;
       return na !== nb ? na - nb : a.employeeCode.localeCompare(b.employeeCode);
     });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / EMPLOYEES_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedEmployees = filtered.slice((safePage - 1) * EMPLOYEES_PAGE_SIZE, safePage * EMPLOYEES_PAGE_SIZE);
 
   const activeCount = employees?.filter((e) => e.isActive).length || 0;
   const inactiveCount = (employees?.length || 0) - activeCount;
@@ -338,7 +348,7 @@ export default function Employees() {
 
       {/* Results count */}
       {!isLoading && (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground" data-testid="text-employees-count">
           يُعرض {filtered.length} من أصل {employees?.length || 0} موظف
         </p>
       )}
@@ -359,7 +369,7 @@ export default function Employees() {
         </Card>
       ) : (
         <div className="grid gap-2">
-          {filtered.map((emp) => {
+          {paginatedEmployees.map((emp) => {
             const company = companies?.find((c) => c.id === emp.companyId);
             const workshop = workshops?.find((w) => w.id === emp.workshopId);
             const position = positions?.find((p) => p.id === emp.positionId);
@@ -441,6 +451,16 @@ export default function Employees() {
             );
           })}
         </div>
+      )}
+
+      {!isLoading && filtered.length > EMPLOYEES_PAGE_SIZE && (
+        <Pagination
+          currentPage={safePage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          totalItems={filtered.length}
+          pageSize={EMPLOYEES_PAGE_SIZE}
+        />
       )}
       </div>
     </div>
