@@ -19,7 +19,9 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   BarChart3, Clock, Users, ChevronLeft, ChevronRight, Pencil, Check, X,
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
+  FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import type { WorkRule, Workshop, Employee, FrozenArchive } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 
@@ -457,6 +459,32 @@ export default function Reports() {
     return map;
   }, [overtimeData]);
 
+  function exportReportToExcel() {
+    if (!reportData.length) return;
+    const statusMap: Record<string, string> = {
+      present: "حاضر", late: "متأخر", absent: "غائب",
+      leave: "إجازة", holiday: "عطلة", rest: "راحة",
+    };
+    const rows = reportData.map((r) => ({
+      "الاسم": r.employeeName,
+      "الرقم": r.employeeCode,
+      "الورشة": r.workshopName,
+      "إجمالي الأيام": r.totalDays,
+      "حاضر": r.presentDays,
+      "متأخر": r.lateDays,
+      "غائب": r.absentDays,
+      "إجازة": r.leaveDays,
+      "دقائق التأخر": r.totalLateMinutes,
+      "إجمالي الساعات": r.totalHours,
+      "نقاط الالتزام": r.attendanceScore.toFixed(2),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "التقرير");
+    const filename = `تقرير_الحضور_${dateFrom}_${dateTo}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  }
+
   const breadcrumb = selectedWorkshop
     ? `${selectedRule?.name} ← ${selectedWorkshop.name}`
     : selectedRule
@@ -515,6 +543,18 @@ export default function Reports() {
               <span className="text-xs text-muted-foreground">إلى</span>
               <Input type="date" className="h-8 w-36 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} data-testid="input-date-to" />
             </div>
+            {selectedRule && reportData.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportReportToExcel}
+                className="h-8 text-xs gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-950/30"
+                data-testid="button-export-excel"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                تصدير Excel
+              </Button>
+            )}
           </div>
         }
       />

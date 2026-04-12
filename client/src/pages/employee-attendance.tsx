@@ -17,8 +17,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronRight, Calendar, Pencil, Trash2, Plus, Clock, User, Building2,
-  CreditCard, CheckCircle2, XCircle, AlarmClock, Umbrella, Timer,
+  CreditCard, CheckCircle2, XCircle, AlarmClock, Umbrella, Timer, FileSpreadsheet,
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import type { Employee, Workshop, Position } from "@shared/schema";
 
 type DateMode = "day" | "week" | "month";
@@ -260,6 +261,42 @@ export default function EmployeeAttendancePage() {
     ? Math.round(((empReport.presentDays + empReport.lateDays) / empReport.totalDays) * 100)
     : 0;
 
+  function exportEmployeeExcel() {
+    if (!empReport || !records.length) return;
+    const statusMap: Record<string, string> = {
+      present: "حاضر", late: "متأخر", absent: "غائب",
+      leave: "إجازة", holiday: "عطلة", rest: "راحة",
+    };
+    const DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+    const rows = [...records].sort((a, b) => a.date.localeCompare(b.date)).map((r) => ({
+      "التاريخ": r.date,
+      "اليوم": DAYS[new Date(r.date + "T00:00:00").getDay()],
+      "الحالة": statusMap[r.status] ?? r.status,
+      "دخول": r.checkIn ?? "",
+      "خروج": r.checkOut ?? "",
+      "تأخر (دقيقة)": r.effectiveLateMinutes || 0,
+      "الساعات": r.totalHours ?? "",
+      "الدرجة": r.dailyScore.toFixed(2),
+    }));
+    const summaryRows = [
+      {} as Record<string, unknown>,
+      { "التاريخ": "الملخص" },
+      { "التاريخ": "إجمالي الأيام", "اليوم": empReport.totalDays },
+      { "التاريخ": "حاضر", "اليوم": empReport.presentDays },
+      { "التاريخ": "متأخر", "اليوم": empReport.lateDays },
+      { "التاريخ": "غائب", "اليوم": empReport.absentDays },
+      { "التاريخ": "إجازة", "اليوم": empReport.leaveDays },
+      { "التاريخ": "إجمالي الساعات", "اليوم": totalHours },
+      { "التاريخ": "نقاط الالتزام", "اليوم": empReport.attendanceScore.toFixed(2) },
+    ];
+    const ws = XLSX.utils.json_to_sheet([...rows, ...summaryRows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "الحضور");
+    const empName = employee?.name ?? "موظف";
+    const filename = `حضور_${empName}_${dateFrom}_${dateTo}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  }
+
   return (
     <div className="p-6 space-y-5" dir="rtl">
       {/* Header — Employee Profile Card */}
@@ -319,15 +356,29 @@ export default function EmployeeAttendancePage() {
                 })()}
               </div>
             </div>
-            {/* Add Record button */}
-            <Button
-              className="shrink-0"
-              onClick={() => { setAddForm({ date: todayStr(), status: "absent", checkIn: "", checkOut: "" }); setAddDialogOpen(true); }}
-              data-testid="button-add-attendance"
-            >
-              <Plus className="h-4 w-4 ml-2" />
-              إضافة سجل
-            </Button>
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2 shrink-0">
+              <Button
+                onClick={() => { setAddForm({ date: todayStr(), status: "absent", checkIn: "", checkOut: "" }); setAddDialogOpen(true); }}
+                data-testid="button-add-attendance"
+                size="sm"
+              >
+                <Plus className="h-4 w-4 ml-2" />
+                إضافة سجل
+              </Button>
+              {empReport && records.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={exportEmployeeExcel}
+                  className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700 dark:hover:bg-emerald-950/30"
+                  data-testid="button-export-employee-excel"
+                >
+                  <FileSpreadsheet className="h-4 w-4 ml-2" />
+                  Excel
+                </Button>
+              )}
+            </div>
           </div>
         ) : (
           <Skeleton className="flex-1 h-24 rounded-2xl" />
