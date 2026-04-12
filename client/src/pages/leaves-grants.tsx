@@ -765,7 +765,7 @@ function ConditionRow({ cond, onChange, onDelete }: {
       <div className="w-full pl-8">
         <Select value={cond.conditionType} onValueChange={v => {
           if (v === "attendance") set({ conditionType: v, effectType: "cancel", effectAmount: "" });
-          else set({ conditionType: v });
+          else set({ conditionType: v, effectType: "deduct", effectAmount: "" });
         }}>
           <SelectTrigger className="w-full" data-testid="select-condition-type">
             <SelectValue placeholder="اختر نوع الشرط..." />
