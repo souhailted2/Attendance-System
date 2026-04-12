@@ -33,7 +33,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, totalItems, 
     <div className="flex flex-col items-center gap-2 pt-3" dir="rtl" data-testid="pagination">
       {totalItems != null && from != null && to != null && (
         <p className="text-xs text-muted-foreground" data-testid="text-pagination-count">
-          عرض {from}–{to} من أصل {totalItems}{itemLabel ? ` ${itemLabel}` : ""}
+          عرض {from}-{to} من {totalItems}{itemLabel ? ` ${itemLabel}` : ""}
         </p>
       )}
       <div className="flex items-center gap-1">
