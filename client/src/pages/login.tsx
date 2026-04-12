@@ -52,14 +52,14 @@ export default function Login() {
 
   return (
     <div className="login-bg min-h-screen flex overflow-hidden relative" dir="rtl">
-      {/* Background orbs */}
+      {/* Dark mode only: atmospheric orbs */}
       <div
-        className="login-orb-1 absolute pointer-events-none"
-        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)" }}
+        className="login-orb absolute pointer-events-none"
+        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, hsl(262 80% 55% / 0.18) 0%, transparent 65%)" }}
       />
       <div
-        className="login-orb-2 absolute pointer-events-none"
-        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)" }}
+        className="login-orb absolute pointer-events-none"
+        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, hsl(220 80% 60% / 0.14) 0%, transparent 65%)" }}
       />
 
       {/* ===== RIGHT PANEL: Form ===== */}
@@ -84,8 +84,8 @@ export default function Login() {
               <ClipboardCheck className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-white">نظام إدارة الحضور</h1>
-              <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>v2.0</p>
+              <h1 className="text-base font-bold login-title">نظام إدارة الحضور</h1>
+              <p className="text-xs login-subtitle">v2.0</p>
             </div>
           </div>
 
@@ -108,7 +108,7 @@ export default function Login() {
                     data-testid="input-username"
                     type="text"
                     placeholder="أدخل اسم المستخدم"
-                    className="login-input pr-9 h-10 text-sm rounded-lg border-0 focus-visible:ring-2 focus-visible:ring-purple-400/50"
+                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-purple-400/50"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoComplete="username"
@@ -128,7 +128,7 @@ export default function Login() {
                     data-testid="input-password"
                     type="password"
                     placeholder="••••••••"
-                    className="login-input pr-9 h-10 text-sm rounded-lg border-0 focus-visible:ring-2 focus-visible:ring-purple-400/50"
+                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-purple-400/50"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -141,13 +141,13 @@ export default function Login() {
                 <div
                   className="flex items-center gap-2 rounded-lg px-3 py-2.5"
                   style={{
-                    background: "rgba(239,68,68,0.12)",
-                    border: "1px solid rgba(239,68,68,0.25)",
+                    background: "rgba(239,68,68,0.10)",
+                    border: "1px solid rgba(239,68,68,0.22)",
                   }}
                   data-testid="text-login-error"
                 >
                   <div className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                  <p className="text-sm text-red-400">{error}</p>
+                  <p className="text-sm text-red-500 dark:text-red-400">{error}</p>
                 </div>
               )}
 
@@ -160,7 +160,7 @@ export default function Login() {
                   background: loading
                     ? "rgba(139, 92, 246, 0.40)"
                     : "linear-gradient(135deg, hsl(262 80% 52%), hsl(280 75% 58%))",
-                  boxShadow: loading ? "none" : "0 4px 18px hsl(262 80% 52% / 0.45)",
+                  boxShadow: loading ? "none" : "0 4px 18px hsl(262 80% 52% / 0.40)",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -180,9 +180,16 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ===== LEFT PANEL: Branding (desktop only) ===== */}
-      <div className="hidden lg:flex flex-col justify-center w-[55%] p-16 relative">
+      {/* ===== LEFT PANEL: Branding (desktop only — always dark purple) ===== */}
+      <div className="login-branding-panel hidden lg:flex flex-col justify-center w-[55%] p-16 relative overflow-hidden">
+        {/* Subtle inner glow */}
         <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 60% 40%, rgba(139,92,246,0.15) 0%, transparent 65%)" }}
+        />
+
+        <div
+          className="relative z-10"
           style={{
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateX(0)" : "translateX(-20px)",
@@ -243,8 +250,8 @@ export default function Login() {
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
                   style={{
-                    background: "rgba(139, 92, 246, 0.18)",
-                    border: "1px solid rgba(139, 92, 246, 0.28)",
+                    background: "rgba(139, 92, 246, 0.20)",
+                    border: "1px solid rgba(139, 92, 246, 0.30)",
                   }}
                 >
                   <f.icon className="h-4 w-4 text-purple-300" />
