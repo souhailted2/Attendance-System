@@ -2793,6 +2793,20 @@ export async function registerRoutes(
 
       const results: GrantReportRow[] = [];
 
+      // أسماء أيام الأسبوع بالعربية → رقم getDay()
+      const WEEKDAY_TO_DOW: Record<string, number> = {
+        "الأحد": 0, "الاثنين": 1, "الثلاثاء": 2, "الأربعاء": 3,
+        "الخميس": 4, "الجمعة": 5, "السبت": 6,
+      };
+      function absenceThresholdMet(absent: number, thresh: string | null): boolean {
+        if (!thresh) return false;
+        if (thresh === "1") return absent >= 1;
+        if (thresh === "2") return absent >= 2;
+        if (thresh === "more") return absent > 2;
+        const n = parseFloat(thresh);
+        return !isNaN(n) && absent >= n;
+      }
+
       for (const grant of targetGrants) {
         let targetEmps = activeEmployees;
         if (grant.targetType === "shift") {
@@ -2866,14 +2880,14 @@ export async function registerRoutes(
           }
 
           if (!cancelled) {
-            // تحقق من وجود شرط غياب محدد (أولوية على العام)
+            // تحقق من وجود شرط غياب أيام أسبوع محدد (أولوية على العام)
             const hasWeekdayCond = conditions.some(
               c => c.conditionType === "absence" && c.absenceMode === "weekday"
             );
 
             for (const cond of conditions) {
               if (cancelled) break;
-              if (cond.conditionType === "violations_exceed" || cond.conditionType === "attendance") continue;
+              if (cond.conditionType === "violations_exceed") continue;
 
               let triggered = false;
               const effAmt = parseFloat(cond.effectAmount ?? "0") || 0;
@@ -2881,17 +2895,37 @@ export async function registerRoutes(
               if (cond.conditionType === "absence") {
                 if (cond.absenceMode === "count") {
                   if (hasWeekdayCond) continue; // الشرط المحدد يلغي العام
-                  const threshold = parseFloat(cond.daysThreshold ?? "0");
-                  triggered = absentDays >= threshold;
+                  triggered = absenceThresholdMet(absentDays, cond.daysThreshold ?? null);
                 } else if (cond.absenceMode === "weekday") {
-                  let weekdays: number[] = [];
+                  let weekdays: string[] = [];
                   try { weekdays = JSON.parse(cond.weekdays ?? "[]"); } catch { weekdays = []; }
-                  triggered = weekdays.some(wd => (weekdayAbsences[wd] ?? 0) > 0);
+                  // weekdays مخزنة كأسماء عربية أو أرقام — نحوّل لرقم DOW
+                  triggered = weekdays.some(wd => {
+                    const dow = typeof wd === "number" ? wd : (WEEKDAY_TO_DOW[String(wd)] ?? -1);
+                    return dow >= 0 && (weekdayAbsences[dow] ?? 0) > 0;
+                  });
                 }
               } else if (cond.conditionType === "late") {
                 triggered = totalLateMinutes >= (cond.minutesThreshold ?? 0);
               } else if (cond.conditionType === "early_leave") {
                 triggered = totalEarlyLeaveMinutes >= (cond.minutesThreshold ?? 0);
+              } else if (cond.conditionType === "attendance") {
+                // حضور كامل في الفترة — حالياً نحسب فقط لفترة "month"
+                const periodType = cond.attendancePeriodType ?? "month";
+                if (periodType === "month" || !periodType) {
+                  // حضور كامل = لا يوجد غياب في الشهر المختار
+                  triggered = absentDays === 0;
+                } else if (periodType === "week") {
+                  // آخر أسبوع: نتحقق من آخر 7 أيام عمل في الفترة
+                  const recentDates = allDates
+                    .filter(d => d <= todayStr && !(!is24h && holidayDateSet.has(d)))
+                    .slice(-7);
+                  const recentAbsent = recentDates.filter(d =>
+                    !empRecordsByDate.has(d) || empRecordsByDate.get(d)!.status === "absent"
+                  ).length;
+                  triggered = recentAbsent === 0;
+                }
+                // باقي أنواع الفترة (specific_month/week/day/year/months) تُهمل في التقرير الشهري
               }
 
               if (triggered) {
