@@ -1093,13 +1093,15 @@ export async function registerRoutes(
         }
       }
 
-      const allEmployees = await storage.getEmployees();
-      const allWorkshops = await storage.getWorkshops();
-      const allWorkRules = await storage.getWorkRules();
-      const records = await storage.getAttendanceByDateRange(from, to);
+      // جلب كل البيانات بالتوازي بدل التتابع
+      const [allEmployees, allWorkshops, allWorkRules, records, offDaySetting] = await Promise.all([
+        storage.getEmployees(),
+        storage.getWorkshops(),
+        storage.getWorkRules(),
+        storage.getAttendanceByDateRange(from, to),
+        storage.getAppSetting("weeklyOffDays"),
+      ]);
 
-      // Load weekly off days
-      const offDaySetting = await storage.getAppSetting("weeklyOffDays");
       const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
 
       // Build full date range list
@@ -1120,15 +1122,28 @@ export async function registerRoutes(
           : []
       );
 
+      // بناء Map لبحث O(1) بدل filter O(N×M) لكل موظف
+      const recordsByEmployee = new Map<string, typeof records>();
+      for (const rec of records) {
+        const list = recordsByEmployee.get(rec.employeeId);
+        if (list) list.push(rec);
+        else recordsByEmployee.set(rec.employeeId, [rec]);
+      }
+
       let filteredEmployees = allEmployees.filter(e => e.isActive);
       if (workRuleId) filteredEmployees = filteredEmployees.filter(e => e.workRuleId === workRuleId);
       if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
       if (employeeId) filteredEmployees = filteredEmployees.filter(e => e.id === employeeId);
 
+      // بناء Map للورشات وقواعد العمل للبحث السريع
+      const workshopsMap = new Map(allWorkshops.map(w => [w.id, w]));
+      const workRulesMap = new Map(allWorkRules.map(r => [r.id, r]));
+      const defaultRule = allWorkRules.find(r => r.isDefault) ?? allWorkRules[0];
+
       const report = filteredEmployees.map(emp => {
-        const workRule = allWorkRules.find(r => r.id === emp.workRuleId) || allWorkRules.find(r => r.isDefault) || allWorkRules[0];
-        const workshop = allWorkshops.find(w => w.id === emp.workshopId);
-        const empRecords = records.filter(r => r.employeeId === emp.id);
+        const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
+        const workshop = workshopsMap.get(emp.workshopId ?? "");
+        const empRecords = recordsByEmployee.get(emp.id) ?? [];
 
         let totalWorkDayMinutes = 480;
         if (workRule) {

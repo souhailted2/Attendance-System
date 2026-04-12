@@ -264,10 +264,7 @@ export default function Reports() {
   });
 
   function isCellFrozen(date: string, workshopId: string, workRuleId: string): boolean {
-    const month = date.slice(0, 7);
-    return frozenArchives.some(
-      (a) => a.month === month && a.workshopId === workshopId && a.workRuleId === workRuleId
-    );
+    return frozenSet.has(`${date.slice(0, 7)}|${workshopId}|${workRuleId}`);
   }
 
   function openEditCell(emp: EmployeeReport, date: string, rec: DailyRecord) {
@@ -378,6 +375,28 @@ export default function Reports() {
     }
     return map;
   }, [reportData]);
+
+  // بناء Set للأشهر المجمّدة مرة واحدة بدل البحث في كل خلية
+  const frozenSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const a of frozenArchives) {
+      s.add(`${a.month}|${a.workshopId}|${a.workRuleId}`);
+    }
+    return s;
+  }, [frozenArchives]);
+
+  // إجماليات عمود كل يوم مُحسوبة مرة واحدة بدل إعادة الحساب في كل خلية
+  const dateTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const d of allDates) {
+      let sum = 0;
+      for (const r of reportData) {
+        sum += empDayMap.get(r.employeeId)?.get(d)?.dailyScore ?? 0;
+      }
+      totals.set(d, sum);
+    }
+    return totals;
+  }, [allDates, reportData, empDayMap]);
 
   const employeesWithOvertime = useMemo(() =>
     overtimeData
@@ -1270,10 +1289,7 @@ export default function Reports() {
                         <TableCell className="sticky right-0 bg-muted/50 z-10 border-l">المجموع</TableCell>
                         <TableCell />
                         {allDates.map((d) => {
-                          const dayTotal = reportData.reduce((s, r) => {
-                            const rec = empDayMap.get(r.employeeId)?.get(d);
-                            return s + (rec?.dailyScore ?? 0);
-                          }, 0);
+                          const dayTotal = dateTotals.get(d) ?? 0;
                           return (
                             <TableCell key={d} className="text-center text-xs px-1 py-2">
                               <span className={scoreColor(dayTotal, reportData.length)}>
