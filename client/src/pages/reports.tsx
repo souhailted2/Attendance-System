@@ -493,10 +493,6 @@ export default function Reports() {
   function exportReportToExcel() {
     if (!reportData.length) return;
 
-    const statusSymbol: Record<string, string> = {
-      present: "ح", late: "ت", absent: "غ",
-      leave: "إج", holiday: "ع", rest: "ر",
-    };
     const DAY_SHORT = ["أح", "إث", "ثل", "أر", "خم", "جم", "سب"];
 
     // Group employees by workshopName
@@ -533,9 +529,7 @@ export default function Reports() {
 
         const dayCells = dates.map((d) => {
           const rec = byDate.get(d);
-          if (!rec) return "غ";
-          const sym = statusSymbol[rec.status] ?? rec.status;
-          return rec.checkIn ? `${sym}\n${rec.checkIn}` : sym;
+          return rec ? rec.dailyScore.toFixed(2) : "0.00";
         });
 
         return [emp.employeeName, emp.employeeCode, ...dayCells, emp.attendanceScore.toFixed(2)];
