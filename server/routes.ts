@@ -756,6 +756,33 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/stats/weekly", async (req, res) => {
+    try {
+      const today = new Date();
+      const days: { date: string; day: string }[] = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const dayNames = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+        days.push({ date: dateStr, day: dayNames[d.getDay()] });
+      }
+      const startDate = days[0].date;
+      const endDate = days[days.length - 1].date;
+      const records = await storage.getAttendanceByDateRange(startDate, endDate);
+      const result = days.map(({ date, day }) => {
+        const dayRecords = records.filter((r) => r.date === date);
+        const present = dayRecords.filter((r) => r.status === "present").length;
+        const late = dayRecords.filter((r) => r.status === "late").length;
+        const absent = dayRecords.filter((r) => r.status === "absent").length;
+        return { date, day, present, late, absent };
+      });
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "خطأ في جلب الإحصائيات" });
+    }
+  });
+
   // SSE endpoint — يستمع المتصفح هنا لأي حركة جديدة
   app.get("/api/attendance/events", (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");

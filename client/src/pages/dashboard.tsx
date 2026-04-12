@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
-import { Users, ClipboardCheck, AlertTriangle, Clock, Building2, TrendingUp, TrendingDown, Minus, UserCheck, UserX, CalendarClock, BarChart3 } from "lucide-react";
+import { Users, ClipboardCheck, AlertTriangle, Clock, Building2, TrendingUp, TrendingDown, Minus, UserCheck, CalendarClock, BarChart3, ExternalLink } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import type { Employee, Company, Workshop } from "@shared/schema";
 
 function getInitials(name: string): string {
@@ -71,6 +72,30 @@ const quickActions = [
   { label: "الفترات", url: "/shifts", icon: CalendarClock, color: "hsl(220 80% 50%)" },
 ];
 
+interface WeeklyStat {
+  date: string;
+  day: string;
+  present: number;
+  late: number;
+  absent: number;
+}
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (!active || !payload || !payload.length) return null;
+  return (
+    <div className="rounded-lg border bg-background shadow-md px-3 py-2 text-xs space-y-1 min-w-[100px]" dir="rtl">
+      <p className="font-semibold text-foreground mb-1">{label}</p>
+      {payload.map((entry: any) => (
+        <div key={entry.name} className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full inline-block" style={{ background: entry.fill }} />
+          <span className="text-muted-foreground">{entry.name}:</span>
+          <span className="font-medium tabular-nums">{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function Dashboard() {
   const { data: employees, isLoading: loadingEmp } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: companies } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
@@ -78,6 +103,9 @@ export default function Dashboard() {
   const today = new Date().toISOString().split("T")[0];
   const { data: attendance, isLoading: loadingAtt } = useQuery<any[]>({
     queryKey: ["/api/attendance", `?date=${today}`],
+  });
+  const { data: weeklyStats, isLoading: loadingWeekly } = useQuery<WeeklyStat[]>({
+    queryKey: ["/api/stats/weekly"],
   });
 
   const activeEmployees = employees?.filter((e) => e.isActive) || [];
@@ -228,6 +256,49 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
+      {/* Weekly Attendance Chart */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-5">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" style={{ color: "hsl(271 76% 45%)" }} />
+            الحضور خلال 7 أيام
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-2 pb-4">
+          {loadingWeekly ? (
+            <Skeleton className="h-40 w-full" />
+          ) : weeklyStats && weeklyStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={weeklyStats} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barSize={10} barGap={2}>
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: "hsl(var(--accent))", opacity: 0.4 }} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+                />
+                <Bar dataKey="present" name="حاضر" fill="hsl(160 70% 38%)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="late" name="متأخر" fill="hsl(43 96% 48%)" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="absent" name="غائب" fill="hsl(0 72% 51%)" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات</p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Contract Alerts */}
       {(expiringContracts.length > 0 || expiredContracts.length > 0) && (
         <Card style={{ borderColor: "hsl(0 72% 51% / 0.20)" }}>
@@ -239,34 +310,53 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="px-5 pb-4 space-y-2">
             {expiredContracts.map((emp) => (
-              <div key={emp.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-destructive/5 border border-destructive/10" data-testid={`alert-expired-${emp.id}`}>
-                <div className="flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-full bg-destructive/10 flex items-center justify-center">
-                    <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">{emp.name}</p>
-                    <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
-                  </div>
-                </div>
-                <Badge variant="destructive" className="text-xs">عقد منتهي</Badge>
-              </div>
-            ))}
-            {expiringContracts.map((emp) => {
-              const daysLeft = Math.ceil((new Date(emp.contractEndDate!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-              return (
-                <div key={emp.id} className="flex items-center justify-between gap-2 p-2.5 rounded-lg" style={{ background: "hsl(43 96% 52% / 0.06)", border: "1px solid hsl(43 96% 52% / 0.15)" }} data-testid={`alert-expiring-${emp.id}`}>
+              <Link key={emp.id} href={`/employees/${emp.id}/attendance`}>
+                <div
+                  className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-destructive/5 border border-destructive/10 cursor-pointer hover:bg-destructive/10 transition-colors"
+                  data-testid={`alert-expired-${emp.id}`}
+                >
                   <div className="flex items-center gap-2.5">
-                    <div className="h-7 w-7 rounded-full flex items-center justify-center" style={{ background: "hsl(43 96% 52% / 0.12)" }}>
-                      <Clock className="h-3.5 w-3.5" style={{ color: "hsl(43 96% 42%)" }} />
+                    <div className="h-7 w-7 rounded-full bg-destructive/10 flex items-center justify-center">
+                      <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
                     </div>
                     <div>
                       <p className="text-sm font-medium">{emp.name}</p>
                       <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="text-xs">{daysLeft} يوم</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="destructive" className="text-xs">عقد منتهي</Badge>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                  </div>
                 </div>
+              </Link>
+            ))}
+            {expiringContracts.map((emp) => {
+              const daysLeft = Math.ceil((new Date(emp.contractEndDate!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+              return (
+                <Link key={emp.id} href={`/employees/${emp.id}/attendance`}>
+                  <div
+                    className="flex items-center justify-between gap-2 p-2.5 rounded-lg cursor-pointer transition-colors"
+                    style={{ background: "hsl(43 96% 52% / 0.06)", border: "1px solid hsl(43 96% 52% / 0.15)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "hsl(43 96% 52% / 0.12)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "hsl(43 96% 52% / 0.06)")}
+                    data-testid={`alert-expiring-${emp.id}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-7 w-7 rounded-full flex items-center justify-center" style={{ background: "hsl(43 96% 52% / 0.12)" }}>
+                        <Clock className="h-3.5 w-3.5" style={{ color: "hsl(43 96% 42%)" }} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{emp.name}</p>
+                        <p className="text-xs text-muted-foreground">{emp.employeeCode}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs">{daysLeft} يوم</Badge>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                    </div>
+                  </div>
+                </Link>
               );
             })}
           </CardContent>
@@ -346,25 +436,26 @@ export default function Dashboard() {
             {activeEmployees.length > 0 ? (
               <div className="space-y-1.5">
                 {activeEmployees.slice(0, 6).map((emp) => (
-                  <div
-                    key={emp.id}
-                    className="flex items-center gap-3 py-2 px-2.5 rounded-lg hover:bg-accent/40 transition-colors"
-                    data-testid={`employee-row-${emp.id}`}
-                  >
+                  <Link key={emp.id} href={`/employees/${emp.id}/attendance`}>
                     <div
-                      className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
-                      style={{ background: getAvatarGradient(emp.name) }}
+                      className="flex items-center gap-3 py-2 px-2.5 rounded-lg hover:bg-accent/40 transition-colors cursor-pointer"
+                      data-testid={`employee-row-${emp.id}`}
                     >
-                      {getInitials(emp.name)}
+                      <div
+                        className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                        style={{ background: getAvatarGradient(emp.name) }}
+                      >
+                        {getInitials(emp.name)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{emp.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{emp.employeeCode}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">
+                        {emp.shift === "morning" ? "صباحي" : "مسائي"}
+                      </Badge>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate">{emp.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{emp.employeeCode}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                      {emp.shift === "morning" ? "صباحي" : "مسائي"}
-                    </Badge>
-                  </div>
+                  </Link>
                 ))}
               </div>
             ) : (
