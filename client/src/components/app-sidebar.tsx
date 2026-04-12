@@ -100,25 +100,32 @@ export function AppSidebar() {
           <SidebarGroupLabel>الرئيسية</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`link-nav-${item.url.replace("/", "") || "dashboard"}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {mainItems.map((item) => {
+                const active = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      data-testid={`link-nav-${item.url.replace("/", "") || "dashboard"}`}
+                    >
+                      <Link href={item.url}>
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                          <item.icon className="h-3.5 w-3.5" />
+                        </span>
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               {user?.username === "owner" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === "/favorites"} data-testid="link-nav-favorites">
                     <Link href="/favorites">
-                      <Star className="h-4 w-4" />
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/favorites" ? "bg-primary/20" : ""}`}>
+                        <Star className="h-3.5 w-3.5" />
+                      </span>
                       <span>المفضلة</span>
                     </Link>
                   </SidebarMenuButton>
@@ -128,7 +135,9 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === "/leaves-grants"} data-testid="link-nav-leaves-grants">
                     <Link href="/leaves-grants">
-                      <CalendarDays className="h-4 w-4" />
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/leaves-grants" ? "bg-primary/20" : ""}`}>
+                        <CalendarDays className="h-3.5 w-3.5" />
+                      </span>
                       <span>العطل والمنح</span>
                     </Link>
                   </SidebarMenuButton>
@@ -138,7 +147,9 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === "/monthly-archive"} data-testid="link-nav-monthly-archive">
                     <Link href="/monthly-archive">
-                      <Archive className="h-4 w-4" />
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/monthly-archive" ? "bg-primary/20" : ""}`}>
+                        <Archive className="h-3.5 w-3.5" />
+                      </span>
                       <span>حفظ الاشهر</span>
                     </Link>
                   </SidebarMenuButton>
@@ -152,20 +163,25 @@ export function AppSidebar() {
           <SidebarGroupLabel>الإعدادات</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`link-nav-${item.url.replace("/", "")}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {settingsItems.map((item) => {
+                const active = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      data-testid={`link-nav-${item.url.replace("/", "")}`}
+                    >
+                      <Link href={item.url}>
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                          <item.icon className="h-3.5 w-3.5" />
+                        </span>
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -174,25 +190,32 @@ export function AppSidebar() {
           <SidebarGroupLabel>أدوات</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {toolsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid={`link-nav-${item.url.replace("/", "")}`}
-                  >
-                    <Link href={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+              {toolsItems.map((item) => {
+                const active = location === item.url;
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      data-testid={`link-nav-${item.url.replace("/", "")}`}
+                    >
+                      <Link href={item.url}>
+                        <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                          <item.icon className="h-3.5 w-3.5" />
+                        </span>
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
               {user?.username === "owner" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === "/activity-log"} data-testid="link-nav-activity-log">
                     <Link href="/activity-log">
-                      <History className="h-4 w-4" />
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/activity-log" ? "bg-primary/20" : ""}`}>
+                        <History className="h-3.5 w-3.5" />
+                      </span>
                       <span>سجل النشاطات</span>
                     </Link>
                   </SidebarMenuButton>
