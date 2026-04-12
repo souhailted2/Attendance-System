@@ -460,6 +460,7 @@ export default function Employees() {
           onPageChange={setPage}
           totalItems={filtered.length}
           pageSize={EMPLOYEES_PAGE_SIZE}
+          itemLabel="موظف"
         />
       )}
       </div>

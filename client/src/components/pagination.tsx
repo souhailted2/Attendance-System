@@ -7,9 +7,10 @@ interface PaginationProps {
   onPageChange: (page: number) => void;
   totalItems?: number;
   pageSize?: number;
+  itemLabel?: string;
 }
 
-export function Pagination({ currentPage, totalPages, onPageChange, totalItems, pageSize }: PaginationProps) {
+export function Pagination({ currentPage, totalPages, onPageChange, totalItems, pageSize, itemLabel }: PaginationProps) {
   if (totalPages <= 1) return null;
 
   const from = totalItems != null && pageSize != null ? (currentPage - 1) * pageSize + 1 : null;
@@ -32,7 +33,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, totalItems, 
     <div className="flex flex-col items-center gap-2 pt-3" dir="rtl" data-testid="pagination">
       {totalItems != null && from != null && to != null && (
         <p className="text-xs text-muted-foreground" data-testid="text-pagination-count">
-          عرض {from}–{to} من أصل {totalItems}
+          عرض {from}–{to} من أصل {totalItems}{itemLabel ? ` ${itemLabel}` : ""}
         </p>
       )}
       <div className="flex items-center gap-1">

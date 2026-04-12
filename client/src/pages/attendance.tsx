@@ -503,6 +503,7 @@ export default function Attendance() {
               onPageChange={setPage}
               totalItems={filteredMovements.length}
               pageSize={ATTENDANCE_PAGE_SIZE}
+              itemLabel="سجل"
             />
           )}
         </div>
