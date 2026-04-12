@@ -283,6 +283,21 @@
   background: hsl(262 85% 65%);
 }
 
+/* Inactive sidebar icon — explicit muted color */
+[data-sidebar="menu-button"]:not([data-active="true"]) svg {
+  color: rgba(255, 255, 255, 0.45);
+  opacity: 0.80;
+  transition: color 0.15s, opacity 0.15s;
+}
+[data-sidebar="menu-button"]:not([data-active="true"]):hover svg {
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 1;
+}
+[data-sidebar="menu-button"][data-active="true"] svg {
+  color: rgba(255, 255, 255, 1);
+  opacity: 1;
+}
+
 /* Hover on non-active sidebar items */
 [data-sidebar="menu-button"]:not([data-active="true"]):hover {
   background: rgba(255, 255, 255, 0.08) !important;
