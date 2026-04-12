@@ -144,7 +144,6 @@ export default function Dashboard() {
   const absentVisible = absentExpanded ? absentEmployees : absentEmployees.slice(0, ABSENT_PREVIEW);
 
   function exportAbsentExcel() {
-    const dateStr = new Date().toLocaleDateString("ar-DZ");
     const rows = absentEmployees.map((emp) => {
       const ws = workshops?.find((w) => w.id === emp.workshopId);
       return {
