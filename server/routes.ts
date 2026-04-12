@@ -2958,11 +2958,11 @@ export async function registerRoutes(
               } else if (cond.conditionType === "early_leave") {
                 triggered = totalEarlyLeaveMinutes >= (cond.minutesThreshold ?? 0);
               } else if (cond.conditionType === "attendance") {
-                // حضور كامل في الفترة — حالياً نحسب فقط لفترة "month"
+                // شرط الحضور الكامل: يُفعَّل عند وجود غياب (حضور غير كامل)
+                // أي: المنحة تُلغى/تُخصم إذا لم يكن الحضور كاملاً
                 const periodType = cond.attendancePeriodType ?? "month";
                 if (periodType === "month" || !periodType) {
-                  // حضور كامل = لا يوجد غياب في الشهر المختار
-                  triggered = absentDays === 0;
+                  triggered = absentDays > 0;
                 } else if (periodType === "week") {
                   // آخر أسبوع: نتحقق من آخر 7 أيام عمل في الفترة (باستثناء أيام العطلة غير المدفوعة)
                   const recentDates = allDates
@@ -2971,7 +2971,7 @@ export async function registerRoutes(
                   const recentAbsent = recentDates.filter(d =>
                     !empRecordsByDate.has(d) || empRecordsByDate.get(d)!.status === "absent"
                   ).length;
-                  triggered = recentAbsent === 0;
+                  triggered = recentAbsent > 0;
                 }
                 // باقي أنواع الفترة (specific_month/week/day/year/months) تُهمل في التقرير الشهري
               }

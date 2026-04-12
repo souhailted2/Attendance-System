@@ -683,7 +683,7 @@ function conditionSummary(c: GrantConditionFull): string {
     } else {
       pv = pt;
     }
-    return `حضور كامل (${pv}) ${eff}`;
+    return `غياب في (${pv}) ${eff}`;
   }
   if (c.conditionType === "absence") {
     let base = "";
@@ -763,7 +763,10 @@ function ConditionRow({ cond, onChange, onDelete }: {
         <X className="h-4 w-4" />
       </Button>
       <div className="w-full pl-8">
-        <Select value={cond.conditionType} onValueChange={v => set({ conditionType: v })}>
+        <Select value={cond.conditionType} onValueChange={v => {
+          if (v === "attendance") set({ conditionType: v, effectType: "cancel", effectAmount: "" });
+          else set({ conditionType: v });
+        }}>
           <SelectTrigger className="w-full" data-testid="select-condition-type">
             <SelectValue placeholder="اختر نوع الشرط..." />
           </SelectTrigger>
@@ -779,6 +782,10 @@ function ConditionRow({ cond, onChange, onDelete }: {
 
       {cond.conditionType === "attendance" && (
         <div className="space-y-2">
+          <div className="flex items-start gap-1.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded px-2 py-1.5 text-xs text-amber-800 dark:text-amber-200">
+            <span>⚠</span>
+            <span>يُفعَّل هذا الشرط عند غياب الموظف في الفترة المختارة (الحضور غير كامل)</span>
+          </div>
           <Label className="text-xs text-muted-foreground">فترة الحضور المطلوبة</Label>
           <Select value={cond.attendancePeriodType} onValueChange={v => set({ attendancePeriodType: v })}>
             <SelectTrigger data-testid="select-attendance-period">
@@ -918,17 +925,27 @@ function ConditionRow({ cond, onChange, onDelete }: {
         <div className="flex items-center gap-2 pt-1 border-t">
           <Label className="text-xs text-muted-foreground whitespace-nowrap">الأثر</Label>
           <Select value={cond.effectType} onValueChange={v => set({ effectType: v })}>
-            <SelectTrigger className="w-32" data-testid="select-effect-type">
+            <SelectTrigger className="w-36" data-testid="select-effect-type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="add">يُضاف له</SelectItem>
+              {cond.conditionType === "attendance" && (
+                <SelectItem value="cancel">إلغاء المنحة</SelectItem>
+              )}
               <SelectItem value="deduct">يُخصم منه</SelectItem>
+              <SelectItem value="add">يُضاف له</SelectItem>
             </SelectContent>
           </Select>
-          <Input type="number" min={0} placeholder="المبلغ (دج)" value={cond.effectAmount}
-            onChange={e => set({ effectAmount: e.target.value })} className="w-32" data-testid="input-effect-amount" />
-          <span className="text-xs text-muted-foreground">دج</span>
+          {cond.effectType !== "cancel" && (
+            <>
+              <Input type="number" min={0} placeholder="المبلغ (دج)" value={cond.effectAmount}
+                onChange={e => set({ effectAmount: e.target.value })} className="w-32" data-testid="input-effect-amount" />
+              <span className="text-xs text-muted-foreground">دج</span>
+            </>
+          )}
+          {cond.effectType === "cancel" && (
+            <span className="text-sm text-destructive font-medium">تُلغى المنحة بالكامل</span>
+          )}
         </div>
       )}
 
@@ -1053,7 +1070,7 @@ function GrantsTab() {
     if (targetType === "employee" && selectedEmpIds.length === 0) return toast({ title: "اختر موظفاً واحداً على الأقل", variant: "destructive" });
     for (const c of conditions) {
       if (!c.conditionType) return toast({ title: "اختر نوع الشرط لكل صف", variant: "destructive" });
-      if (c.conditionType !== "violations_exceed" && !c.effectAmount) return toast({ title: "أدخل مبلغ الأثر لكل شرط", variant: "destructive" });
+      if (c.conditionType !== "violations_exceed" && c.effectType !== "cancel" && !c.effectAmount) return toast({ title: "أدخل مبلغ الأثر لكل شرط", variant: "destructive" });
       if (c.conditionType === "absence" && c.absenceMode === "weekday" && c.weekdays.length === 0)
         return toast({ title: "اختر يوماً واحداً على الأقل في شرط الغياب", variant: "destructive" });
     }
