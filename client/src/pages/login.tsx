@@ -51,43 +51,15 @@ export default function Login() {
   }
 
   return (
-    <div
-      className="min-h-screen flex overflow-hidden relative"
-      dir="rtl"
-      style={{
-        background: "linear-gradient(135deg, hsl(222 42% 7%) 0%, hsl(220 38% 9%) 60%, hsl(230 40% 8%) 100%)",
-      }}
-    >
+    <div className="login-bg min-h-screen flex overflow-hidden relative" dir="rtl">
       {/* Background orbs */}
       <div
-        className="absolute pointer-events-none"
-        style={{
-          top: "-20%", right: "-10%",
-          width: "600px", height: "600px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, hsl(262 80% 55% / 0.18) 0%, transparent 65%)",
-          filter: "blur(60px)",
-        }}
+        className="login-orb-1 absolute pointer-events-none"
+        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)" }}
       />
       <div
-        className="absolute pointer-events-none"
-        style={{
-          bottom: "-15%", left: "-10%",
-          width: "500px", height: "500px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, hsl(220 80% 60% / 0.14) 0%, transparent 65%)",
-          filter: "blur(50px)",
-        }}
-      />
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          top: "50%", left: "40%",
-          width: "300px", height: "300px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, hsl(262 90% 70% / 0.08) 0%, transparent 65%)",
-          filter: "blur(40px)",
-        }}
+        className="login-orb-2 absolute pointer-events-none"
+        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)" }}
       />
 
       {/* ===== RIGHT PANEL: Form ===== */}
@@ -100,7 +72,7 @@ export default function Login() {
             transition: "opacity 0.5s ease, transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
           }}
         >
-          {/* Logo + title (mobile only, hidden on lg) */}
+          {/* Logo (mobile only) */}
           <div className="flex items-center gap-3 lg:hidden">
             <div
               className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
@@ -113,44 +85,30 @@ export default function Login() {
             </div>
             <div>
               <h1 className="text-base font-bold text-white">نظام إدارة الحضور</h1>
-              <p className="text-xs text-white/40">v2.0</p>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>v2.0</p>
             </div>
           </div>
 
           {/* Form card */}
-          <div
-            className="rounded-2xl p-7 space-y-6"
-            style={{
-              background: "rgba(255, 255, 255, 0.05)",
-              backdropFilter: "blur(24px) saturate(1.4)",
-              WebkitBackdropFilter: "blur(24px) saturate(1.4)",
-              border: "1px solid rgba(255, 255, 255, 0.09)",
-              boxShadow: "0 16px 48px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}
-          >
+          <div className="login-form-card rounded-2xl p-7 space-y-6">
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white">مرحباً بك</h2>
-              <p className="text-sm text-white/50">سجّل دخولك للمتابعة</p>
+              <h2 className="login-title text-xl font-bold">مرحباً بك</h2>
+              <p className="login-subtitle text-sm">سجّل دخولك للمتابعة</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-white/70 text-sm font-medium">
+                <Label htmlFor="username" className="login-label text-sm font-medium">
                   اسم المستخدم
                 </Label>
                 <div className="relative">
-                  <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/35" />
+                  <User className="login-input-icon absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" />
                   <Input
                     id="username"
                     data-testid="input-username"
                     type="text"
                     placeholder="أدخل اسم المستخدم"
-                    className="pr-9 h-10 text-sm"
-                    style={{
-                      background: "rgba(255,255,255,0.07)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      color: "rgba(255,255,255,0.90)",
-                    }}
+                    className="login-input pr-9 h-10 text-sm rounded-lg border-0 focus-visible:ring-2 focus-visible:ring-purple-400/50"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoComplete="username"
@@ -160,22 +118,17 @@ export default function Login() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-white/70 text-sm font-medium">
+                <Label htmlFor="password" className="login-label text-sm font-medium">
                   كلمة المرور
                 </Label>
                 <div className="relative">
-                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/35" />
+                  <Lock className="login-input-icon absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4" />
                   <Input
                     id="password"
                     data-testid="input-password"
                     type="password"
                     placeholder="••••••••"
-                    className="pr-9 h-10 text-sm"
-                    style={{
-                      background: "rgba(255,255,255,0.07)",
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      color: "rgba(255,255,255,0.90)",
-                    }}
+                    className="login-input pr-9 h-10 text-sm rounded-lg border-0 focus-visible:ring-2 focus-visible:ring-purple-400/50"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -194,21 +147,20 @@ export default function Login() {
                   data-testid="text-login-error"
                 >
                   <div className="h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                  <p className="text-sm text-red-300">{error}</p>
+                  <p className="text-sm text-red-400">{error}</p>
                 </div>
               )}
 
               <Button
                 type="submit"
-                className="w-full h-10 text-sm font-semibold rounded-lg border-0"
+                className="w-full h-10 text-sm font-semibold rounded-lg border-0 text-white"
                 disabled={loading}
                 data-testid="button-login-submit"
                 style={{
                   background: loading
-                    ? "rgba(139, 92, 246, 0.30)"
-                    : "linear-gradient(135deg, hsl(262 80% 55%), hsl(280 75% 60%))",
-                  color: "white",
-                  boxShadow: loading ? "none" : "0 4px 16px hsl(262 80% 55% / 0.40)",
+                    ? "rgba(139, 92, 246, 0.40)"
+                    : "linear-gradient(135deg, hsl(262 80% 52%), hsl(280 75% 58%))",
+                  boxShadow: loading ? "none" : "0 4px 18px hsl(262 80% 52% / 0.45)",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -222,13 +174,13 @@ export default function Login() {
             </form>
           </div>
 
-          <p className="text-xs text-center text-white/25">
+          <p className="login-footer text-xs text-center">
             نظام إدارة الحضور والانصراف — جميع الحقوق محفوظة
           </p>
         </div>
       </div>
 
-      {/* ===== LEFT PANEL: Branding (hidden on mobile) ===== */}
+      {/* ===== LEFT PANEL: Branding (desktop only) ===== */}
       <div className="hidden lg:flex flex-col justify-center w-[55%] p-16 relative">
         <div
           style={{
@@ -250,7 +202,9 @@ export default function Login() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">نظام إدارة الحضور</h1>
-              <p className="text-sm text-white/45 mt-0.5">Attendance Management System v2.0</p>
+              <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>
+                Attendance Management System v2.0
+              </p>
             </div>
           </div>
 
@@ -261,7 +215,7 @@ export default function Login() {
               <br />
               <span
                 style={{
-                  background: "linear-gradient(135deg, hsl(262 85% 70%), hsl(220 85% 70%))",
+                  background: "linear-gradient(135deg, hsl(262 85% 75%), hsl(220 85% 75%))",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
@@ -269,7 +223,7 @@ export default function Login() {
                 بكل احترافية
               </span>
             </h2>
-            <p className="text-base text-white/45 leading-relaxed max-w-md">
+            <p className="text-base leading-relaxed max-w-md" style={{ color: "rgba(255,255,255,0.42)" }}>
               منصة متكاملة لإدارة حضور الموظفين مع تكامل أجهزة ZKTeco البيومترية وتقارير ذكية فورية.
             </p>
           </div>
@@ -290,12 +244,12 @@ export default function Login() {
                   className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
                   style={{
                     background: "rgba(139, 92, 246, 0.18)",
-                    border: "1px solid rgba(139, 92, 246, 0.25)",
+                    border: "1px solid rgba(139, 92, 246, 0.28)",
                   }}
                 >
-                  <f.icon className="h-4 w-4 text-purple-400" />
+                  <f.icon className="h-4 w-4 text-purple-300" />
                 </div>
-                <span className="text-sm text-white/65">{f.text}</span>
+                <span className="text-sm" style={{ color: "rgba(255,255,255,0.60)" }}>{f.text}</span>
               </div>
             ))}
           </div>
@@ -303,7 +257,7 @@ export default function Login() {
           {/* Stats bar */}
           <div
             className="mt-12 flex items-center gap-8 pt-8"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+            style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
           >
             {[
               { value: "99.9%", label: "وقت التشغيل" },
@@ -314,14 +268,14 @@ export default function Login() {
                 <p
                   className="text-2xl font-bold"
                   style={{
-                    background: "linear-gradient(135deg, hsl(262 85% 70%), hsl(220 85% 70%))",
+                    background: "linear-gradient(135deg, hsl(262 85% 72%), hsl(220 85% 72%))",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
                 >
                   {s.value}
                 </p>
-                <p className="text-xs text-white/35 mt-0.5">{s.label}</p>
+                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.30)" }}>{s.label}</p>
               </div>
             ))}
           </div>

@@ -249,7 +249,11 @@
   color: rgba(150, 170, 220, 0.40);
 }
 
-/* Active sidebar item — full width pill */
+/* Active sidebar item — full width pill + accent bar */
+[data-sidebar="menu-button"] {
+  position: relative;
+}
+
 [data-sidebar="menu-button"][data-active="true"] {
   background: rgba(255, 255, 255, 0.16) !important;
   border: none !important;
@@ -258,9 +262,25 @@
   box-shadow: none;
 }
 
+[data-sidebar="menu-button"][data-active="true"]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 3px;
+  background: hsl(262 70% 75%);
+  border-radius: 0 3px 3px 0;
+  pointer-events: none;
+}
+
 .dark [data-sidebar="menu-button"][data-active="true"] {
   background: rgba(139, 92, 246, 0.22) !important;
   color: rgba(196, 181, 253, 1) !important;
+}
+
+.dark [data-sidebar="menu-button"][data-active="true"]::after {
+  background: hsl(262 85% 65%);
 }
 
 /* Hover on non-active sidebar items */
@@ -294,15 +314,107 @@
 }
 
 .shadcn-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(99, 50, 200, 0.09);
-  border-color: hsl(262 40% 80%) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(99, 50, 200, 0.14), 0 4px 12px rgba(99, 50, 200, 0.08);
+  border-color: hsl(262 50% 74%) !important;
 }
 
 .dark .shadcn-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(139, 92, 246, 0.20);
-  border-color: hsl(262 50% 30%) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(139, 92, 246, 0.30), 0 0 20px rgba(139, 92, 246, 0.08);
+  border-color: hsl(262 60% 35%) !important;
+}
+
+/* =============================================
+   LOGIN PAGE — dual theme
+   ============================================= */
+.login-bg {
+  background: linear-gradient(135deg, hsl(262 72% 20%) 0%, hsl(252 65% 28%) 50%, hsl(240 58% 22%) 100%);
+}
+.dark .login-bg {
+  background: linear-gradient(135deg, hsl(222 42% 7%) 0%, hsl(220 38% 9%) 60%, hsl(230 40% 8%) 100%);
+}
+
+.login-orb-1 {
+  background: radial-gradient(circle, hsl(43 96% 52% / 0.22) 0%, transparent 65%);
+}
+.dark .login-orb-1 {
+  background: radial-gradient(circle, hsl(262 80% 55% / 0.18) 0%, transparent 65%);
+}
+
+.login-orb-2 {
+  background: radial-gradient(circle, hsl(280 60% 70% / 0.20) 0%, transparent 65%);
+}
+.dark .login-orb-2 {
+  background: radial-gradient(circle, hsl(220 80% 60% / 0.14) 0%, transparent 65%);
+}
+
+.login-form-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255,255,255,0.90);
+}
+.dark .login-form-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.login-title {
+  color: hsl(262 50% 20%);
+}
+.dark .login-title {
+  color: rgba(255, 255, 255, 1);
+}
+
+.login-subtitle {
+  color: hsl(262 25% 45%);
+}
+.dark .login-subtitle {
+  color: rgba(255, 255, 255, 0.50);
+}
+
+.login-label {
+  color: hsl(262 30% 30%);
+}
+.dark .login-label {
+  color: rgba(255, 255, 255, 0.70);
+}
+
+.login-input {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  color: hsl(222 30% 12%) !important;
+}
+.dark .login-input {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.90) !important;
+}
+
+.login-input::placeholder {
+  color: hsl(215 10% 55%);
+}
+.dark .login-input::placeholder {
+  color: rgba(255, 255, 255, 0.30);
+}
+
+.login-input-icon {
+  color: hsl(215 12% 55%);
+}
+.dark .login-input-icon {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.login-footer {
+  color: rgba(255, 255, 255, 0.35);
+}
+.dark .login-footer {
+  color: rgba(255, 255, 255, 0.25);
 }
 
 /* =============================================
