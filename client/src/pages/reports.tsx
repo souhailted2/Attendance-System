@@ -19,10 +19,13 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   BarChart3, Clock, Users, ChevronLeft, ChevronRight, Pencil, Check, X,
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
-  FileSpreadsheet,
+  FileSpreadsheet, TrendingUp,
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import type { WorkRule, Workshop, Employee, FrozenArchive } from "@shared/schema";
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
+import type { WorkRule, Workshop, Employee, FrozenArchive, Company } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 
 type DateMode = "day" | "week" | "month" | "year";
@@ -143,6 +146,7 @@ export default function Reports() {
 
   const [selectedRule, setSelectedRule] = useState<WorkRule | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"shifts" | "overtime">("shifts");
 
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -164,6 +168,7 @@ export default function Reports() {
   const { data: workRules = [], isLoading: rulesLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
+  const { data: companies = [] } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
 
   const { data: frozenArchives = [] } = useQuery<FrozenArchive[]>({
     queryKey: ["/api/frozen-archives"],
@@ -183,6 +188,24 @@ export default function Reports() {
       if (!reportKey) return [];
       const res = await fetch(reportKey);
       if (!res.ok) throw new Error("فشل تحميل التقرير");
+      return res.json();
+    },
+  });
+
+  const trendQueryKey = selectedWorkshop
+    ? `/api/stats/monthly-trend?workshopId=${selectedWorkshop.id}&workRuleId=${selectedRule?.id || ""}&months=6`
+    : selectedRule
+    ? `/api/stats/monthly-trend?workRuleId=${selectedRule.id}&months=6`
+    : null;
+
+  interface MonthlyTrendPoint { label: string; presentRate: number; absentRate: number; }
+  const { data: trendData = [], isLoading: trendLoading } = useQuery<MonthlyTrendPoint[]>({
+    queryKey: trendQueryKey ? ["/api/stats/monthly-trend", selectedWorkshop?.id, selectedRule?.id] : ["noop-trend"],
+    enabled: !!trendQueryKey && !!selectedRule,
+    queryFn: async () => {
+      if (!trendQueryKey) return [];
+      const res = await fetch(trendQueryKey);
+      if (!res.ok) throw new Error("فشل تحميل التطور الشهري");
       return res.json();
     },
   });
@@ -344,13 +367,21 @@ export default function Reports() {
     updateRuleMutation.mutate({ id: ruleId, data: graceForm });
   }
 
-  function getWorkshopsForRule(rule: WorkRule) {
+  function getWorkshopsForRule(rule: WorkRule, companyId?: string) {
     const empsInRule = activeEmployees.filter((e) => e.workRuleId === rule.id);
     const workshopIds = [...new Set(empsInRule.map((e) => e.workshopId).filter(Boolean))];
     return workshopIds.map((wid) => ({
       workshop: workshops.find((w) => w.id === wid),
       count: empsInRule.filter((e) => e.workshopId === wid).length,
-    })).filter((x) => x.workshop);
+    })).filter((x) => {
+      if (!x.workshop) return false;
+      if (companyId && companyId !== "all") {
+        const ws = x.workshop;
+        const wsEmps = empsInRule.filter((e) => e.workshopId === ws.id);
+        return wsEmps.some((e) => e.companyId === companyId);
+      }
+      return true;
+    });
   }
 
   function getEmpCountForRule(rule: WorkRule) {
@@ -1071,13 +1102,32 @@ export default function Reports() {
       {/* ======================== LEVEL 2: Workshops in a Rule ======================== */}
       {selectedRule && !selectedWorkshop && (
         <div className="space-y-4">
-          <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setSelectedRule(null)} data-testid="button-back-to-rules">
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-            العودة للفترات
-          </Button>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => { setSelectedRule(null); setSelectedCompanyId("all"); }} data-testid="button-back-to-rules">
+              <ChevronLeft className="h-4 w-4 rotate-180" />
+              العودة للفترات
+            </Button>
+
+            {companies.length > 1 && (
+              <div className="flex items-center gap-2 -mt-2">
+                <span className="text-xs text-muted-foreground">تصفية بالشركة:</span>
+                <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+                  <SelectTrigger className="h-8 w-44 text-xs" data-testid="select-company-filter">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">كل الشركات</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
 
           {(() => {
-            const ruleWorkshops = getWorkshopsForRule(selectedRule);
+            const ruleWorkshops = getWorkshopsForRule(selectedRule, selectedCompanyId);
             if (ruleWorkshops.length === 0) {
               return (
                 <Card>
@@ -1344,6 +1394,81 @@ export default function Reports() {
                     </TableBody>
                   </Table>
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+
+          {/* Monthly Trend Chart */}
+          {selectedRule && selectedWorkshop && (
+            <Card>
+              <CardHeader className="pb-2 pt-4 px-5">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" style={{ color: "hsl(271 76% 45%)" }} />
+                  تطور الحضور — آخر 6 أشهر
+                  <span className="text-xs font-normal text-muted-foreground">({selectedWorkshop.name})</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-2 pb-4">
+                {trendLoading ? (
+                  <Skeleton className="h-40 w-full" />
+                ) : trendData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={180}>
+                    <LineChart data={trendData} margin={{ top: 4, right: 12, left: -12, bottom: 0 }}>
+                      <XAxis
+                        dataKey="label"
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval={0}
+                      />
+                      <YAxis
+                        domain={[0, 100]}
+                        tickFormatter={(v) => `${v}%`}
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                        axisLine={false}
+                        tickLine={false}
+                        width={38}
+                      />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [`${value}%`, name]}
+                        contentStyle={{
+                          fontSize: "12px",
+                          direction: "rtl",
+                          borderRadius: "8px",
+                          border: "1px solid hsl(var(--border))",
+                          background: "hsl(var(--background))",
+                          color: "hsl(var(--foreground))",
+                        }}
+                      />
+                      <Legend
+                        iconType="circle"
+                        iconSize={8}
+                        wrapperStyle={{ fontSize: "11px", paddingTop: "6px", direction: "rtl" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="presentRate"
+                        name="نسبة الحضور %"
+                        stroke="hsl(160 70% 38%)"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "hsl(160 70% 38%)" }}
+                        activeDot={{ r: 5 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="absentRate"
+                        name="نسبة الغياب %"
+                        stroke="hsl(0 72% 51%)"
+                        strokeWidth={2}
+                        dot={{ r: 3, fill: "hsl(0 72% 51%)" }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات كافية</p>
+                )}
               </CardContent>
             </Card>
           )}

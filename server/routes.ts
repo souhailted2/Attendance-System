@@ -845,6 +845,64 @@ export async function registerRoutes(
     }
   });
 
+  // Monthly trend endpoint — آخر N أشهر (present rate + absent rate)
+  app.get("/api/stats/monthly-trend", async (req, res) => {
+    try {
+      const months = Math.min(12, Math.max(1, parseInt(req.query.months as string) || 6));
+      const workshopId = req.query.workshopId as string | undefined;
+      const workRuleId = req.query.workRuleId as string | undefined;
+
+      const [allEmployees, offDaySetting] = await Promise.all([
+        storage.getEmployees(),
+        storage.getAppSetting("weeklyOffDays"),
+      ]);
+
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
+
+      let filteredEmps = allEmployees.filter((e) => e.isActive !== false);
+      if (workshopId) filteredEmps = filteredEmps.filter((e) => e.workshopId === workshopId);
+      if (workRuleId) filteredEmps = filteredEmps.filter((e) => e.workRuleId === workRuleId);
+      const empIds = new Set(filteredEmps.map((e) => e.id));
+      const totalActive = filteredEmps.length;
+
+      const now = new Date();
+      const arabicMonths = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
+      // Build date ranges for all months
+      const ranges = Array.from({ length: months }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1);
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDay = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+        const lastDay = `${year}-${String(month + 1).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+        let workingDays = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dow = new Date(year, month, day).getDay();
+          if (!weeklyOffDays.includes(dow)) workingDays++;
+        }
+        return { firstDay, lastDay, label: `${arabicMonths[month]} ${year}`, workingDays };
+      });
+
+      const monthlyRecords = await Promise.all(
+        ranges.map((r) => storage.getAttendanceByDateRange(r.firstDay, r.lastDay))
+      );
+
+      const results = ranges.map((r, i) => {
+        const recs = monthlyRecords[i].filter((rec) => empIds.has(rec.employeeId));
+        const presentCount = recs.filter((rec) => rec.status === "present" || rec.status === "late").length;
+        const totalPossible = totalActive * r.workingDays;
+        const presentRate = totalPossible > 0 ? Math.min(100, Math.round((presentCount / totalPossible) * 100)) : 0;
+        const absentRate = Math.max(0, 100 - presentRate);
+        return { label: r.label, presentRate, absentRate };
+      });
+
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ message: err.message });
+    }
+  });
+
   // SSE endpoint — يستمع المتصفح هنا لأي حركة جديدة
   app.get("/api/attendance/events", (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
