@@ -461,10 +461,6 @@ export default function Reports() {
 
   function exportReportToExcel() {
     if (!reportData.length) return;
-    const statusMap: Record<string, string> = {
-      present: "حاضر", late: "متأخر", absent: "غائب",
-      leave: "إجازة", holiday: "عطلة", rest: "راحة",
-    };
     const rows = reportData.map((r) => ({
       "الاسم": r.employeeName,
       "الرقم": r.employeeCode,

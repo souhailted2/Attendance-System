@@ -375,7 +375,7 @@ export default function EmployeeAttendancePage() {
                   data-testid="button-export-employee-excel"
                 >
                   <FileSpreadsheet className="h-4 w-4 ml-2" />
-                  Excel
+                  تصدير Excel
                 </Button>
               )}
             </div>
