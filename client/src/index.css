@@ -609,8 +609,8 @@ tr:hover td {
    ============================================= */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 12mm 10mm;
+    size: 297mm 210mm;
+    margin: 5mm;
   }
 
   body * { visibility: hidden; }

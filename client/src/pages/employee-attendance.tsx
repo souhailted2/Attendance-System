@@ -318,8 +318,8 @@ export default function EmployeeAttendancePage() {
       </div>
 
       {/* Header — Employee Profile Card */}
-      <div className="flex items-start gap-4 print:hidden">
-        <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate("/employees")} data-testid="button-back">
+      <div className="flex items-start gap-4">
+        <Button variant="ghost" size="icon" className="mt-1 shrink-0 print:hidden" onClick={() => navigate("/employees")} data-testid="button-back">
           <ChevronRight className="h-5 w-5" />
         </Button>
 
