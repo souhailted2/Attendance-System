@@ -198,6 +198,25 @@ export default function Reports() {
 
   const isOwnerOrAttendence = user?.username === "owner" || user?.username === "attendence";
 
+  // قائمة الأشهر المتاحة (24 شهرًا ماضيًا)
+  const availableMonths = useMemo(() => {
+    const months: { value: string; label: string }[] = [];
+    const ARABIC_MONTH_NAMES = [
+      "جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان",
+      "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
+    ];
+    const today = new Date();
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const value = `${y}-${String(m + 1).padStart(2, "0")}`;
+      const label = `${ARABIC_MONTH_NAMES[m]} ${y}`;
+      months.push({ value, label });
+    }
+    return months;
+  }, []);
+
   const { data: allGrants = [] } = useQuery<GrantWithConditions[]>({
     queryKey: ["/api/grants"],
     enabled: isOwnerOrAttendence,
@@ -1819,13 +1838,16 @@ export default function Reports() {
               <div className="flex flex-wrap items-end gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">الشهر</Label>
-                  <Input
-                    type="month"
-                    value={grantsMonth}
-                    onChange={e => { setGrantsMonth(e.target.value); setGrantsEnabled(false); }}
-                    className="w-44"
-                    data-testid="input-grants-month"
-                  />
+                  <Select value={grantsMonth} onValueChange={v => { setGrantsMonth(v); setGrantsEnabled(false); }}>
+                    <SelectTrigger className="w-44" data-testid="select-grants-month">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableMonths.map(m => (
+                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">المنحة / العقوبة</Label>

@@ -2936,6 +2936,10 @@ export async function registerRoutes(
             }
           }
 
+          const roundedFinal = Math.round(finalAmount * 100) / 100;
+          // إذا وصل المبلغ إلى صفر بعد الخصومات → يُعدّ ملغى
+          const effectivelyCancelled = cancelled || roundedFinal <= 0;
+
           results.push({
             employeeId: emp.id,
             employeeName: emp.name,
@@ -2945,8 +2949,8 @@ export async function registerRoutes(
             grantName: grant.name,
             grantType: grant.type,
             baseAmount,
-            finalAmount: Math.round(finalAmount * 100) / 100,
-            cancelled,
+            finalAmount: effectivelyCancelled ? 0 : roundedFinal,
+            cancelled: effectivelyCancelled,
           });
         }
       }
