@@ -783,6 +783,53 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/stats/monthly-summary", async (_req, res) => {
+    try {
+      const now = new Date();
+      const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+      const todayStr = now.toISOString().slice(0, 10);
+
+      const lastWeekDate = new Date(now);
+      lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+      const lastWeekStr = lastWeekDate.toISOString().slice(0, 10);
+
+      const [allEmployees, monthRecords, lastWeekRecords] = await Promise.all([
+        storage.getEmployees(),
+        storage.getAttendanceByDateRange(monthStart, todayStr),
+        storage.getAttendanceByDate(lastWeekStr),
+      ]);
+
+      const activeEmployees = allEmployees.filter((e) => e.isActive !== false);
+
+      const lateCountMap: Record<string, number> = {};
+      for (const r of monthRecords) {
+        if (r.status === "late") {
+          lateCountMap[r.employeeId] = (lateCountMap[r.employeeId] || 0) + 1;
+        }
+      }
+
+      const topLate = Object.entries(lateCountMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([employeeId, lateDays]) => {
+          const emp = allEmployees.find((e) => e.id === employeeId);
+          return { employeeId, name: emp?.name || "—", lateDays };
+        });
+
+      const lastWeekPresent = lastWeekRecords.filter(
+        (r) => r.status === "present" || r.status === "late"
+      ).length;
+      const lastWeekRate =
+        activeEmployees.length > 0
+          ? Math.round((lastWeekPresent / activeEmployees.length) * 100)
+          : 0;
+
+      res.json({ topLate, lastWeekRate, lastWeekPresent, totalActive: activeEmployees.length });
+    } catch (err: any) {
+      res.status(500).json({ message: "خطأ في جلب الإحصائيات الشهرية" });
+    }
+  });
+
   // SSE endpoint — يستمع المتصفح هنا لأي حركة جديدة
   app.get("/api/attendance/events", (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");

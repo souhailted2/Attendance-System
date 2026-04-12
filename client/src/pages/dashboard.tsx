@@ -80,6 +80,13 @@ interface WeeklyStat {
   absent: number;
 }
 
+interface MonthlySummary {
+  topLate: { employeeId: string; name: string; lateDays: number }[];
+  lastWeekRate: number;
+  lastWeekPresent: number;
+  totalActive: number;
+}
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload || !payload.length) return null;
   return (
@@ -107,12 +114,28 @@ export default function Dashboard() {
   const { data: weeklyStats, isLoading: loadingWeekly } = useQuery<WeeklyStat[]>({
     queryKey: ["/api/stats/weekly"],
   });
+  const { data: monthlySummary, isLoading: loadingMonthly } = useQuery<MonthlySummary>({
+    queryKey: ["/api/stats/monthly-summary"],
+  });
 
   const activeEmployees = employees?.filter((e) => e.isActive) || [];
   const presentToday = attendance?.filter((a: any) => a.status === "present" || a.status === "late").length || 0;
   const lateToday = attendance?.filter((a: any) => a.status === "late").length || 0;
   const absentToday = Math.max(0, activeEmployees.length - presentToday);
   const attendanceRate = activeEmployees.length > 0 ? Math.round((presentToday / activeEmployees.length) * 100) : 0;
+
+  const lastWeekRate = monthlySummary?.lastWeekRate ?? null;
+  const rateDiff = lastWeekRate !== null ? attendanceRate - lastWeekRate : null;
+
+  const workshopRates = (workshops || []).map((ws) => {
+    const wsEmployees = activeEmployees.filter((e) => e.workshopId === ws.id);
+    const wsPresent = (attendance || []).filter((a: any) => {
+      const emp = activeEmployees.find((e) => e.id === a.employeeId);
+      return emp?.workshopId === ws.id && (a.status === "present" || a.status === "late");
+    }).length;
+    const rate = wsEmployees.length > 0 ? Math.round((wsPresent / wsEmployees.length) * 100) : 0;
+    return { id: ws.id, name: ws.name, total: wsEmployees.length, present: wsPresent, rate };
+  }).filter((ws) => ws.total > 0).sort((a, b) => b.rate - a.rate);
 
   const expiringContracts = activeEmployees.filter((emp) => {
     if (!emp.contractEndDate) return false;
@@ -177,7 +200,7 @@ export default function Dashboard() {
         {statCards.map((card) => (
           <div
             key={card.key}
-            className="rounded-xl p-4 bg-white relative overflow-hidden transition-all duration-200"
+            className="rounded-xl p-4 bg-white dark:bg-card relative overflow-hidden transition-all duration-200"
             style={{
               border: `1px solid ${card.accentColor}18`,
               boxShadow: `0 1px 4px ${card.accentColor}08`,
@@ -221,7 +244,19 @@ export default function Dashboard() {
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
               نظرة عامة اليوم
             </span>
-            <span className="text-xs font-normal text-muted-foreground tabular-nums">{attendanceRate}% نسبة الحضور</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-normal text-muted-foreground tabular-nums">{attendanceRate}% نسبة الحضور</span>
+              {rateDiff !== null && (
+                <span
+                  className="flex items-center gap-0.5 text-[11px] font-medium tabular-nums"
+                  style={{ color: rateDiff >= 0 ? "hsl(160 70% 38%)" : "hsl(0 72% 51%)" }}
+                  data-testid="text-rate-diff"
+                >
+                  {rateDiff >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                  {rateDiff >= 0 ? "+" : ""}{rateDiff}% عن الأسبوع الماضي
+                </span>
+              )}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="px-5 pb-4 space-y-3">
@@ -255,6 +290,43 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Workshop Attendance Rates */}
+      {workshopRates.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Building2 className="h-4 w-4" style={{ color: "hsl(260 70% 50%)" }} />
+              معدل الحضور لكل ورشة — اليوم
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4 space-y-3">
+            {workshopRates.map((ws) => (
+              <div key={ws.id} className="space-y-1" data-testid={`workshop-rate-${ws.id}`}>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground truncate max-w-[60%]">{ws.name}</span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {ws.present}/{ws.total} — <span className="font-semibold" style={{ color: ws.rate >= 80 ? "hsl(160 70% 38%)" : ws.rate >= 50 ? "hsl(43 96% 42%)" : "hsl(0 72% 51%)" }}>{ws.rate}%</span>
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: "hsl(271 20% 92%)" }}>
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${ws.rate}%`,
+                      background: ws.rate >= 80
+                        ? "linear-gradient(90deg, hsl(160 70% 38%), hsl(160 65% 48%))"
+                        : ws.rate >= 50
+                        ? "linear-gradient(90deg, hsl(43 96% 48%), hsl(36 90% 55%))"
+                        : "linear-gradient(90deg, hsl(0 72% 51%), hsl(0 68% 60%))",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Weekly Attendance Chart */}
       <Card>
@@ -298,6 +370,64 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Top Late Employees This Month */}
+      {(loadingMonthly || (monthlySummary?.topLate && monthlySummary.topLate.length > 0)) && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Clock className="h-4 w-4" style={{ color: "hsl(43 96% 42%)" }} />
+              أكثر الموظفين تأخراً — هذا الشهر
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-4">
+            {loadingMonthly ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => <Skeleton key={i} className="h-9 w-full" />)}
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {monthlySummary!.topLate.map((emp, idx) => (
+                  <Link key={emp.employeeId} href={`/employees/${emp.employeeId}/attendance`}>
+                    <div
+                      className="flex items-center gap-3 py-2 px-2.5 rounded-lg hover:bg-accent/40 transition-colors cursor-pointer"
+                      data-testid={`top-late-${emp.employeeId}`}
+                    >
+                      <div
+                        className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{
+                          background: idx === 0 ? "hsl(0 72% 51% / 0.15)" : idx === 1 ? "hsl(43 96% 52% / 0.15)" : "hsl(271 20% 92%)",
+                          color: idx === 0 ? "hsl(0 72% 51%)" : idx === 1 ? "hsl(43 96% 42%)" : "hsl(var(--muted-foreground))",
+                        }}
+                      >
+                        {idx + 1}
+                      </div>
+                      <div
+                        className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                        style={{ background: getAvatarGradient(emp.name) }}
+                      >
+                        {getInitials(emp.name)}
+                      </div>
+                      <p className="text-xs font-medium flex-1 truncate">{emp.name}</p>
+                      <Badge
+                        className="text-[10px] shrink-0"
+                        style={{
+                          background: "hsl(43 96% 52% / 0.12)",
+                          color: "hsl(43 96% 32%)",
+                          border: "1px solid hsl(43 96% 52% / 0.25)",
+                        }}
+                      >
+                        {emp.lateDays} يوم تأخر
+                      </Badge>
+                      <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Contract Alerts */}
       {(expiringContracts.length > 0 || expiredContracts.length > 0) && (
