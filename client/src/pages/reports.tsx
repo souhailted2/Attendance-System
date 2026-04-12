@@ -21,7 +21,7 @@ import {
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
   FileSpreadsheet, TrendingUp,
 } from "lucide-react";
-import * as XLSX from "xlsx";
+import * as XLSXStyle from "xlsx-js-style";
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -495,6 +495,61 @@ export default function Reports() {
 
     const DAY_SHORT = ["أح", "إث", "ثل", "أر", "خم", "جم", "سب"];
 
+    // Cell background + text colors per status (RRGGBB for xlsx-js-style)
+    const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
+      present: { bg: "DCFCE7", fg: "15803D" },
+      late:    { bg: "FEF3C7", fg: "D97706" },
+      absent:  { bg: "FEE2E2", fg: "DC2626" },
+      holiday: { bg: "DBEAFE", fg: "1D4ED8" },
+      leave:   { bg: "F3E8FF", fg: "7C3AED" },
+      rest:    { bg: "F1F5F9", fg: "64748B" },
+    };
+    const FALLBACK_COLOR = STATUS_COLORS.present;
+
+    const border = {
+      top:    { style: "thin" as const, color: { rgb: "D1D5DB" } },
+      bottom: { style: "thin" as const, color: { rgb: "D1D5DB" } },
+      left:   { style: "thin" as const, color: { rgb: "D1D5DB" } },
+      right:  { style: "thin" as const, color: { rgb: "D1D5DB" } },
+    };
+
+    const centerAlign = { horizontal: "center" as const, vertical: "center" as const, wrapText: true, readingOrder: 2 };
+    const rightAlign  = { horizontal: "right"  as const, vertical: "center" as const, wrapText: true, readingOrder: 2 };
+
+    const headerStyle = {
+      fill: { fgColor: { rgb: "1E3A5F" } },
+      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 10 },
+      alignment: centerAlign,
+      border,
+    };
+    const titleStyle = {
+      fill: { fgColor: { rgb: "1E3A5F" } },
+      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 },
+      alignment: { horizontal: "center" as const, vertical: "center" as const, readingOrder: 2 },
+      border,
+    };
+    const totalRowStyle = {
+      fill: { fgColor: { rgb: "E5E7EB" } },
+      font: { bold: true, sz: 10 },
+      alignment: centerAlign,
+      border,
+    };
+    const nameStyle = {
+      font: { sz: 10 },
+      alignment: rightAlign,
+      border,
+    };
+    const codeStyle = {
+      font: { sz: 10 },
+      alignment: centerAlign,
+      border,
+    };
+    const totalColStyle = {
+      font: { bold: true, sz: 10 },
+      alignment: centerAlign,
+      border,
+    };
+
     // Group employees by workshopName
     const groups = new Map<string, EmployeeReport[]>();
     for (const emp of reportData) {
@@ -503,40 +558,55 @@ export default function Reports() {
       groups.get(wsName)!.push(emp);
     }
 
-    const wb = XLSX.utils.book_new();
-
-    // Use the shared allDates so every sheet has the same consistent date axis
+    const wb = XLSXStyle.utils.book_new();
     const dates = allDates;
 
     for (const [workshopName, emps] of groups) {
-      // Row 1 — title
-      const titleCell = `${workshopName} — ${selectedRule?.name ?? ""} — ${dateFrom} إلى ${dateTo}`;
+      const totalCols = dates.length + 3; // name + code + dates + total
+      const titleText = `${workshopName} — ${selectedRule?.name ?? ""} — ${dateFrom} إلى ${dateTo}`;
 
-      // Row 2 — column headers (same date axis for all sheets)
-      const headers = [
+      // Build plain value AOA first
+      const plainAoa: (string | number)[][] = [];
+
+      // Row 0: title
+      plainAoa.push([titleText, ...Array(totalCols - 1).fill("")]);
+
+      // Row 1: headers
+      plainAoa.push([
         "الموظف", "الرقم",
         ...dates.map((d) => {
           const dow = new Date(d + "T00:00:00").getDay();
-          return `${DAY_SHORT[dow]} ${d.slice(5).replace("-", "/")}`;
+          return `${DAY_SHORT[dow]}\n${d.slice(5).replace("-", "/")}`;
         }),
         "الإجمالي",
-      ];
+      ]);
 
-      // Employee rows
-      const empRows = emps.map((emp) => {
+      // Row 2+: employees
+      for (const emp of emps) {
         const byDate = new Map<string, DailyRecord>();
         for (const rec of emp.dailyRecords) byDate.set(rec.date, rec);
 
         const dayCells = dates.map((d) => {
           const rec = byDate.get(d);
-          return rec ? rec.dailyScore.toFixed(2) : "0.00";
+          if (!rec) return "0.00";
+          if (rec.status === "leave") return "إجازة";
+          if (rec.status === "rest") return `${rec.dailyScore.toFixed(2)}\nراحة`;
+          let val = rec.dailyScore.toFixed(2);
+          if (rec.checkIn)  val += `\n${rec.checkIn}`;
+          if (rec.checkOut) val += `\n${rec.checkOut}`;
+          return val;
         });
 
-        return [emp.employeeName, emp.employeeCode, ...dayCells, emp.attendanceScore.toFixed(2)];
-      });
+        plainAoa.push([
+          emp.employeeName,
+          emp.employeeCode,
+          ...dayCells,
+          `${emp.attendanceScore.toFixed(2)}/${emp.totalDays}`,
+        ]);
+      }
 
-      // Total row — sum of dailyScore per day + sum of attendanceScore
-      const totalRow = [
+      // Last row: totals
+      plainAoa.push([
         "المجموع", "",
         ...dates.map((d) => {
           const sum = emps.reduce((s, emp) => {
@@ -546,25 +616,91 @@ export default function Reports() {
           return sum.toFixed(2);
         }),
         emps.reduce((s, emp) => s + emp.attendanceScore, 0).toFixed(2),
-      ];
+      ]);
 
-      const aoa = [[titleCell], headers, ...empRows, totalRow];
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      // Create sheet from plain values
+      const ws = XLSXStyle.utils.aoa_to_sheet(plainAoa);
 
-      // Set column widths: name col wider, date cols narrow
+      // Apply styles cell by cell
+      const encodeCell = XLSXStyle.utils.encode_cell;
+
+      // Title row
+      for (let c = 0; c < totalCols; c++) {
+        const ref = encodeCell({ r: 0, c });
+        if (ws[ref]) ws[ref].s = titleStyle;
+      }
+
+      // Header row
+      for (let c = 0; c < totalCols; c++) {
+        const ref = encodeCell({ r: 1, c });
+        if (ws[ref]) ws[ref].s = headerStyle;
+      }
+
+      // Employee rows
+      for (let ei = 0; ei < emps.length; ei++) {
+        const r = ei + 2;
+        const emp = emps[ei];
+        const byDate = new Map<string, DailyRecord>();
+        for (const rec of emp.dailyRecords) byDate.set(rec.date, rec);
+
+        // Name cell
+        const nameRef = encodeCell({ r, c: 0 });
+        if (ws[nameRef]) ws[nameRef].s = nameStyle;
+
+        // Code cell
+        const codeRef = encodeCell({ r, c: 1 });
+        if (ws[codeRef]) ws[codeRef].s = codeStyle;
+
+        // Day cells
+        for (let di = 0; di < dates.length; di++) {
+          const ref = encodeCell({ r, c: di + 2 });
+          if (!ws[ref]) continue;
+          const rec = byDate.get(dates[di]);
+          const colors = rec ? (STATUS_COLORS[rec.status] ?? FALLBACK_COLOR) : STATUS_COLORS.absent;
+          ws[ref].s = {
+            fill: { fgColor: { rgb: colors.bg } },
+            font: { bold: true, color: { rgb: colors.fg }, sz: 9 },
+            alignment: centerAlign,
+            border,
+          };
+        }
+
+        // Total column
+        const totalRef = encodeCell({ r, c: totalCols - 1 });
+        if (ws[totalRef]) ws[totalRef].s = totalColStyle;
+      }
+
+      // Total row
+      const totalRowIdx = emps.length + 2;
+      for (let c = 0; c < totalCols; c++) {
+        const ref = encodeCell({ r: totalRowIdx, c });
+        if (ws[ref]) ws[ref].s = totalRowStyle;
+      }
+
+      // Merge title row across all columns
+      ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } }];
+
+      // Column widths
       ws["!cols"] = [
-        { wch: 20 }, { wch: 8 },
-        ...dates.map(() => ({ wch: 10 })),
-        { wch: 10 },
+        { wch: 22 }, { wch: 8 },
+        ...dates.map(() => ({ wch: 12 })),
+        { wch: 11 },
       ];
 
-      // Sheet name limited to 31 chars (Excel limit)
+      // Row heights
+      ws["!rows"] = [
+        { hpt: 32 },
+        { hpt: 36 },
+        ...emps.map(() => ({ hpt: 50 })),
+        { hpt: 22 },
+      ];
+
       const sheetName = workshopName.slice(0, 31);
-      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSXStyle.utils.book_append_sheet(wb, ws, sheetName);
     }
 
     const filename = `تقرير_الحضور_${dateFrom}_${dateTo}.xlsx`;
-    XLSX.writeFile(wb, filename);
+    XLSXStyle.writeFile(wb, filename);
   }
 
   const breadcrumb = selectedWorkshop
