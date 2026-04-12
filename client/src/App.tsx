@@ -195,7 +195,7 @@ function Router() {
         <ProtectedRoute component={Favorites} allowedUsers={["owner"]} />
       </Route>
       <Route path="/employees/:id/attendance">
-        <ProtectedRoute component={EmployeeAttendance} allowedUsers={["owner"]} />
+        <ProtectedRoute component={EmployeeAttendance} allowedUsers={["owner", "attendence"]} />
       </Route>
       <Route component={NotFound} />
     </Switch>

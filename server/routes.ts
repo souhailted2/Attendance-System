@@ -769,12 +769,16 @@ export async function registerRoutes(
       }
       const startDate = days[0].date;
       const endDate = days[days.length - 1].date;
-      const records = await storage.getAttendanceByDateRange(startDate, endDate);
+      const [records, allEmployees] = await Promise.all([
+        storage.getAttendanceByDateRange(startDate, endDate),
+        storage.getEmployees(),
+      ]);
+      const activeCount = allEmployees.filter((e) => e.isActive !== false).length;
       const result = days.map(({ date, day }) => {
         const dayRecords = records.filter((r) => r.date === date);
         const present = dayRecords.filter((r) => r.status === "present").length;
         const late = dayRecords.filter((r) => r.status === "late").length;
-        const absent = dayRecords.filter((r) => r.status === "absent").length;
+        const absent = Math.max(0, activeCount - present - late);
         return { date, day, present, late, absent };
       });
       res.json(result);
