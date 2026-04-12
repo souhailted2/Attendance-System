@@ -2691,8 +2691,15 @@ export async function registerRoutes(
         return res.status(400).json({ message: "shiftValue مطلوب: morning أو evening" });
       if (targetType === "workshop" && !workshopId)
         return res.status(400).json({ message: "workshopId مطلوب" });
-      if (targetType === "employee" && (!employeeIds || !JSON.parse(employeeIds).length))
-        return res.status(400).json({ message: "employeeIds مطلوب" });
+      if (targetType === "employee") {
+        try {
+          const empArr = JSON.parse(employeeIds ?? "[]");
+          if (!Array.isArray(empArr) || empArr.length === 0)
+            return res.status(400).json({ message: "employeeIds يجب أن يكون مصفوفة تحتوي على معرّف واحد على الأقل" });
+        } catch {
+          return res.status(400).json({ message: "employeeIds: تنسيق JSON غير صحيح" });
+        }
+      }
       const record = await storage.createGrant(
         {
           name: name.trim(),

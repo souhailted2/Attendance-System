@@ -1231,6 +1231,10 @@ function GrantsTab() {
                     <Plus className="h-4 w-4" /> إضافة شرط
                   </Button>
                 </div>
+                <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                  <p><strong>قاعدة الأولوية:</strong> يُحسب شرط "تجاوز العقوبات" أولاً — إذا تحقق تُلغى المنحة بالكامل.</p>
+                  <p><strong>الغياب:</strong> شرط "يوم أسبوع محدد" (محدد) يلغي شرط "بعدد الأيام" (عام) عند التطابق — لا يُجمعان.</p>
+                </div>
                 {conditions.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-3">لا توجد شروط — المبلغ الأساسي يُمنح كاملاً</p>
                 )}
