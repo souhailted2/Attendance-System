@@ -10,29 +10,17 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, breadcrumb, count, action }: PageHeaderProps) {
   return (
-    <div
-      className="px-6 py-4 flex items-center justify-between gap-4 shrink-0 sticky top-0 z-10"
-      style={{
-        background: "rgba(255,255,255,0.97)",
-        backdropFilter: "blur(8px)",
-        borderBottom: "1px solid rgba(0,0,0,0.07)",
-        boxShadow: "0 1px 3px rgba(109,40,217,0.04)",
-      }}
-    >
+    <div className="page-header-glass px-6 py-4 flex items-center justify-between gap-4 shrink-0 sticky top-0 z-10">
       <div className="min-w-0">
         {breadcrumb && (
           <div className="text-[11px] text-muted-foreground mb-0.5 flex items-center gap-1">{breadcrumb}</div>
         )}
         <div className="flex items-center gap-2.5">
-          <h1 className="text-base font-semibold text-foreground leading-tight truncate" data-testid="text-page-title">{title}</h1>
+          <h1 className="text-base font-semibold text-foreground leading-tight truncate" data-testid="text-page-title">
+            {title}
+          </h1>
           {count !== undefined && (
-            <span
-              className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 tabular-nums"
-              style={{
-                background: "hsl(271 76% 45% / 0.10)",
-                color: "hsl(271 76% 45%)",
-              }}
-            >
+            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 tabular-nums bg-primary/10 text-primary">
               {count}
             </span>
           )}

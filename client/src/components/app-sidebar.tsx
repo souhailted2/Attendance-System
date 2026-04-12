@@ -232,7 +232,7 @@ export function AppSidebar() {
           className="rounded-xl p-3 flex items-center gap-3"
           style={{
             background: "rgba(255,255,255,0.07)",
-            border: "1px solid rgba(218,165,32,0.15)",
+            border: "1px solid rgba(255,255,255,0.10)",
           }}
         >
           {/* Avatar */}

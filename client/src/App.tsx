@@ -71,10 +71,10 @@ function LiveClock() {
   const dateStr = now.toLocaleDateString("ar-DZ", { weekday: "short", day: "numeric", month: "short" });
   return (
     <div className="hidden sm:flex flex-col items-center leading-none gap-0.5">
-      <span className="text-[13px] font-bold tabular-nums" style={{ color: "rgba(255,255,255,0.95)" }}>
+      <span className="text-[13px] font-bold tabular-nums text-foreground/90 dark:text-white/95">
         {timeStr}
       </span>
-      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>{dateStr}</span>
+      <span className="text-[10px] text-muted-foreground dark:text-white/45">{dateStr}</span>
     </div>
   );
 }
@@ -85,15 +85,15 @@ function Breadcrumb() {
   const isRoot = location === "/";
   return (
     <div className="flex items-center gap-1.5 text-sm">
-      <span style={{ color: "rgba(255,255,255,0.50)", fontSize: "12px" }}>نظام الحضور</span>
+      <span className="text-[12px] text-muted-foreground dark:text-white/50">نظام الحضور</span>
       {!isRoot && (
         <>
-          <ChevronLeft className="h-3 w-3" style={{ color: "rgba(255,255,255,0.35)" }} />
-          <span className="font-medium" style={{ color: "rgba(255,255,255,0.92)", fontSize: "13px" }}>{label}</span>
+          <ChevronLeft className="h-3 w-3 text-muted-foreground/60 dark:text-white/35" />
+          <span className="font-medium text-[13px] text-foreground/90 dark:text-white/92">{label}</span>
         </>
       )}
       {isRoot && (
-        <span className="font-medium" style={{ color: "rgba(255,255,255,0.92)", fontSize: "13px" }}>لوحة التحكم</span>
+        <span className="font-medium text-[13px] text-foreground/90 dark:text-white/92">لوحة التحكم</span>
       )}
     </div>
   );
@@ -103,19 +103,19 @@ function UserBadge() {
   const { user } = useAuth();
   if (!user) return null;
   const initials = getInitials(user.username);
-  const role = roleLabels[user.username] ?? { label: "مستخدم", color: "hsl(271 50% 55%)" };
+  const role = roleLabels[user.username] ?? { label: "مستخدم", color: "hsl(262 75% 50%)" };
   return (
     <div className="flex items-center gap-2">
       <div className="hidden sm:flex flex-col items-end leading-none gap-0.5">
-        <span className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.90)" }}>
+        <span className="text-[12px] font-medium text-foreground/90 dark:text-white/90">
           {user.username === "owner" ? "المدير العام" : user.username}
         </span>
         <span
           className="text-[10px] font-bold px-1.5 py-0.5 rounded"
           style={{
-            background: role.color + "25",
+            background: role.color + "22",
             color: role.color,
-            border: `1px solid ${role.color}40`,
+            border: `1px solid ${role.color}38`,
           }}
         >
           {role.label}
@@ -124,9 +124,9 @@ function UserBadge() {
       <div
         className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
         style={{
-          background: "linear-gradient(135deg, hsl(43 96% 52%), hsl(271 76% 55%))",
+          background: "linear-gradient(135deg, hsl(262 75% 52%), hsl(280 70% 60%))",
           color: "white",
-          boxShadow: "0 0 0 2px rgba(218,165,32,0.3)",
+          boxShadow: "0 2px 8px hsl(262 75% 52% / 0.35)",
         }}
         data-testid="text-username"
       >
@@ -210,11 +210,8 @@ function AppShell() {
 
   if (isLoading) {
     return (
-      <div
-        className="min-h-screen flex items-center justify-center"
-        style={{ background: "linear-gradient(135deg, hsl(271 70% 15%) 0%, hsl(260 65% 20%) 50%, hsl(280 60% 18%) 100%)" }}
-      >
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400" />
+      <div className="min-h-screen flex items-center justify-center app-shell-bg">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400" />
       </div>
     );
   }
@@ -230,57 +227,30 @@ function AppShell() {
 
   return (
     <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div
-        className="flex h-screen w-full relative overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, hsl(271 70% 15%) 0%, hsl(258 65% 22%) 45%, hsl(280 60% 18%) 100%)",
-        }}
-      >
-        {/* Decorative background orbs */}
-        <div className="absolute pointer-events-none" style={{ top: "-10%", right: "-8%", width: "520px", height: "520px", borderRadius: "50%", background: "radial-gradient(circle, rgba(218,165,32,0.18) 0%, transparent 65%)", filter: "blur(40px)" }} />
-        <div className="absolute pointer-events-none" style={{ bottom: "-15%", left: "-10%", width: "600px", height: "600px", borderRadius: "50%", background: "radial-gradient(circle, rgba(139,92,246,0.22) 0%, transparent 65%)", filter: "blur(50px)" }} />
-        <div className="absolute pointer-events-none" style={{ top: "40%", left: "30%", width: "320px", height: "320px", borderRadius: "50%", background: "radial-gradient(circle, rgba(218,165,32,0.10) 0%, transparent 65%)", filter: "blur(35px)" }} />
-        <div className="absolute pointer-events-none" style={{ top: "10%", left: "15%", width: "250px", height: "250px", borderRadius: "50%", background: "radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 65%)", filter: "blur(30px)" }} />
-
+      <div className="flex h-screen w-full relative overflow-hidden app-shell-bg">
         <AppSidebar />
 
         <div className="flex flex-col flex-1 min-w-0 relative">
-          {/* Rich app-style topbar */}
           <header
-            className="flex items-center justify-between gap-3 px-3 shrink-0"
-            style={{
-              height: "52px",
-              background: "rgba(255,255,255,0.06)",
-              backdropFilter: "blur(20px) saturate(1.6)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-              borderBottom: "1px solid rgba(218,165,32,0.18)",
-              boxShadow: "0 1px 0 rgba(218,165,32,0.08)",
-            }}
+            className="app-topbar flex items-center justify-between gap-3 px-3 shrink-0"
+            style={{ height: "52px" }}
           >
             <div className="flex items-center gap-3">
               <SidebarTrigger
                 data-testid="button-sidebar-toggle"
-                className="text-white/70 hover:text-white hover:bg-white/10 shrink-0"
+                className="app-topbar-text-primary hover:bg-black/5 dark:hover:bg-white/10 shrink-0"
               />
               <Breadcrumb />
             </div>
             <div className="flex items-center gap-4">
               <LiveClock />
-              <div style={{ width: "1px", height: "20px", background: "rgba(255,255,255,0.15)" }} />
+              <div className="w-px h-5 bg-black/10 dark:bg-white/15" />
               <ThemeToggle />
               <UserBadge />
             </div>
           </header>
 
-          {/* Main content area */}
-          <main
-            className="flex-1 overflow-auto"
-            style={{
-              background: "rgba(255, 255, 255, 0.95)",
-              backdropFilter: "blur(8px)",
-              WebkitBackdropFilter: "blur(8px)",
-            }}
-          >
+          <main className="app-main-content flex-1 overflow-auto">
             <Router />
           </main>
         </div>
