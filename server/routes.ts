@@ -1263,12 +1263,13 @@ export async function registerRoutes(
       }
 
       // جلب كل البيانات بالتوازي بدل التتابع
-      const [allEmployees, allWorkshops, allWorkRules, records, offDaySetting] = await Promise.all([
+      const [allEmployees, allWorkshops, allWorkRules, records, offDaySetting, allLeavesRange] = await Promise.all([
         storage.getEmployees(),
         storage.getWorkshops(),
         storage.getWorkRules(),
         storage.getAttendanceByDateRange(from, to),
         storage.getAppSetting("weeklyOffDays"),
+        storage.getLeaves(),
       ]);
 
       const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
@@ -1308,6 +1309,26 @@ export async function registerRoutes(
       const workshopsMap = new Map(allWorkshops.map(w => [w.id, w]));
       const workRulesMap = new Map(allWorkRules.map(r => [r.id, r]));
       const defaultRule = allWorkRules.find(r => r.isDefault) ?? allWorkRules[0];
+
+      // دالة: بناء مجموعة تواريخ العطل غير المدفوعة لموظف معين (ضمن نطاق التاريخ)
+      function buildUnpaidLeaveDates(emp: typeof allEmployees[0]): Set<string> {
+        const s = new Set<string>();
+        for (const lv of allLeavesRange) {
+          if (lv.isPaid) continue;
+          const applies =
+            lv.targetType === "all" ||
+            (lv.targetType === "shift" && (emp.shift || "morning") === lv.shiftValue) ||
+            (lv.targetType === "workshop" && emp.workshopId === lv.workshopId) ||
+            (lv.targetType === "employee" && emp.id === lv.employeeId);
+          if (!applies) continue;
+          const lvStart = lv.startDate > from ? lv.startDate : from;
+          const lvEnd = lv.endDate < to ? lv.endDate : to;
+          let d = new Date(lvStart + "T00:00:00");
+          const dEnd = new Date(lvEnd + "T00:00:00");
+          while (d <= dEnd) { s.add(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+        }
+        return s;
+      }
 
       const report = filteredEmployees.map(emp => {
         const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
@@ -1507,7 +1528,9 @@ export async function registerRoutes(
 
         // --- خصم العطلة الأسبوعية عند الغياب ---
         // لكل يوم غياب في الأسبوع → خصم 0.5 من نقاط العطلة (الأخيرة أولاً)
+        // أيام العطلة غير المدفوعة لا تُسبب هذا الخصم
         {
+          const empUnpaidLeaveDates = buildUnpaidLeaveDates(emp);
           function getWeekStart(dateStr: string): string {
             const d = new Date(dateStr + "T00:00:00");
             d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); // رجوع للسبت (بداية الأسبوع الفعلي)
@@ -1523,7 +1546,7 @@ export async function registerRoutes(
           }
           for (const [wk, holidays] of holidaysByWeek) {
             const absenceCount = dailyRecords.filter(
-              r => getWeekStart(r.date) === wk && r.status === "absent"
+              r => getWeekStart(r.date) === wk && r.status === "absent" && !empUnpaidLeaveDates.has(r.date)
             ).length;
             if (absenceCount === 0) continue;
             let toDeduct = absenceCount * 0.5;
@@ -2742,13 +2765,14 @@ export async function registerRoutes(
       const daysInMonth = new Date(year, monthNum, 0).getDate();
       const to = `${month}-${String(daysInMonth).padStart(2, "0")}`;
 
-      const [allGrantsRaw, allEmployees, allWorkshops, allWorkRules, records, offDaySetting] = await Promise.all([
+      const [allGrantsRaw, allEmployees, allWorkshops, allWorkRules, records, offDaySetting, allLeavesGrants] = await Promise.all([
         storage.getGrants(),
         storage.getEmployees(),
         storage.getWorkshops(),
         storage.getWorkRules(),
         storage.getAttendanceByDateRange(from, to),
         storage.getAppSetting("weeklyOffDays"),
+        storage.getLeaves(),
       ]);
 
       const targetGrants = grantId === "all"
@@ -2792,6 +2816,25 @@ export async function registerRoutes(
       }
 
       const results: GrantReportRow[] = [];
+
+      // دالة: بناء مجموعة تواريخ العطل غير المدفوعة لموظف معين (ضمن الشهر)
+      function buildUnpaidLeaveDatesGrants(emp: typeof allEmployees[0]): Set<string> {
+        const s = new Set<string>();
+        for (const lv of allLeavesGrants) {
+          if (lv.isPaid) continue;
+          const applies =
+            lv.targetType === "all" ||
+            (lv.targetType === "shift" && (emp.shift || "morning") === lv.shiftValue) ||
+            (lv.targetType === "workshop" && emp.workshopId === lv.workshopId) ||
+            (lv.targetType === "employee" && emp.id === lv.employeeId);
+          if (!applies) continue;
+          if (lv.startDate > to || lv.endDate < from) continue;
+          let d = new Date((lv.startDate > from ? lv.startDate : from) + "T00:00:00");
+          const dEnd = new Date((lv.endDate < to ? lv.endDate : to) + "T00:00:00");
+          while (d <= dEnd) { s.add(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+        }
+        return s;
+      }
 
       // أسماء أيام الأسبوع بالعربية → رقم getDay()
       const WEEKDAY_TO_DOW: Record<string, number> = {
@@ -2843,11 +2886,16 @@ export async function registerRoutes(
           let totalEarlyLeaveMinutes = 0;
           const weekdayAbsences: Record<number, number> = {};
 
+          // أيام العطلة غير المدفوعة للموظف في هذا الشهر
+          const empUnpaidLeaveDatesGrants = buildUnpaidLeaveDatesGrants(emp);
+
           for (const date of allDates) {
             if (date > todayStr) continue;
             const dow = new Date(date + "T00:00:00").getDay();
             const isHoliday = !is24h && holidayDateSet.has(date);
             if (isHoliday) continue;
+            // أيام العطلة غير المدفوعة لا تُحسب غياباً
+            if (empUnpaidLeaveDatesGrants.has(date)) continue;
 
             const rec = empRecordsByDate.get(date);
             if (!rec || rec.status === "absent") {
@@ -3117,7 +3165,16 @@ export async function registerRoutes(
           }
 
           // خصم العطلة الأسبوعية عند الغياب (نفس منطق التقرير الشهري)
+          // أيام العطلة غير المدفوعة لا تُسبب هذا الخصم
           {
+            const unpaidLeaveDatesMonth = new Set<string>();
+            for (const lv of empLeaves) {
+              if (lv.isPaid) continue;
+              if (lv.startDate > monthEnd || lv.endDate < monthStart) continue;
+              let d = new Date((lv.startDate > monthStart ? lv.startDate : monthStart) + "T00:00:00");
+              const dEnd = new Date((lv.endDate < monthEnd ? lv.endDate : monthEnd) + "T00:00:00");
+              while (d <= dEnd) { unpaidLeaveDatesMonth.add(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+            }
             function getWeekStart(dateStr: string): string {
               const d = new Date(dateStr + "T00:00:00");
               d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
@@ -3132,7 +3189,9 @@ export async function registerRoutes(
               }
             }
             for (const [wk, holidays] of holidaysByWeek) {
-              const absenceCount = dayRecords.filter(r => getWeekStart(r.date) === wk && r.status === "absent").length;
+              const absenceCount = dayRecords.filter(
+                r => getWeekStart(r.date) === wk && r.status === "absent" && !unpaidLeaveDatesMonth.has(r.date)
+              ).length;
               if (absenceCount === 0) continue;
               let toDeduct = absenceCount * 0.5;
               for (const h of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
