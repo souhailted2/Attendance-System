@@ -358,7 +358,7 @@ export default function Employees() {
                           <p className="font-medium text-sm" data-testid={`text-name-${emp.id}`}>{emp.name}</p>
                           {emp.isActive
                             ? <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" data-testid={`badge-status-${emp.id}`}>نشط</Badge>
-                            : <Badge variant="destructive" className="text-xs" data-testid={`badge-status-${emp.id}`}>غير نشط</Badge>
+                            : <Badge variant="secondary" className="text-xs text-muted-foreground" data-testid={`badge-status-${emp.id}`}>غير نشط</Badge>
                           }
                         </div>
                         <div className="flex items-center flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
