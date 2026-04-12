@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/use-favorites";
-import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star, UserCheck, UserX } from "lucide-react";
+import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star, UserCheck, UserX, Trash2 } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
@@ -96,6 +96,16 @@ export default function Employees() {
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       toast({ title: vars.isActive ? "تم تفعيل الموظف" : "تم تعطيل الموظف" });
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/employees/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
+      toast({ title: "تم حذف الموظف بنجاح" });
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
@@ -414,6 +424,14 @@ export default function Employees() {
                             icon: <Star className="h-3.5 w-3.5" />,
                             onClick: () => toggleFavorite(emp.id),
                           }] : []),
+                          {
+                            label: "حذف",
+                            icon: <Trash2 className="h-3.5 w-3.5" />,
+                            onClick: () => deleteMutation.mutate(emp.id),
+                            destructive: true,
+                            confirmTitle: "حذف الموظف",
+                            confirmDescription: `سيتم حذف "${emp.name}" وجميع سجلات حضوره نهائياً. لا يمكن التراجع عن هذا الإجراء.`,
+                          },
                         ]}
                       />
                     </div>

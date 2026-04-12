@@ -38,7 +38,7 @@ export function RowActions({ actions, testId }: RowActionsProps) {
   const [confirmAction, setConfirmAction] = useState<RowAction | null>(null);
 
   function handleClick(action: RowAction) {
-    if (action.destructive && action.confirmTitle) {
+    if (action.destructive) {
       setConfirmAction(action);
     } else {
       action.onClick();
