@@ -509,18 +509,14 @@ export default function Reports() {
 
     const wb = XLSX.utils.book_new();
 
-    for (const [workshopName, emps] of groups) {
-      // Collect all dates for this workshop group
-      const dateSet = new Set<string>();
-      for (const emp of emps) {
-        for (const rec of emp.dailyRecords) dateSet.add(rec.date);
-      }
-      const dates = [...dateSet].sort();
+    // Use the shared allDates so every sheet has the same consistent date axis
+    const dates = allDates;
 
+    for (const [workshopName, emps] of groups) {
       // Row 1 — title
       const titleCell = `${workshopName} — ${selectedRule?.name ?? ""} — ${dateFrom} إلى ${dateTo}`;
 
-      // Row 2 — column headers
+      // Row 2 — column headers (same date axis for all sheets)
       const headers = [
         "الموظف", "الرقم",
         ...dates.map((d) => {
@@ -539,7 +535,7 @@ export default function Reports() {
           const rec = byDate.get(d);
           if (!rec) return "غ";
           const sym = statusSymbol[rec.status] ?? rec.status;
-          return rec.checkIn ? `${sym} ${rec.checkIn}` : sym;
+          return rec.checkIn ? `${sym}\n${rec.checkIn}` : sym;
         });
 
         return [emp.employeeName, emp.employeeCode, ...dayCells, emp.attendanceScore.toFixed(2)];
