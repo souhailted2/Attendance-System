@@ -229,3 +229,49 @@ export const insertLeaveSchema = createInsertSchema(leaves).pick({
 });
 export type InsertLeave = z.infer<typeof insertLeaveSchema>;
 export type Leave = typeof leaves.$inferSelect;
+
+export const grants = mysqlTable("grants", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: text("name").notNull(),
+  amount: text("amount").notNull(),
+  type: varchar("type", { length: 10 }).notNull().default("grant"),
+  targetType: varchar("target_type", { length: 20 }).notNull().default("all"),
+  shiftValue: text("shift_value"),
+  workshopId: varchar("workshop_id", { length: 36 }),
+  employeeIds: text("employee_ids"),
+  createdAt: text("created_at").notNull(),
+  createdBy: text("created_by").notNull(),
+});
+
+export const grantConditions = mysqlTable("grant_conditions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  grantId: varchar("grant_id", { length: 36 }).notNull(),
+  conditionType: varchar("condition_type", { length: 30 }).notNull(),
+  attendancePeriodType: text("attendance_period_type"),
+  attendancePeriodValue: text("attendance_period_value"),
+  absenceMode: varchar("absence_mode", { length: 10 }),
+  daysThreshold: varchar("days_threshold", { length: 10 }),
+  weekdayCount: varchar("weekday_count", { length: 10 }),
+  weekdays: text("weekdays"),
+  minutesThreshold: int("minutes_threshold"),
+  violationsThreshold: int("violations_threshold"),
+  effectType: varchar("effect_type", { length: 10 }).notNull(),
+  effectAmount: text("effect_amount"),
+});
+
+export const insertGrantSchema = createInsertSchema(grants).pick({
+  name: true, amount: true, type: true, targetType: true,
+  shiftValue: true, workshopId: true, employeeIds: true, createdAt: true, createdBy: true,
+});
+export type InsertGrant = z.infer<typeof insertGrantSchema>;
+export type Grant = typeof grants.$inferSelect;
+
+export const insertGrantConditionSchema = createInsertSchema(grantConditions).pick({
+  grantId: true, conditionType: true, attendancePeriodType: true, attendancePeriodValue: true,
+  absenceMode: true, daysThreshold: true, weekdayCount: true, weekdays: true,
+  minutesThreshold: true, violationsThreshold: true, effectType: true, effectAmount: true,
+});
+export type InsertGrantCondition = z.infer<typeof insertGrantConditionSchema>;
+export type GrantCondition = typeof grantConditions.$inferSelect;
+
+export type GrantWithConditions = Grant & { conditions: GrantCondition[] };

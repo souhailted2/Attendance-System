@@ -142,6 +142,35 @@ export const leaves = pgTable("leaves", {
   createdBy: text("created_by").notNull(),
 });
 
+export const grants = pgTable("grants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  amount: text("amount").notNull(),
+  type: text("type").notNull().default("grant"),
+  targetType: text("target_type").notNull().default("all"),
+  shiftValue: text("shift_value"),
+  workshopId: varchar("workshop_id"),
+  employeeIds: text("employee_ids"),
+  createdAt: text("created_at").notNull(),
+  createdBy: text("created_by").notNull(),
+});
+
+export const grantConditions = pgTable("grant_conditions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  grantId: varchar("grant_id").notNull(),
+  conditionType: text("condition_type").notNull(),
+  attendancePeriodType: text("attendance_period_type"),
+  attendancePeriodValue: text("attendance_period_value"),
+  absenceMode: text("absence_mode"),
+  daysThreshold: text("days_threshold"),
+  weekdayCount: text("weekday_count"),
+  weekdays: text("weekdays"),
+  minutesThreshold: integer("minutes_threshold"),
+  violationsThreshold: integer("violations_threshold"),
+  effectType: text("effect_type").notNull(),
+  effectAmount: text("effect_amount"),
+});
+
 export const frozenArchives = pgTable("frozen_archives", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   month: varchar("month", { length: 7 }).notNull(),
@@ -282,3 +311,20 @@ export const insertLeaveSchema = createInsertSchema(leaves).pick({
 });
 export type InsertLeave = z.infer<typeof insertLeaveSchema>;
 export type Leave = typeof leaves.$inferSelect;
+
+export const insertGrantSchema = createInsertSchema(grants).pick({
+  name: true, amount: true, type: true, targetType: true,
+  shiftValue: true, workshopId: true, employeeIds: true, createdAt: true, createdBy: true,
+});
+export type InsertGrant = z.infer<typeof insertGrantSchema>;
+export type Grant = typeof grants.$inferSelect;
+
+export const insertGrantConditionSchema = createInsertSchema(grantConditions).pick({
+  grantId: true, conditionType: true, attendancePeriodType: true, attendancePeriodValue: true,
+  absenceMode: true, daysThreshold: true, weekdayCount: true, weekdays: true,
+  minutesThreshold: true, violationsThreshold: true, effectType: true, effectAmount: true,
+});
+export type InsertGrantCondition = z.infer<typeof insertGrantConditionSchema>;
+export type GrantCondition = typeof grantConditions.$inferSelect;
+
+export type GrantWithConditions = Grant & { conditions: GrantCondition[] };

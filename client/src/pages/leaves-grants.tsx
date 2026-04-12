@@ -15,9 +15,15 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users, User } from "lucide-react";
+import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users, User, X, TrendingUp, TrendingDown, Ban } from "lucide-react";
 import type { Workshop, Employee } from "@shared/schema";
 
 interface Leave {
@@ -622,6 +628,594 @@ function AnnualReportTab() {
   );
 }
 
+// ============================================================
+// ---- Tab: المنح والعقوبات ----
+// ============================================================
+
+interface GrantConditionFull {
+  id: string; grantId: string; conditionType: string;
+  attendancePeriodType: string | null; attendancePeriodValue: string | null;
+  absenceMode: string | null; daysThreshold: string | null;
+  weekdayCount: string | null; weekdays: string | null;
+  minutesThreshold: number | null; violationsThreshold: number | null;
+  effectType: string; effectAmount: string | null;
+}
+interface GrantFull {
+  id: string; name: string; amount: string; type: string;
+  targetType: string; shiftValue: string | null; workshopId: string | null;
+  employeeIds: string | null; createdAt: string; createdBy: string;
+  conditions: GrantConditionFull[];
+}
+interface ConditionDraft {
+  localId: string; conditionType: string;
+  attendancePeriodType: string; attendancePeriodValue: string; monthsCount: string;
+  absenceMode: string; daysThreshold: string; weekdayCount: string; weekdays: string[];
+  minutesThreshold: string; violationsThreshold: string;
+  effectType: string; effectAmount: string;
+}
+
+const WEEKDAYS_AR = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const PERIOD_LABELS: Record<string, string> = {
+  day: "يوم", week: "أسبوع", month: "شهر", months: "أشهر (حدد العدد)", year: "سنة",
+  specific_day: "يوم محدد", specific_week: "أسبوع محدد", specific_month: "شهر محدد",
+};
+
+function conditionSummary(c: GrantConditionFull): string {
+  const eff = c.effectType === "cancel" ? "← إلغاء المنحة" :
+    c.effectType === "add" ? `← +${c.effectAmount} دج` : `← -${c.effectAmount} دج`;
+  if (c.conditionType === "violations_exceed")
+    return `تجاوز ${c.violationsThreshold} عقوبة ${eff}`;
+  if (c.conditionType === "late")
+    return `تأخر > ${c.minutesThreshold} دق ${eff}`;
+  if (c.conditionType === "early_leave")
+    return `خروج مبكر > ${c.minutesThreshold} دق ${eff}`;
+  if (c.conditionType === "attendance") {
+    const pt = PERIOD_LABELS[c.attendancePeriodType ?? ""] ?? c.attendancePeriodType;
+    const pv = c.attendancePeriodType === "months" ? `${c.attendancePeriodValue} أشهر` :
+      c.attendancePeriodType === "specific_day" || c.attendancePeriodType === "specific_week" || c.attendancePeriodType === "specific_month"
+        ? c.attendancePeriodValue ?? "" : pt;
+    return `حضور كامل (${pv}) ${eff}`;
+  }
+  if (c.conditionType === "absence") {
+    let base = "";
+    if (c.absenceMode === "count") {
+      base = c.daysThreshold === "1" ? "يوم غياب" : c.daysThreshold === "2" ? "يومي غياب" : "أكثر من يومين غياب";
+    } else {
+      const days = c.weekdays ? JSON.parse(c.weekdays).join(" و") : "";
+      base = `غياب ${days}`;
+    }
+    return `${base} ${eff}`;
+  }
+  return c.conditionType;
+}
+
+function targetLabel(g: GrantFull, workshops: Workshop[]): string {
+  if (g.targetType === "all") return "كل العمال";
+  if (g.targetType === "shift") return g.shiftValue === "morning" ? "الفترة الصباحية" : "الفترة المسائية";
+  if (g.targetType === "workshop") {
+    const ws = workshops.find(w => w.id === g.workshopId);
+    return ws ? `ورشة: ${ws.name}` : "ورشة";
+  }
+  if (g.targetType === "employee") {
+    try { const ids = JSON.parse(g.employeeIds ?? "[]"); return `${ids.length} موظف محدد`; } catch { return "موظف محدد"; }
+  }
+  return g.targetType;
+}
+
+function newCondition(): ConditionDraft {
+  return {
+    localId: Math.random().toString(36).slice(2),
+    conditionType: "", attendancePeriodType: "month", attendancePeriodValue: "", monthsCount: "2",
+    absenceMode: "count", daysThreshold: "1", weekdayCount: "1", weekdays: [],
+    minutesThreshold: "30", violationsThreshold: "3", effectType: "deduct", effectAmount: "",
+  };
+}
+
+function conditionToPayload(c: ConditionDraft) {
+  const base = { conditionType: c.conditionType, effectType: c.effectType, effectAmount: c.effectAmount || null };
+  if (c.conditionType === "attendance") return {
+    ...base,
+    attendancePeriodType: c.attendancePeriodType,
+    attendancePeriodValue: c.attendancePeriodType === "months" ? c.monthsCount : c.attendancePeriodValue || null,
+  };
+  if (c.conditionType === "late" || c.conditionType === "early_leave")
+    return { ...base, minutesThreshold: parseInt(c.minutesThreshold) || 0 };
+  if (c.conditionType === "absence") return {
+    ...base,
+    absenceMode: c.absenceMode,
+    daysThreshold: c.absenceMode === "count" ? c.daysThreshold : null,
+    weekdayCount: c.absenceMode === "weekday" ? c.weekdayCount : null,
+    weekdays: c.absenceMode === "weekday" ? JSON.stringify(c.weekdays) : null,
+  };
+  if (c.conditionType === "violations_exceed")
+    return { ...base, violationsThreshold: parseInt(c.violationsThreshold) || 1, effectType: "cancel", effectAmount: null };
+  return base;
+}
+
+function ConditionRow({ cond, onChange, onDelete }: {
+  cond: ConditionDraft;
+  onChange: (c: ConditionDraft) => void;
+  onDelete: () => void;
+}) {
+  const set = (patch: Partial<ConditionDraft>) => onChange({ ...cond, ...patch });
+  const toggleWeekday = (day: string) => {
+    const next = cond.weekdays.includes(day)
+      ? cond.weekdays.filter(d => d !== day)
+      : [...cond.weekdays, day];
+    set({ weekdays: next });
+  };
+
+  return (
+    <div className="border rounded-lg p-3 space-y-3 bg-muted/30 relative">
+      <Button variant="ghost" size="icon" className="absolute top-2 left-2 h-6 w-6 text-muted-foreground hover:text-destructive" onClick={onDelete} data-testid="button-delete-condition">
+        <X className="h-4 w-4" />
+      </Button>
+      <div className="w-full pl-8">
+        <Select value={cond.conditionType} onValueChange={v => set({ conditionType: v })}>
+          <SelectTrigger className="w-full" data-testid="select-condition-type">
+            <SelectValue placeholder="اختر نوع الشرط..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="attendance">شرط الحضور الكامل</SelectItem>
+            <SelectItem value="late">شرط التأخر</SelectItem>
+            <SelectItem value="early_leave">شرط الخروج المبكر</SelectItem>
+            <SelectItem value="absence">شرط الغياب</SelectItem>
+            <SelectItem value="violations_exceed">شرط تجاوز العقوبات (إلغاء المنحة)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {cond.conditionType === "attendance" && (
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">فترة الحضور المطلوبة</Label>
+          <Select value={cond.attendancePeriodType} onValueChange={v => set({ attendancePeriodType: v })}>
+            <SelectTrigger data-testid="select-attendance-period">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="day">يوم</SelectItem>
+              <SelectItem value="week">أسبوع</SelectItem>
+              <SelectItem value="month">شهر</SelectItem>
+              <SelectItem value="months">عدة أشهر (حدد العدد)</SelectItem>
+              <SelectItem value="year">سنة</SelectItem>
+              <SelectItem value="specific_day">يوم محدد</SelectItem>
+              <SelectItem value="specific_week">أسبوع محدد (تاريخ البداية)</SelectItem>
+              <SelectItem value="specific_month">شهر محدد</SelectItem>
+            </SelectContent>
+          </Select>
+          {cond.attendancePeriodType === "months" && (
+            <Input type="number" min={1} placeholder="عدد الأشهر" value={cond.monthsCount}
+              onChange={e => set({ monthsCount: e.target.value })} data-testid="input-months-count" />
+          )}
+          {cond.attendancePeriodType === "specific_day" && (
+            <Input type="date" value={cond.attendancePeriodValue}
+              onChange={e => set({ attendancePeriodValue: e.target.value })} data-testid="input-specific-day" />
+          )}
+          {cond.attendancePeriodType === "specific_week" && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">تاريخ بداية الأسبوع</p>
+              <Input type="date" value={cond.attendancePeriodValue}
+                onChange={e => set({ attendancePeriodValue: e.target.value })} data-testid="input-specific-week" />
+            </div>
+          )}
+          {cond.attendancePeriodType === "specific_month" && (
+            <Input type="month" value={cond.attendancePeriodValue}
+              onChange={e => set({ attendancePeriodValue: e.target.value })} data-testid="input-specific-month" />
+          )}
+        </div>
+      )}
+
+      {(cond.conditionType === "late" || cond.conditionType === "early_leave") && (
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">إذا تجاوز</Label>
+          <Input type="number" min={0} className="w-20" value={cond.minutesThreshold}
+            onChange={e => set({ minutesThreshold: e.target.value })} data-testid="input-minutes-threshold" />
+          <span className="text-xs text-muted-foreground">دقيقة</span>
+        </div>
+      )}
+
+      {cond.conditionType === "absence" && (
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">نمط الغياب</Label>
+          <Select value={cond.absenceMode} onValueChange={v => set({ absenceMode: v })}>
+            <SelectTrigger data-testid="select-absence-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="count">بعدد الأيام (عام)</SelectItem>
+              <SelectItem value="weekday">بأيام الأسبوع (محدد — أولوية على العام)</SelectItem>
+            </SelectContent>
+          </Select>
+          {cond.absenceMode === "count" && (
+            <Select value={cond.daysThreshold} onValueChange={v => set({ daysThreshold: v })}>
+              <SelectTrigger data-testid="select-days-threshold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">يوم واحد</SelectItem>
+                <SelectItem value="2">يومان</SelectItem>
+                <SelectItem value="more">أكثر من يومين</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {cond.absenceMode === "weekday" && (
+            <div className="space-y-2">
+              <Select value={cond.weekdayCount} onValueChange={v => set({ weekdayCount: v })}>
+                <SelectTrigger data-testid="select-weekday-count">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">يوم واحد من الأسبوع</SelectItem>
+                  <SelectItem value="2">يومان من الأسبوع</SelectItem>
+                  <SelectItem value="more">أكثر من يومين من الأسبوع</SelectItem>
+                </SelectContent>
+              </Select>
+              <Label className="text-xs text-muted-foreground">اختر الأيام</Label>
+              <div className="flex flex-wrap gap-2">
+                {WEEKDAYS_AR.map(day => (
+                  <label key={day} className="flex items-center gap-1 cursor-pointer text-sm" data-testid={`checkbox-weekday-${day}`}>
+                    <Checkbox
+                      checked={cond.weekdays.includes(day)}
+                      onCheckedChange={() => toggleWeekday(day)}
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {cond.conditionType === "violations_exceed" && (
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">إذا تجاوز عدد العقوبات</Label>
+          <Input type="number" min={1} className="w-20" value={cond.violationsThreshold}
+            onChange={e => set({ violationsThreshold: e.target.value })} data-testid="input-violations-threshold" />
+          <span className="text-xs text-muted-foreground">عقوبة</span>
+        </div>
+      )}
+
+      {cond.conditionType !== "" && cond.conditionType !== "violations_exceed" && (
+        <div className="flex items-center gap-2 pt-1 border-t">
+          <Label className="text-xs text-muted-foreground whitespace-nowrap">الأثر</Label>
+          <Select value={cond.effectType} onValueChange={v => set({ effectType: v })}>
+            <SelectTrigger className="w-32" data-testid="select-effect-type">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="add">يُضاف له</SelectItem>
+              <SelectItem value="deduct">يُخصم منه</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input type="number" min={0} placeholder="المبلغ (دج)" value={cond.effectAmount}
+            onChange={e => set({ effectAmount: e.target.value })} className="w-32" data-testid="input-effect-amount" />
+          <span className="text-xs text-muted-foreground">دج</span>
+        </div>
+      )}
+
+      {cond.conditionType === "violations_exceed" && (
+        <div className="flex items-center gap-2 pt-1 border-t">
+          <Ban className="h-4 w-4 text-destructive" />
+          <span className="text-sm text-destructive font-medium">تُلغى المنحة بالكامل عند تحقق هذا الشرط</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function GrantCard({ grant, workshops, employees, onDelete }: {
+  grant: GrantFull; workshops: Workshop[]; employees: Employee[]; onDelete: () => void;
+}) {
+  const isGrant = grant.type === "grant";
+  const empIds: string[] = grant.employeeIds ? JSON.parse(grant.employeeIds) : [];
+  const empNames = empIds.map(id => employees.find(e => e.id === id)?.name ?? id).join("، ");
+
+  return (
+    <Card className={`border-r-4 ${isGrant ? "border-r-green-500" : "border-r-red-500"}`} data-testid={`card-grant-${grant.id}`}>
+      <CardContent className="pt-4 pb-3 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-base">{grant.name}</span>
+            <Badge variant={isGrant ? "default" : "destructive"} className="text-xs">
+              {isGrant ? "منحة" : "عقوبة"}
+            </Badge>
+            <Badge variant="outline" className="text-xs font-bold">
+              {parseFloat(grant.amount).toLocaleString("ar-DZ", { minimumFractionDigits: 2 })} دج
+            </Badge>
+          </div>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0" data-testid={`button-delete-grant-${grant.id}`}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent dir="rtl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                <AlertDialogDescription>سيتم حذف "{grant.name}" وكل شروطها. لا يمكن التراجع.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+          <Badge variant="secondary" className="text-xs">{targetLabel(grant, workshops)}</Badge>
+          {grant.targetType === "employee" && empNames && (
+            <span className="text-xs text-muted-foreground">{empNames}</span>
+          )}
+        </div>
+        {grant.conditions.length > 0 && (
+          <div className="space-y-1 pt-1">
+            {grant.conditions.map(c => (
+              <div key={c.id} className="flex items-center gap-2 text-xs">
+                {c.effectType === "add" ? <TrendingUp className="h-3 w-3 text-green-600 shrink-0" /> :
+                  c.effectType === "deduct" ? <TrendingDown className="h-3 w-3 text-red-600 shrink-0" /> :
+                    <Ban className="h-3 w-3 text-orange-600 shrink-0" />}
+                <span>{conditionSummary(c)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function GrantsTab() {
+  const { toast } = useToast();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [grantName, setGrantName] = useState("");
+  const [grantAmount, setGrantAmount] = useState("");
+  const [grantType, setGrantType] = useState<"grant" | "penalty">("grant");
+  const [targetType, setTargetType] = useState<"all" | "shift" | "workshop" | "employee">("all");
+  const [shiftValue, setShiftValue] = useState<"morning" | "evening">("morning");
+  const [workshopId, setWorkshopId] = useState("");
+  const [selectedEmpIds, setSelectedEmpIds] = useState<string[]>([]);
+  const [conditions, setConditions] = useState<ConditionDraft[]>([]);
+  const [empSearch, setEmpSearch] = useState("");
+
+  const { data: grants = [], isLoading: grantsLoading } = useQuery<GrantFull[]>({ queryKey: ["/api/grants"] });
+  const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
+  const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
+
+  const addMutation = useMutation({
+    mutationFn: (body: object) => apiRequest("POST", "/api/grants", body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/grants"] });
+      toast({ title: "تم الحفظ", description: `تمت إضافة "${grantName}" بنجاح` });
+      resetForm();
+      setDialogOpen(false);
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/grants/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/grants"] });
+      toast({ title: "تم الحذف" });
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  function resetForm() {
+    setGrantName(""); setGrantAmount(""); setGrantType("grant");
+    setTargetType("all"); setShiftValue("morning"); setWorkshopId("");
+    setSelectedEmpIds([]); setConditions([]); setEmpSearch("");
+  }
+
+  function handleSubmit() {
+    if (!grantName.trim()) return toast({ title: "اسم المنحة مطلوب", variant: "destructive" });
+    if (!grantAmount || isNaN(parseFloat(grantAmount))) return toast({ title: "المبلغ يجب أن يكون رقماً", variant: "destructive" });
+    if (targetType === "workshop" && !workshopId) return toast({ title: "اختر الورشة", variant: "destructive" });
+    if (targetType === "employee" && selectedEmpIds.length === 0) return toast({ title: "اختر موظفاً واحداً على الأقل", variant: "destructive" });
+    for (const c of conditions) {
+      if (!c.conditionType) return toast({ title: "اختر نوع الشرط لكل صف", variant: "destructive" });
+      if (c.conditionType !== "violations_exceed" && !c.effectAmount) return toast({ title: "أدخل مبلغ الأثر لكل شرط", variant: "destructive" });
+      if (c.conditionType === "absence" && c.absenceMode === "weekday" && c.weekdays.length === 0)
+        return toast({ title: "اختر يوماً واحداً على الأقل في شرط الغياب", variant: "destructive" });
+    }
+    addMutation.mutate({
+      name: grantName.trim(),
+      amount: String(parseFloat(grantAmount)),
+      type: grantType,
+      targetType,
+      shiftValue: targetType === "shift" ? shiftValue : null,
+      workshopId: targetType === "workshop" ? workshopId : null,
+      employeeIds: targetType === "employee" ? JSON.stringify(selectedEmpIds) : null,
+      conditions: conditions.map(conditionToPayload),
+    });
+  }
+
+  const grantsList = grants.filter(g => g.type === "grant");
+  const penaltiesList = grants.filter(g => g.type === "penalty");
+  const filteredEmps = employees.filter(e =>
+    e.isActive && (empSearch === "" || e.name.includes(empSearch) || e.employeeCode.includes(empSearch))
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">المنح والعقوبات</h2>
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }} className="gap-2" data-testid="button-add-grant">
+          <Plus className="h-4 w-4" /> إضافة منحة / عقوبة
+        </Button>
+      </div>
+
+      {grantsLoading ? (
+        <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* المنح */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              <h3 className="font-semibold text-green-700 dark:text-green-400">المنح ({grantsList.length})</h3>
+            </div>
+            {grantsList.length === 0 ? (
+              <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">لا توجد منح مضافة</CardContent></Card>
+            ) : (
+              grantsList.map(g => (
+                <GrantCard key={g.id} grant={g} workshops={workshops} employees={employees}
+                  onDelete={() => deleteMutation.mutate(g.id)} />
+              ))
+            )}
+          </div>
+          {/* العقوبات */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5 text-red-600" />
+              <h3 className="font-semibold text-red-700 dark:text-red-400">العقوبات ({penaltiesList.length})</h3>
+            </div>
+            {penaltiesList.length === 0 ? (
+              <Card><CardContent className="py-8 text-center text-muted-foreground text-sm">لا توجد عقوبات مضافة</CardContent></Card>
+            ) : (
+              penaltiesList.map(g => (
+                <GrantCard key={g.id} grant={g} workshops={workshops} employees={employees}
+                  onDelete={() => deleteMutation.mutate(g.id)} />
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl" dir="rtl">
+          <DialogHeader>
+            <DialogTitle>إضافة منحة / عقوبة جديدة</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pl-1">
+            <div className="space-y-4 pl-2">
+              {/* الاسم والمبلغ والنوع */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label data-testid="label-grant-name">الاسم</Label>
+                  <Input placeholder="مثال: منحة المداومة" value={grantName}
+                    onChange={e => setGrantName(e.target.value)} data-testid="input-grant-name" />
+                </div>
+                <div className="space-y-1">
+                  <Label>المبلغ (دج)</Label>
+                  <Input type="number" min={0} placeholder="5000" value={grantAmount}
+                    onChange={e => setGrantAmount(e.target.value)} data-testid="input-grant-amount" />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label>النوع</Label>
+                <div className="flex gap-2">
+                  <Button type="button" variant={grantType === "grant" ? "default" : "outline"}
+                    className="gap-2 flex-1" onClick={() => setGrantType("grant")} data-testid="button-type-grant">
+                    <TrendingUp className="h-4 w-4" /> منحة
+                  </Button>
+                  <Button type="button" variant={grantType === "penalty" ? "destructive" : "outline"}
+                    className="gap-2 flex-1" onClick={() => setGrantType("penalty")} data-testid="button-type-penalty">
+                    <TrendingDown className="h-4 w-4" /> عقوبة
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* النطاق */}
+              <div className="space-y-2">
+                <Label>نطاق التطبيق</Label>
+                <Select value={targetType} onValueChange={v => setTargetType(v as any)}>
+                  <SelectTrigger data-testid="select-target-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all"><span className="flex items-center gap-2"><Users className="h-4 w-4" />كل العمال</span></SelectItem>
+                    <SelectItem value="shift"><span className="flex items-center gap-2"><Sun className="h-4 w-4" />فترة معينة</span></SelectItem>
+                    <SelectItem value="workshop"><span className="flex items-center gap-2"><Wrench className="h-4 w-4" />ورشة محددة</span></SelectItem>
+                    <SelectItem value="employee"><span className="flex items-center gap-2"><User className="h-4 w-4" />عامل أو أكثر</span></SelectItem>
+                  </SelectContent>
+                </Select>
+                {targetType === "shift" && (
+                  <Select value={shiftValue} onValueChange={v => setShiftValue(v as any)}>
+                    <SelectTrigger data-testid="select-shift-value"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="morning"><Sun className="h-4 w-4 inline ml-1" />صباحية</SelectItem>
+                      <SelectItem value="evening"><Moon className="h-4 w-4 inline ml-1" />مسائية</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {targetType === "workshop" && (
+                  <Select value={workshopId} onValueChange={setWorkshopId}>
+                    <SelectTrigger data-testid="select-workshop-id"><SelectValue placeholder="اختر الورشة..." /></SelectTrigger>
+                    <SelectContent>
+                      {workshops.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+                {targetType === "employee" && (
+                  <div className="space-y-2 border rounded-lg p-2">
+                    <Input placeholder="بحث باسم أو رقم..." value={empSearch}
+                      onChange={e => setEmpSearch(e.target.value)} data-testid="input-emp-search" />
+                    <ScrollArea className="h-40">
+                      <div className="space-y-1">
+                        {filteredEmps.map(emp => (
+                          <label key={emp.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer text-sm">
+                            <Checkbox
+                              checked={selectedEmpIds.includes(emp.id)}
+                              onCheckedChange={checked => {
+                                setSelectedEmpIds(prev =>
+                                  checked ? [...prev, emp.id] : prev.filter(id => id !== emp.id)
+                                );
+                              }}
+                              data-testid={`checkbox-emp-${emp.id}`}
+                            />
+                            <span>{emp.name}</span>
+                            <span className="text-muted-foreground text-xs">{emp.employeeCode}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    {selectedEmpIds.length > 0 && (
+                      <p className="text-xs text-primary">{selectedEmpIds.length} موظف محدد</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <Separator />
+
+              {/* الشروط */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>الشروط</Label>
+                  <Button type="button" variant="outline" size="sm" className="gap-2"
+                    onClick={() => setConditions(prev => [...prev, newCondition()])} data-testid="button-add-condition">
+                    <Plus className="h-4 w-4" /> إضافة شرط
+                  </Button>
+                </div>
+                {conditions.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-3">لا توجد شروط — المبلغ الأساسي يُمنح كاملاً</p>
+                )}
+                {conditions.map((c, i) => (
+                  <ConditionRow key={c.localId} cond={c}
+                    onChange={updated => setConditions(prev => prev.map((x, j) => j === i ? updated : x))}
+                    onDelete={() => setConditions(prev => prev.filter((_, j) => j !== i))} />
+                ))}
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel-grant">إلغاء</Button>
+            <Button onClick={handleSubmit} disabled={addMutation.isPending} data-testid="button-save-grant">
+              {addMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // ---- الصفحة الرئيسية ----
 export default function LeavesGrants() {
   return (
@@ -652,13 +1246,7 @@ export default function LeavesGrants() {
         </TabsContent>
 
         <TabsContent value="grants" className="mt-4">
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
-              <Gift className="h-12 w-12 text-muted-foreground/50" />
-              <p className="text-muted-foreground text-lg">المنح — قريباً</p>
-              <p className="text-sm text-muted-foreground">سيتم إضافة هذه الميزة في تحديث قادم</p>
-            </CardContent>
-          </Card>
+          <GrantsTab />
         </TabsContent>
 
         <TabsContent value="annual" className="mt-4">

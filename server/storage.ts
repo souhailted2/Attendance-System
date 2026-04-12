@@ -12,6 +12,9 @@ import type {
   InsertFrozenArchive, FrozenArchive,
   InsertLockedRecord, LockedRecord,
   InsertLeave, Leave,
+  InsertGrant, Grant,
+  InsertGrantCondition, GrantCondition,
+  GrantWithConditions,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -88,6 +91,10 @@ export interface IStorage {
   getLeaves(): Promise<Leave[]>;
   createLeave(data: InsertLeave): Promise<Leave>;
   deleteLeave(id: string): Promise<void>;
+
+  getGrants(): Promise<GrantWithConditions[]>;
+  createGrant(data: InsertGrant, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions>;
+  deleteGrant(id: string): Promise<void>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -184,6 +191,10 @@ class LazyStorage implements IStorage {
   getLeaves() { return this.impl().then(s => s.getLeaves()); }
   createLeave(d: InsertLeave) { return this.impl().then(s => s.createLeave(d)); }
   deleteLeave(id: string) { return this.impl().then(s => s.deleteLeave(id)); }
+
+  getGrants() { return this.impl().then(s => s.getGrants()); }
+  createGrant(d: InsertGrant, c: Omit<InsertGrantCondition, "grantId">[]) { return this.impl().then(s => s.createGrant(d, c)); }
+  deleteGrant(id: string) { return this.impl().then(s => s.deleteGrant(id)); }
 }
 
 export const storage: IStorage = new LazyStorage();

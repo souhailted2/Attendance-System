@@ -17,6 +17,9 @@ import type {
   InsertFrozenArchive, FrozenArchive,
   InsertLockedRecord, LockedRecord,
   InsertLeave, Leave,
+  InsertGrant, Grant,
+  InsertGrantCondition, GrantCondition,
+  GrantWithConditions,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -369,5 +372,56 @@ export class PgStorage implements IStorage {
 
   async deleteLeave(id: string): Promise<void> {
     await pgDb.delete(schema.leaves).where(eq(schema.leaves.id, id));
+  }
+
+  async getGrants(): Promise<GrantWithConditions[]> {
+    const grantList = await pgDb.select().from(schema.grants).orderBy(desc(schema.grants.createdAt));
+    const conditions = await pgDb.select().from(schema.grantConditions);
+    return grantList.map(g => ({
+      ...g,
+      conditions: conditions.filter(c => c.grantId === g.id),
+    }));
+  }
+
+  async createGrant(data: InsertGrant, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions> {
+    const id = randomUUID();
+    const [grant] = await pgDb.insert(schema.grants).values({
+      id,
+      name: data.name,
+      amount: data.amount,
+      type: data.type ?? "grant",
+      targetType: data.targetType ?? "all",
+      shiftValue: data.shiftValue ?? null,
+      workshopId: data.workshopId ?? null,
+      employeeIds: data.employeeIds ?? null,
+      createdAt: data.createdAt,
+      createdBy: data.createdBy,
+    }).returning();
+    const condRows: GrantCondition[] = [];
+    for (const c of conditions) {
+      const cid = randomUUID();
+      const [row] = await pgDb.insert(schema.grantConditions).values({
+        id: cid,
+        grantId: id,
+        conditionType: c.conditionType,
+        attendancePeriodType: c.attendancePeriodType ?? null,
+        attendancePeriodValue: c.attendancePeriodValue ?? null,
+        absenceMode: c.absenceMode ?? null,
+        daysThreshold: c.daysThreshold ?? null,
+        weekdayCount: c.weekdayCount ?? null,
+        weekdays: c.weekdays ?? null,
+        minutesThreshold: c.minutesThreshold ?? null,
+        violationsThreshold: c.violationsThreshold ?? null,
+        effectType: c.effectType,
+        effectAmount: c.effectAmount ?? null,
+      }).returning();
+      condRows.push(row);
+    }
+    return { ...grant, conditions: condRows };
+  }
+
+  async deleteGrant(id: string): Promise<void> {
+    await pgDb.delete(schema.grantConditions).where(eq(schema.grantConditions.grantId, id));
+    await pgDb.delete(schema.grants).where(eq(schema.grants.id, id));
   }
 }

@@ -2660,6 +2660,53 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // ---- Grants (المنح والعقوبات) ----
+  app.get("/api/grants", async (req, res) => {
+    try {
+      const list = await storage.getGrants();
+      return res.json(list);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/grants", async (req, res) => {
+    try {
+      const { name, amount, type, targetType, shiftValue, workshopId, employeeIds, conditions } = req.body;
+      if (!name || !name.trim()) return res.status(400).json({ message: "اسم المنحة مطلوب" });
+      if (!amount || isNaN(parseFloat(amount))) return res.status(400).json({ message: "المبلغ يجب أن يكون رقماً" });
+      if (!["grant", "penalty"].includes(type)) return res.status(400).json({ message: "type يجب أن يكون grant أو penalty" });
+      if (!["all", "shift", "workshop", "employee"].includes(targetType))
+        return res.status(400).json({ message: "targetType غير صحيح" });
+      if (targetType === "shift" && !["morning", "evening"].includes(shiftValue))
+        return res.status(400).json({ message: "shiftValue مطلوب: morning أو evening" });
+      if (targetType === "workshop" && !workshopId)
+        return res.status(400).json({ message: "workshopId مطلوب" });
+      if (targetType === "employee" && (!employeeIds || !JSON.parse(employeeIds).length))
+        return res.status(400).json({ message: "employeeIds مطلوب" });
+      const record = await storage.createGrant(
+        {
+          name: name.trim(),
+          amount: String(parseFloat(amount)),
+          type,
+          targetType,
+          shiftValue: shiftValue || null,
+          workshopId: workshopId || null,
+          employeeIds: employeeIds || null,
+          createdAt: new Date().toISOString(),
+          createdBy: req.session.username ?? "unknown",
+        },
+        Array.isArray(conditions) ? conditions : []
+      );
+      return res.json(record);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  app.delete("/api/grants/:id", async (req, res) => {
+    try {
+      await storage.deleteGrant(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // ---- Annual Report (التقرير السنوي) ----
   // GET /api/annual-report?year=2024&workshopId=XXX
   // السنة المالية: جويلية year → جوان year+1
