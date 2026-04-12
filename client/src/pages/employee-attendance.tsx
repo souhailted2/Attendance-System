@@ -17,6 +17,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronRight, Calendar, Pencil, Trash2, Plus, Clock, User, Building2,
+  CreditCard, CheckCircle2, XCircle, AlarmClock, Umbrella, Timer,
 } from "lucide-react";
 import type { Employee, Workshop, Position } from "@shared/schema";
 
@@ -48,6 +49,25 @@ interface EmployeeReport {
   lateDays: number;
   absentDays: number;
   leaveDays: number;
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function getAvatarGradient(name: string): string {
+  const gradients = [
+    "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))",
+    "linear-gradient(135deg, hsl(43 96% 48%), hsl(36 90% 55%))",
+    "linear-gradient(135deg, hsl(160 70% 38%), hsl(155 65% 48%))",
+    "linear-gradient(135deg, hsl(220 80% 50%), hsl(230 75% 60%))",
+    "linear-gradient(135deg, hsl(320 70% 48%), hsl(330 65% 58%))",
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return gradients[Math.abs(hash) % gradients.length];
 }
 
 const ARABIC_DAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
@@ -228,38 +248,90 @@ export default function EmployeeAttendancePage() {
     { value: "rest", label: "راحة" },
   ];
 
+  const totalHours = useMemo(() => {
+    const sum = (empReport?.dailyRecords ?? []).reduce((acc, r) => {
+      const h = parseFloat(r.totalHours ?? "0");
+      return acc + (isNaN(h) ? 0 : h);
+    }, 0);
+    return sum.toFixed(1);
+  }, [empReport]);
+
+  const attendancePct = empReport && empReport.totalDays > 0
+    ? Math.round(((empReport.presentDays + empReport.lateDays) / empReport.totalDays) * 100)
+    : 0;
+
   return (
     <div className="p-6 space-y-5" dir="rtl">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/employees")} data-testid="button-back">
+      {/* Header — Employee Profile Card */}
+      <div className="flex items-start gap-4">
+        <Button variant="ghost" size="icon" className="mt-1 shrink-0" onClick={() => navigate("/employees")} data-testid="button-back">
           <ChevronRight className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          {employee ? (
-            <>
-              <h1 className="text-2xl font-bold flex items-center gap-2" data-testid="text-employee-name">
-                <User className="h-6 w-6 text-primary" />
+
+        {employee ? (
+          <div className="flex-1 flex items-start gap-4 rounded-2xl border bg-card p-4 shadow-sm">
+            {/* Avatar */}
+            <div
+              className="h-14 w-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white shrink-0"
+              style={{ background: getAvatarGradient(employee.name) }}
+              data-testid="img-employee-avatar"
+            >
+              {getInitials(employee.name)}
+            </div>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold truncate" data-testid="text-employee-name">
                 {employee.name}
               </h1>
-              <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                <span>#{employee.employeeCode}</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <User className="h-3.5 w-3.5" />#{employee.employeeCode}
+                </span>
                 {workshop && (
                   <span className="flex items-center gap-1">
                     <Building2 className="h-3.5 w-3.5" />{workshop.name}
                   </span>
                 )}
-                {position && <span>{position.name}</span>}
+                {position && (
+                  <span className="flex items-center gap-1">
+                    <User className="h-3.5 w-3.5" />{position.name}
+                  </span>
+                )}
+                {employee.cardNumber && (
+                  <span className="flex items-center gap-1">
+                    <CreditCard className="h-3.5 w-3.5" />{employee.cardNumber}
+                  </span>
+                )}
               </div>
-            </>
-          ) : (
-            <Skeleton className="h-8 w-48" />
-          )}
-        </div>
-        <Button onClick={() => { setAddForm({ date: todayStr(), status: "absent", checkIn: "", checkOut: "" }); setAddDialogOpen(true); }} data-testid="button-add-attendance">
-          <Plus className="h-4 w-4 ml-2" />
-          إضافة سجل
-        </Button>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Badge variant="secondary" className="text-xs">
+                  {employee.shift === "morning" ? "وردية صباحية" : "وردية مسائية"}
+                </Badge>
+                {employee.isActive
+                  ? <Badge variant="default" className="text-xs">نشط</Badge>
+                  : <Badge variant="destructive" className="text-xs">غير نشط</Badge>
+                }
+                {employee.contractEndDate && (() => {
+                  const daysLeft = Math.ceil((new Date(employee.contractEndDate!).getTime() - Date.now()) / 86400000);
+                  if (daysLeft < 0) return <Badge variant="destructive" className="text-xs">عقد منتهي</Badge>;
+                  if (daysLeft <= 30) return <Badge variant="outline" className="text-xs border-amber-400 text-amber-600">ينتهي بعد {daysLeft} يوم</Badge>;
+                  return null;
+                })()}
+              </div>
+            </div>
+            {/* Add Record button */}
+            <Button
+              className="shrink-0"
+              onClick={() => { setAddForm({ date: todayStr(), status: "absent", checkIn: "", checkOut: "" }); setAddDialogOpen(true); }}
+              data-testid="button-add-attendance"
+            >
+              <Plus className="h-4 w-4 ml-2" />
+              إضافة سجل
+            </Button>
+          </div>
+        ) : (
+          <Skeleton className="flex-1 h-24 rounded-2xl" />
+        )}
       </div>
 
       {/* Date filter */}
@@ -283,23 +355,98 @@ export default function EmployeeAttendancePage() {
         </CardContent>
       </Card>
 
-      {/* Summary stats */}
-      {empReport && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {[
-            { label: "إجمالي الأيام", value: empReport.totalDays, color: "text-foreground" },
-            { label: "حاضر", value: empReport.presentDays, color: "text-green-600 dark:text-green-400" },
-            { label: "متأخر", value: empReport.lateDays, color: "text-amber-600 dark:text-amber-400" },
-            { label: "غائب", value: empReport.absentDays, color: "text-red-600 dark:text-red-400" },
-            { label: "إجازة", value: empReport.leaveDays, color: "text-purple-600 dark:text-purple-400" },
-          ].map((s) => (
-            <Card key={s.label}>
-              <CardContent className="p-3 text-center">
-                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
+      {/* KPI Summary */}
+      {reportLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[1,2,3,4,5,6].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
+        </div>
+      ) : empReport && (
+        <div className="space-y-3">
+          {/* Attendance rate + total hours — wide cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Attendance % with progress bar */}
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">نسبة الحضور</span>
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                </div>
+                <p className="text-3xl font-bold text-emerald-600 dark:text-emerald-400" data-testid="text-attendance-pct">
+                  {attendancePct}%
+                </p>
+                <div className="mt-2 h-2 rounded-full bg-emerald-100 dark:bg-emerald-900/40 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                    style={{ width: `${attendancePct}%` }}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {empReport.presentDays + empReport.lateDays} من أصل {empReport.totalDays} يوم
+                </p>
               </CardContent>
             </Card>
-          ))}
+
+            {/* Total hours */}
+            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-muted-foreground">إجمالي الساعات</span>
+                  <Timer className="h-4 w-4 text-blue-500" />
+                </div>
+                <p className="text-3xl font-bold text-blue-600 dark:text-blue-400" data-testid="text-total-hours">
+                  {totalHours}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  ساعة عمل في الفترة المحددة
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Day-count KPIs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              {
+                label: "حاضر", value: empReport.presentDays,
+                icon: CheckCircle2,
+                color: "text-green-600 dark:text-green-400",
+                bg: "bg-green-50 dark:bg-green-950/20",
+                testid: "text-present-days",
+              },
+              {
+                label: "متأخر", value: empReport.lateDays,
+                icon: AlarmClock,
+                color: "text-amber-600 dark:text-amber-400",
+                bg: "bg-amber-50 dark:bg-amber-950/20",
+                testid: "text-late-days",
+              },
+              {
+                label: "غائب", value: empReport.absentDays,
+                icon: XCircle,
+                color: "text-red-600 dark:text-red-400",
+                bg: "bg-red-50 dark:bg-red-950/20",
+                testid: "text-absent-days",
+              },
+              {
+                label: "إجازة", value: empReport.leaveDays,
+                icon: Umbrella,
+                color: "text-purple-600 dark:text-purple-400",
+                bg: "bg-purple-50 dark:bg-purple-950/20",
+                testid: "text-leave-days",
+              },
+            ].map((kpi) => (
+              <Card key={kpi.label} className={`border-0 shadow-sm ${kpi.bg}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-muted-foreground">{kpi.label}</span>
+                    <kpi.icon className={`h-4 w-4 ${kpi.color}`} />
+                  </div>
+                  <p className={`text-2xl font-bold ${kpi.color}`} data-testid={kpi.testid}>{kpi.value}</p>
+                  <p className="text-xs text-muted-foreground">يوم</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
