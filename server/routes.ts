@@ -2964,9 +2964,9 @@ export async function registerRoutes(
                   // حضور كامل = لا يوجد غياب في الشهر المختار
                   triggered = absentDays === 0;
                 } else if (periodType === "week") {
-                  // آخر أسبوع: نتحقق من آخر 7 أيام عمل في الفترة
+                  // آخر أسبوع: نتحقق من آخر 7 أيام عمل في الفترة (باستثناء أيام العطلة غير المدفوعة)
                   const recentDates = allDates
-                    .filter(d => d <= todayStr && !(!is24h && holidayDateSet.has(d)))
+                    .filter(d => d <= todayStr && !(!is24h && holidayDateSet.has(d)) && !empUnpaidLeaveDatesGrants.has(d))
                     .slice(-7);
                   const recentAbsent = recentDates.filter(d =>
                     !empRecordsByDate.has(d) || empRecordsByDate.get(d)!.status === "absent"
