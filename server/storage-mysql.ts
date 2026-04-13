@@ -634,10 +634,12 @@ export class MysqlStorage implements IStorage {
     const rawPool = pool as import("mysql2/promise").Pool;
     // MySQL < 8.0 doesn't support ADD COLUMN IF NOT EXISTS; use information_schema check instead
     const [cols] = await rawPool.query(
-      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='employees' AND COLUMN_NAME='base_salary'`
+      `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='employees' AND COLUMN_NAME='base_salary'`
     ) as [any[], any];
     if (!Array.isArray(cols) || cols.length === 0) {
-      await rawPool.query(`ALTER TABLE employees ADD COLUMN base_salary VARCHAR(50) DEFAULT '0'`);
+      await rawPool.query(`ALTER TABLE employees ADD COLUMN base_salary DECIMAL(12,2) DEFAULT 0`);
+    } else if (cols[0].DATA_TYPE !== 'decimal') {
+      await rawPool.query(`ALTER TABLE employees MODIFY COLUMN base_salary DECIMAL(12,2) DEFAULT 0`);
     }
     await rawPool.query(`CREATE TABLE IF NOT EXISTS employee_debts (
       id VARCHAR(36) NOT NULL PRIMARY KEY,

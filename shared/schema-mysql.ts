@@ -60,7 +60,7 @@ export const employees = mysqlTable("employees", {
   nonRenewalDate: text("non_renewal_date"),
   isActive: boolean("is_active").notNull().default(true),
   hourlyRate: text("hourly_rate").default("0"),
-  baseSalary: text("base_salary").default("0"),
+  baseSalary: decimal("base_salary", { precision: 12, scale: 2 }).default("0"),
 }, (table) => [
   uniqueIndex("employees_employee_code_idx").on(table.employeeCode),
 ]);
