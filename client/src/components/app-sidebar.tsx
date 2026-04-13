@@ -144,7 +144,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
-              {(user?.username === "owner" || user?.username === "attendence") && (
+              {(user?.username === "owner" || user?.username === "attendence" || user?.username === "observer") && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive={location === "/schedule-overrides"} data-testid="link-nav-schedule-overrides">
                     <Link href="/schedule-overrides">

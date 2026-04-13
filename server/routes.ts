@@ -2735,6 +2735,14 @@ export async function registerRoutes(
     return true;
   }
 
+  function requireAnyRole(req: Request, res: Response): boolean {
+    if (!["owner", "attendence", "observer"].includes(req.session.username ?? "")) {
+      res.status(403).json({ message: "غير مصرح" });
+      return false;
+    }
+    return true;
+  }
+
   app.get("/api/grants", async (req, res) => {
     if (!requireOwnerOrAttendence(req, res)) return;
     try {
@@ -3326,7 +3334,7 @@ export async function registerRoutes(
 
   // GET /api/schedule-overrides
   app.get("/api/schedule-overrides", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireAnyRole(req, res)) return;
     try {
       const list = await storage.getScheduleOverrides();
       return res.json(list);
@@ -3335,7 +3343,7 @@ export async function registerRoutes(
 
   // POST /api/schedule-overrides
   app.post("/api/schedule-overrides", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireAnyRole(req, res)) return;
     try {
       const { name, dateFrom, dateTo, workRuleId, workStartTime, workEndTime, isOvernight, notes } = req.body;
       if (!name || !dateFrom || !dateTo || !workStartTime || !workEndTime) {
@@ -3354,7 +3362,7 @@ export async function registerRoutes(
 
   // PATCH /api/schedule-overrides/:id
   app.patch("/api/schedule-overrides/:id", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireAnyRole(req, res)) return;
     try {
       const updated = await storage.updateScheduleOverride(req.params.id, req.body);
       if (!updated) return res.status(404).json({ message: "الجدول الخاص غير موجود" });
@@ -3364,7 +3372,7 @@ export async function registerRoutes(
 
   // DELETE /api/schedule-overrides/:id
   app.delete("/api/schedule-overrides/:id", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireAnyRole(req, res)) return;
     try {
       await storage.deleteScheduleOverride(req.params.id);
       return res.status(204).send();
@@ -3374,7 +3382,7 @@ export async function registerRoutes(
   // POST /api/schedule-overrides/:id/recalculate
   // يعيد حساب سجلات الحضور لفترة الجدول الخاص
   app.post("/api/schedule-overrides/:id/recalculate", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireAnyRole(req, res)) return;
     try {
       const override = await storage.getScheduleOverride(req.params.id);
       if (!override) return res.status(404).json({ message: "الجدول الخاص غير موجود" });
