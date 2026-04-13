@@ -1050,7 +1050,7 @@ export async function registerRoutes(
       const existingRecords = await storage.getAttendanceById(req.params.id);
       if (!existingRecords) return res.status(404).json({ message: "Record not found" });
 
-      const { checkIn, checkOut, status, notes } = req.body;
+      const { checkIn, checkOut, status, notes, removePunchIndex } = req.body;
       const employeeId = existingRecords.employeeId;
 
       // تعديل التقارير مقصور على المالك فقط
@@ -1064,6 +1064,75 @@ export async function registerRoutes(
       }
 
       const workRule = await getWorkRuleForEmployee(employeeId);
+
+      // ===== حذف بصمة وسطى من rawPunches =====
+      if (removePunchIndex !== undefined) {
+        const punchIdx = Number(removePunchIndex);
+        let rawArr: string[] = [];
+        try {
+          const rp = (existingRecords as any).rawPunches;
+          if (rp) rawArr = JSON.parse(rp);
+        } catch { rawArr = []; }
+
+        // التحقق: يجب أن يكون index وسطياً (ليس الأول ولا الأخير)
+        if (rawArr.length < 3 || punchIdx <= 0 || punchIdx >= rawArr.length - 1) {
+          return res.status(400).json({ message: "لا يمكن حذف هذه البصمة" });
+        }
+
+        // حذف البصمة وإعادة الحساب
+        const newRawArr = rawArr.filter((_, i) => i !== punchIdx);
+        const newRawPunches = JSON.stringify(newRawArr);
+        const newCheckIn  = newRawArr[0] || null;
+        const newCheckOut = newRawArr.length > 1 ? newRawArr[newRawArr.length - 1] : null;
+        const shiftStartMinP = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
+        const newMiddleAbs = newRawArr.length >= 2
+          ? calculateMiddleAbsenceMinutes(newRawArr, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinP)
+          : 0;
+
+        const punchUpdateData: Partial<InsertAttendance> = {
+          checkIn: newCheckIn,
+          checkOut: newCheckOut,
+          rawPunches: newRawPunches,
+          middleAbsenceMinutes: newMiddleAbs,
+        };
+
+        if (workRule) {
+          const calc = calculateAttendanceDetails(
+            newCheckIn, newCheckOut,
+            workRule.workStartTime, workRule.workEndTime,
+            workRule.lateGraceMinutes,
+            workRule.latePenaltyPerMinute,
+            workRule.earlyLeavePenaltyPerMinute,
+            workRule.absencePenalty,
+            existingRecords.status ?? "present",
+            workRule.checkoutEarliestTime
+          );
+          punchUpdateData.lateMinutes = calc.lateMinutes;
+          punchUpdateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
+          punchUpdateData.totalHours = String(calc.totalHours);
+          punchUpdateData.penalty = String(calc.penalty);
+          punchUpdateData.status = calc.status;
+        }
+
+        const updatedRecord = await storage.updateAttendance(req.params.id, punchUpdateData);
+        if (!updatedRecord) return res.status(404).json({ message: "Not found" });
+
+        const empPunch = await storage.getEmployee(employeeId);
+        const wsListP = await storage.getWorkshops();
+        logAttendanceAction({
+          req, method: "PATCH", statusCode: 200, entityId: existingRecords.id,
+          employeeId, employeeName: empPunch?.name ?? "—", employeeCode: empPunch?.employeeCode ?? "—",
+          workshopName: wsListP.find(w => w.id === empPunch?.workshopId)?.name ?? "—",
+          workRuleName: workRule?.name ?? "—",
+          recordDate: existingRecords.date,
+          oldValues: { checkIn: existingRecords.checkIn, checkOut: existingRecords.checkOut },
+          newValues: { checkIn: newCheckIn, checkOut: newCheckOut, removedPunch: rawArr[punchIdx] },
+        });
+
+        notifyAttendanceUpdate();
+        return res.json(updatedRecord);
+      }
+      // ===== نهاية حذف البصمة الوسطى =====
 
       const finalStatus = status || existingRecords.status;
       // يوم الراحة: نُصفّر الأوقات والحسابات بشكل قاطع

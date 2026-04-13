@@ -68,9 +68,12 @@ export default function Attendance() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: ({ recordId, type }: { recordId: string; type: "in" | "out" | "none" | "rest" }) => {
+    mutationFn: ({ recordId, type, punchIndex }: { recordId: string; type: "in" | "out" | "punch" | "none" | "rest"; punchIndex?: number }) => {
       if (type === "none" || type === "rest") {
         return apiRequest("DELETE", `/api/attendance/${recordId}`);
+      }
+      if (type === "punch" && punchIndex !== undefined) {
+        return apiRequest("PATCH", `/api/attendance/${recordId}`, { removePunchIndex: punchIndex });
       }
       const patch = type === "in" ? { checkIn: null } : { checkOut: null };
       return apiRequest("PATCH", `/api/attendance/${recordId}`, patch);
@@ -117,7 +120,7 @@ export default function Attendance() {
   }
 
   // توسيع كل سجل يومي إلى حركات فردية
-  // canDelete: "in" | "out" | "none" | "rest" — نوع الحذف المسموح للصف
+  // canDelete: "in" | "out" | "punch" | "none" | "rest" — نوع الحذف المسموح للصف
   const allMovements: Array<{
     id: string;
     recordId: string;
@@ -126,7 +129,8 @@ export default function Attendance() {
     time: string;
     type: "in" | "out" | "rest";
     middleAbsenceMinutes?: number;
-    canDelete: "in" | "out" | "none" | "rest";
+    canDelete: "in" | "out" | "punch" | "none" | "rest";
+    punchIndex?: number;
   }> = [];
 
   for (const record of attendance || []) {
@@ -152,6 +156,7 @@ export default function Attendance() {
         const punchType: "in" | "out" = idx % 2 === 0 ? "in" : "out";
         const isFirst = idx === 0;
         const isLast = idx === rawPunches.length - 1;
+        const isMiddle = !isFirst && !isLast;
         allMovements.push({
           id: `${record.id}-p${idx}`,
           recordId: record.id,
@@ -160,7 +165,8 @@ export default function Attendance() {
           time: punchTime,
           type: punchType,
           middleAbsenceMinutes: isLast ? recMiddle : undefined,
-          canDelete: isFirst ? "in" : isLast ? "out" : "none",
+          canDelete: isFirst ? "in" : isLast ? "out" : isMiddle ? "punch" : "none",
+          punchIndex: idx,
         });
       });
     } else if (rawPunches.length === 1) {
@@ -461,15 +467,25 @@ export default function Attendance() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>حذف السجل</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  هل أنت متأكد من حذف وقت <strong>{mv.canDelete === "in" ? "الدخول" : "الخروج"}</strong> للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
-                                  <br />
-                                  سيُمسح هذا الوقت فقط دون حذف بقية بيانات اليوم.
+                                  {mv.canDelete === "punch" ? (
+                                    <>
+                                      هل أنت متأكد من حذف <strong>البصمة الوسيطة</strong> للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
+                                      <br />
+                                      ستُحذف هذه البصمة وتُعاد حساب دقائق الغياب الوسيطي تلقائياً.
+                                    </>
+                                  ) : (
+                                    <>
+                                      هل أنت متأكد من حذف وقت <strong>{mv.canDelete === "in" ? "الدخول" : "الخروج"}</strong> للموظف <strong>{mv.emp?.name || "غير معروف"}</strong> بتاريخ {formatArabicDate(mv.date)} الساعة {mv.time || "-"}؟
+                                      <br />
+                                      سيُمسح هذا الوقت فقط دون حذف بقية بيانات اليوم.
+                                    </>
+                                  )}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>إلغاء</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => deleteMutation.mutate({ recordId: mv.recordId, type: mv.canDelete })}
+                                  onClick={() => deleteMutation.mutate({ recordId: mv.recordId, type: mv.canDelete, punchIndex: mv.punchIndex })}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
                                   حذف
