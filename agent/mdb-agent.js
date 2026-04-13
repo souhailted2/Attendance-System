@@ -278,14 +278,20 @@ async function runSync() {
   }
 
   // ── تحديد نطاق التواريخ ──
-  const lastSync = loadLastSync();
-  const fromDate = lastSync || (() => {
+  // عند أول تشغيل: نتجاهل last-sync.json ونرجع دائماً DAYS_BACK أيام
+  // لضمان عدم فقدان أي بصمة عند إعادة تشغيل الأداة
+  const defaultFromDate = (() => {
     const d = new Date();
     d.setDate(d.getDate() - DAYS_BACK);
     d.setHours(0, 0, 0, 0);
     return d;
   })();
+  const lastSync = isFirstRun ? null : loadLastSync();
+  const fromDate = lastSync || defaultFromDate;
 
+  if (isFirstRun) {
+    log(`🔄 تشغيل أول — مزامنة شاملة لآخر ${DAYS_BACK} يوم (بغض النظر عن last-sync.json)`);
+  }
   log(`📅 مزامنة سجلات من: ${formatDate(fromDate)} حتى اليوم`);
 
   // ── تجميع سجلات الحضور بالموظف واليوم ──
@@ -330,6 +336,7 @@ async function runSync() {
   if (logsToSend.length === 0) {
     log("ℹ️  لا توجد سجلات جديدة للإرسال");
     saveLastSync(new Date());
+    isFirstRun = false;
     log("═══════════════════════════════════════════════");
     log("✅ انتهت المزامنة");
     log("═══════════════════════════════════════════════");
@@ -387,6 +394,7 @@ async function runSync() {
       if (allErrors.length > 5) log(`   ... و ${allErrors.length - 5} أخطاء أخرى`);
     }
     saveLastSync(new Date());
+    isFirstRun = false;
   }
 
   log("═══════════════════════════════════════════════");
@@ -397,6 +405,10 @@ async function runSync() {
 // ── نقطة الدخول ─────────────────────────────────────────────────────────────
 
 selfTestEncoding();
+
+// عند بدء التشغيل، نتجاهل last-sync.json دائماً ونُعيد إرسال آخر DAYS_BACK أيام
+// وذلك لضمان عدم فقدان أي بصمة عند إغلاق الأداة وإعادة تشغيلها
+let isFirstRun = true;
 
 const watchMode = process.argv.includes("--watch");
 const autoMode  = process.argv.includes("--auto");
