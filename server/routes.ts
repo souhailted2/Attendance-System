@@ -3280,6 +3280,184 @@ export async function registerRoutes(
     return res.status(204).send();
   });
 
+  // ===== SCHEDULE OVERRIDES (جداول خاصة) =====
+
+  // GET /api/schedule-overrides
+  app.get("/api/schedule-overrides", async (req, res) => {
+    try {
+      const list = await storage.getScheduleOverrides();
+      return res.json(list);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/schedule-overrides
+  app.post("/api/schedule-overrides", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const { name, dateFrom, dateTo, workRuleId, workStartTime, workEndTime, isOvernight, notes } = req.body;
+      if (!name || !dateFrom || !dateTo || !workStartTime || !workEndTime) {
+        return res.status(400).json({ message: "جميع الحقول المطلوبة يجب تعبئتها" });
+      }
+      const record = await storage.createScheduleOverride({
+        name, dateFrom, dateTo,
+        workRuleId: workRuleId || null,
+        workStartTime, workEndTime,
+        isOvernight: isOvernight === true || isOvernight === "true",
+        notes: notes || null,
+      });
+      return res.status(201).json(record);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // PATCH /api/schedule-overrides/:id
+  app.patch("/api/schedule-overrides/:id", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const updated = await storage.updateScheduleOverride(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ message: "الجدول الخاص غير موجود" });
+      return res.json(updated);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/schedule-overrides/:id
+  app.delete("/api/schedule-overrides/:id", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      await storage.deleteScheduleOverride(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/schedule-overrides/:id/recalculate
+  // يعيد حساب سجلات الحضور لفترة الجدول الخاص
+  app.post("/api/schedule-overrides/:id/recalculate", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const override = await storage.getScheduleOverride(req.params.id);
+      if (!override) return res.status(404).json({ message: "الجدول الخاص غير موجود" });
+
+      const { dateFrom, dateTo, workRuleId, workStartTime, workEndTime, isOvernight } = override;
+
+      // Fetch all attendance records in range
+      const records = await storage.getAttendanceByDateRange(dateFrom, dateTo);
+
+      // Filter by workRuleId if specified
+      let employees: Record<string, any> = {};
+      const workRules: Record<string, any> = {};
+
+      const filtered = workRuleId
+        ? records.filter(r => {
+            // will check employee's workRule below
+            return true; // filter after loading employees
+          })
+        : records;
+
+      let updated = 0;
+      for (const rec of records) {
+        // Get employee work rule
+        if (!employees[rec.employeeId]) {
+          const emp = await storage.getEmployee(rec.employeeId);
+          employees[rec.employeeId] = emp;
+        }
+        const emp = employees[rec.employeeId];
+        if (!emp) continue;
+
+        // If override is for a specific workRule, skip employees not matching
+        if (workRuleId && emp.workRuleId !== workRuleId) continue;
+
+        // Get work rule for penalties
+        const empWorkRuleId = emp.workRuleId;
+        if (empWorkRuleId && !workRules[empWorkRuleId]) {
+          const wr = await storage.getWorkRule(empWorkRuleId);
+          workRules[empWorkRuleId] = wr;
+        }
+        const workRule = empWorkRuleId ? workRules[empWorkRuleId] : null;
+
+        // Use override times for calculation
+        const effStartTime = workStartTime;
+        let effEndTime = workEndTime;
+
+        // For overnight shifts: if checkOut < workEnd (in raw minutes), add 24h
+        let checkOutAdj = rec.checkOut;
+        if (isOvernight && rec.checkOut) {
+          const [endH, endM] = workEndTime.split(":").map(Number);
+          const [outH, outM] = rec.checkOut.split(":").map(Number);
+          const endMins = endH * 60 + endM;
+          const outMins = outH * 60 + outM;
+          // If checkOut is before workEnd by more than 12h (i.e. it crosses midnight from the other side), treat as next day — keep as is
+          // Just adjust totalHours calculation to handle overnight
+        }
+
+        // Skip absent/leave/rest — keep them unchanged
+        if (rec.status === "absent" || rec.status === "leave" || rec.status === "rest") continue;
+
+        const lateGrace = workRule ? (workRule.lateGraceMinutes || 0) : 0;
+        const latePenaltyPer = workRule ? (workRule.latePenaltyPerMinute || "0") : "0";
+        const earlyPenaltyPer = workRule ? (workRule.earlyLeavePenaltyPerMinute || "0") : "0";
+        const absencePenalty = workRule ? (workRule.absencePenalty || "0") : "0";
+
+        let lateMinutes = 0;
+        let earlyLeaveMinutes = 0;
+        let totalHours = 0;
+        let penalty = 0;
+        let newStatus = rec.status || "present";
+
+        if (rec.checkIn && effStartTime) {
+          const [checkH, checkM] = rec.checkIn.split(":").map(Number);
+          const [startH, startM] = effStartTime.split(":").map(Number);
+          const checkMins = checkH * 60 + checkM;
+          let startMins = startH * 60 + startM;
+          if (isOvernight && checkMins < startMins - 12 * 60) {
+            // checkIn is on the next calendar day for overnight shifts
+          }
+          const diff = checkMins - startMins;
+          if (diff > lateGrace) {
+            lateMinutes = diff;
+            newStatus = "late";
+          }
+        }
+
+        if (rec.checkOut && effEndTime) {
+          const [checkH, checkM] = rec.checkOut.split(":").map(Number);
+          const [endH, endM] = effEndTime.split(":").map(Number);
+          let checkMins = checkH * 60 + checkM;
+          let endMins = endH * 60 + endM;
+          if (isOvernight && checkMins < endMins - 12 * 60) {
+            checkMins += 24 * 60; // checkOut is next day
+          }
+          if (checkMins < endMins) {
+            earlyLeaveMinutes = endMins - checkMins;
+          }
+        }
+
+        if (rec.checkIn && rec.checkOut) {
+          const [inH, inM] = rec.checkIn.split(":").map(Number);
+          const [outH, outM] = rec.checkOut.split(":").map(Number);
+          let inMins = inH * 60 + inM;
+          let outMins = outH * 60 + outM;
+          if (isOvernight && outMins < inMins) {
+            outMins += 24 * 60;
+          }
+          totalHours = Math.round((outMins - inMins) / 60 * 100) / 100;
+        }
+
+        penalty = (lateMinutes > 0 ? lateMinutes * (parseFloat(latePenaltyPer) || 0) : 0)
+          + (earlyLeaveMinutes > 0 ? earlyLeaveMinutes * (parseFloat(earlyPenaltyPer) || 0) : 0);
+
+        await storage.updateAttendance(rec.id, {
+          lateMinutes,
+          earlyLeaveMinutes,
+          totalHours: String(Math.max(0, totalHours)),
+          penalty: String(penalty),
+          status: newStatus,
+        });
+        updated++;
+      }
+
+      return res.json({ message: `تم إعادة حساب ${updated} سجل بنجاح`, updated });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // POST /iclock/devicecmd — device reporting command result
   app.post("/iclock/devicecmd", admsTextParser, (req, res) => {
     const sn = String(req.query.SN || "");

@@ -17,6 +17,7 @@ import {
   Star,
   Shield,
   Eye,
+  CalendarRange,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,18 @@ export function AppSidebar() {
                         <CalendarDays className="h-3.5 w-3.5" />
                       </span>
                       <span>العطل والمنح</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {(user?.username === "owner" || user?.username === "attendence") && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/schedule-overrides"} data-testid="link-nav-schedule-overrides">
+                    <Link href="/schedule-overrides">
+                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/schedule-overrides" ? "bg-primary/20" : ""}`}>
+                        <CalendarRange className="h-3.5 w-3.5" />
+                      </span>
+                      <span>جداول خاصة</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

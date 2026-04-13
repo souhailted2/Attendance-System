@@ -230,6 +230,18 @@ export const insertLeaveSchema = createInsertSchema(leaves).pick({
 export type InsertLeave = z.infer<typeof insertLeaveSchema>;
 export type Leave = typeof leaves.$inferSelect;
 
+export const workScheduleOverrides = mysqlTable("work_schedule_overrides", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: text("name").notNull(),
+  dateFrom: text("date_from").notNull(),
+  dateTo: text("date_to").notNull(),
+  workRuleId: varchar("work_rule_id", { length: 36 }),
+  workStartTime: text("work_start_time").notNull(),
+  workEndTime: text("work_end_time").notNull(),
+  isOvernight: boolean("is_overnight").notNull().default(false),
+  notes: text("notes"),
+});
+
 export const grants = mysqlTable("grants", {
   id: varchar("id", { length: 36 }).primaryKey(),
   name: text("name").notNull(),

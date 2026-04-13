@@ -18,6 +18,7 @@ import type {
   InsertLockedRecord, LockedRecord,
   InsertLeave, Leave,
   InsertGrant, InsertGrantCondition, GrantCondition, GrantWithConditions,
+  InsertWorkScheduleOverride, WorkScheduleOverride,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -589,5 +590,41 @@ export class MysqlStorage implements IStorage {
   async deleteGrant(id: string): Promise<void> {
     await mysqlDb.delete(schema.grantConditions).where(eq(schema.grantConditions.grantId, id));
     await mysqlDb.delete(schema.grants).where(eq(schema.grants.id, id));
+  }
+
+  async getScheduleOverrides(): Promise<WorkScheduleOverride[]> {
+    return mysqlDb.select().from(schema.workScheduleOverrides) as Promise<WorkScheduleOverride[]>;
+  }
+
+  async getScheduleOverride(id: string): Promise<WorkScheduleOverride | undefined> {
+    const [row] = await mysqlDb.select().from(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
+    return row as WorkScheduleOverride | undefined;
+  }
+
+  async createScheduleOverride(data: InsertWorkScheduleOverride): Promise<WorkScheduleOverride> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.workScheduleOverrides).values({
+      id,
+      name: data.name,
+      dateFrom: data.dateFrom,
+      dateTo: data.dateTo,
+      workRuleId: data.workRuleId ?? null,
+      workStartTime: data.workStartTime,
+      workEndTime: data.workEndTime,
+      isOvernight: data.isOvernight ?? false,
+      notes: data.notes ?? null,
+    });
+    const [row] = await mysqlDb.select().from(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
+    return row as WorkScheduleOverride;
+  }
+
+  async updateScheduleOverride(id: string, data: Partial<InsertWorkScheduleOverride>): Promise<WorkScheduleOverride | undefined> {
+    await mysqlDb.update(schema.workScheduleOverrides).set(data).where(eq(schema.workScheduleOverrides.id, id));
+    const [row] = await mysqlDb.select().from(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
+    return row as WorkScheduleOverride | undefined;
+  }
+
+  async deleteScheduleOverride(id: string): Promise<void> {
+    await mysqlDb.delete(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
   }
 }

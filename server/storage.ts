@@ -15,6 +15,7 @@ import type {
   InsertGrant, Grant,
   InsertGrantCondition, GrantCondition,
   GrantWithConditions,
+  InsertWorkScheduleOverride, WorkScheduleOverride,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -95,6 +96,12 @@ export interface IStorage {
   getGrants(): Promise<GrantWithConditions[]>;
   createGrant(data: InsertGrant, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions>;
   deleteGrant(id: string): Promise<void>;
+
+  getScheduleOverrides(): Promise<WorkScheduleOverride[]>;
+  getScheduleOverride(id: string): Promise<WorkScheduleOverride | undefined>;
+  createScheduleOverride(data: InsertWorkScheduleOverride): Promise<WorkScheduleOverride>;
+  updateScheduleOverride(id: string, data: Partial<InsertWorkScheduleOverride>): Promise<WorkScheduleOverride | undefined>;
+  deleteScheduleOverride(id: string): Promise<void>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -195,6 +202,12 @@ class LazyStorage implements IStorage {
   getGrants() { return this.impl().then(s => s.getGrants()); }
   createGrant(d: InsertGrant, c: Omit<InsertGrantCondition, "grantId">[]) { return this.impl().then(s => s.createGrant(d, c)); }
   deleteGrant(id: string) { return this.impl().then(s => s.deleteGrant(id)); }
+
+  getScheduleOverrides() { return this.impl().then(s => s.getScheduleOverrides()); }
+  getScheduleOverride(id: string) { return this.impl().then(s => s.getScheduleOverride(id)); }
+  createScheduleOverride(d: InsertWorkScheduleOverride) { return this.impl().then(s => s.createScheduleOverride(d)); }
+  updateScheduleOverride(id: string, d: Partial<InsertWorkScheduleOverride>) { return this.impl().then(s => s.updateScheduleOverride(id, d)); }
+  deleteScheduleOverride(id: string) { return this.impl().then(s => s.deleteScheduleOverride(id)); }
 }
 
 export const storage: IStorage = new LazyStorage();

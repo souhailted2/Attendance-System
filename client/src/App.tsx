@@ -25,6 +25,7 @@ import Login from "@/pages/login";
 import ActivityLog from "@/pages/activity-log";
 import MonthlyArchive from "@/pages/monthly-archive";
 import LeavesGrants from "@/pages/leaves-grants";
+import ScheduleOverrides from "@/pages/schedule-overrides";
 import EmployeeAttendance from "@/pages/employee-attendance";
 import Favorites from "@/pages/favorites";
 import { Building2, Briefcase, ChevronLeft } from "lucide-react";
@@ -44,6 +45,7 @@ const routeLabels: Record<string, string> = {
   "/activity-log": "سجل النشاطات",
   "/monthly-archive": "الأرشيف الشهري",
   "/leaves-grants": "العطل والمنح",
+  "/schedule-overrides": "جداول خاصة",
   "/favorites": "المفضلة",
 };
 
@@ -190,6 +192,9 @@ function Router() {
       </Route>
       <Route path="/leaves-grants">
         <ProtectedRoute component={LeavesGrants} allowedUsers={["owner", "observer"]} />
+      </Route>
+      <Route path="/schedule-overrides">
+        <ProtectedRoute component={ScheduleOverrides} allowedUsers={["owner", "attendence"]} />
       </Route>
       <Route path="/favorites">
         <ProtectedRoute component={Favorites} allowedUsers={["owner"]} />

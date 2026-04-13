@@ -171,6 +171,18 @@ export const grantConditions = pgTable("grant_conditions", {
   effectAmount: text("effect_amount"),
 });
 
+export const workScheduleOverrides = pgTable("work_schedule_overrides", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  dateFrom: text("date_from").notNull(),
+  dateTo: text("date_to").notNull(),
+  workRuleId: varchar("work_rule_id"),
+  workStartTime: text("work_start_time").notNull(),
+  workEndTime: text("work_end_time").notNull(),
+  isOvernight: boolean("is_overnight").notNull().default(false),
+  notes: text("notes"),
+});
+
 export const frozenArchives = pgTable("frozen_archives", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   month: varchar("month", { length: 7 }).notNull(),
@@ -328,3 +340,10 @@ export type InsertGrantCondition = z.infer<typeof insertGrantConditionSchema>;
 export type GrantCondition = typeof grantConditions.$inferSelect;
 
 export type GrantWithConditions = Grant & { conditions: GrantCondition[] };
+
+export const insertWorkScheduleOverrideSchema = createInsertSchema(workScheduleOverrides).pick({
+  name: true, dateFrom: true, dateTo: true, workRuleId: true,
+  workStartTime: true, workEndTime: true, isOvernight: true, notes: true,
+});
+export type InsertWorkScheduleOverride = z.infer<typeof insertWorkScheduleOverrideSchema>;
+export type WorkScheduleOverride = typeof workScheduleOverrides.$inferSelect;

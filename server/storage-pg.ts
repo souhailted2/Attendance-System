@@ -20,6 +20,7 @@ import type {
   InsertGrant, Grant,
   InsertGrantCondition, GrantCondition,
   GrantWithConditions,
+  InsertWorkScheduleOverride, WorkScheduleOverride,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -423,5 +424,39 @@ export class PgStorage implements IStorage {
   async deleteGrant(id: string): Promise<void> {
     await pgDb.delete(schema.grantConditions).where(eq(schema.grantConditions.grantId, id));
     await pgDb.delete(schema.grants).where(eq(schema.grants.id, id));
+  }
+
+  async getScheduleOverrides(): Promise<WorkScheduleOverride[]> {
+    return pgDb.select().from(schema.workScheduleOverrides) as Promise<WorkScheduleOverride[]>;
+  }
+
+  async getScheduleOverride(id: string): Promise<WorkScheduleOverride | undefined> {
+    const [row] = await pgDb.select().from(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
+    return row as WorkScheduleOverride | undefined;
+  }
+
+  async createScheduleOverride(data: InsertWorkScheduleOverride): Promise<WorkScheduleOverride> {
+    const id = randomUUID();
+    const [row] = await pgDb.insert(schema.workScheduleOverrides).values({
+      id,
+      name: data.name,
+      dateFrom: data.dateFrom,
+      dateTo: data.dateTo,
+      workRuleId: data.workRuleId ?? null,
+      workStartTime: data.workStartTime,
+      workEndTime: data.workEndTime,
+      isOvernight: data.isOvernight ?? false,
+      notes: data.notes ?? null,
+    }).returning();
+    return row as WorkScheduleOverride;
+  }
+
+  async updateScheduleOverride(id: string, data: Partial<InsertWorkScheduleOverride>): Promise<WorkScheduleOverride | undefined> {
+    const [row] = await pgDb.update(schema.workScheduleOverrides).set(data).where(eq(schema.workScheduleOverrides.id, id)).returning();
+    return row as WorkScheduleOverride | undefined;
+  }
+
+  async deleteScheduleOverride(id: string): Promise<void> {
+    await pgDb.delete(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
   }
 }
