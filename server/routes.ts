@@ -1402,8 +1402,21 @@ export async function registerRoutes(
             rec.checkOut, effectiveEndTime, earlyLeaveGrace, lateLeaveGrace,
           );
 
-          const checkInMin = timeToMin(rec.checkIn);
+          let checkInMin = timeToMin(rec.checkIn);
           let checkOutMin = timeToMin(rec.checkOut);
+
+          // كشف البيانات المقلوبة للمناوبات الليلية:
+          // إذا كان checkIn (≈05:00) قبل بداية الجدول (22:00) وcheckOut (≈22:00) بعدها
+          // → الجهاز خزّن الدخول والخروج معكوسَين → نعكسهما للحساب فقط (دون تغيير قاعدة البيانات هنا)
+          if (dayOverride?.isOvernight && checkInMin !== null && checkOutMin !== null) {
+            const SWAP_TOLERANCE = 60;
+            if (checkInMin < effectiveStartMin && checkOutMin >= (effectiveStartMin - SWAP_TOLERANCE)) {
+              const morningExit = checkInMin;          // 05:xx → هذا هو وقت الخروج الحقيقي
+              checkInMin  = checkOutMin;               // 22:xx → هذا هو وقت الدخول الحقيقي
+              checkOutMin = morningExit + 24 * 60;    // 05:xx+24h = وقت الخروج بالأبعاد المطلقة
+            }
+          }
+
           // للمناوبات الليلية: إذا كان خروج الموظف بعد منتصف الليل يُعدَّل إلى أبعاد مطلقة
           if (dayOverride?.isOvernight && checkOutMin !== null && checkOutMin < effectiveStartMin) {
             checkOutMin += 24 * 60;
@@ -3386,7 +3399,7 @@ export async function registerRoutes(
       const workRuleCache: Record<string, any> = {};
 
       let updated = 0;
-      for (const rec of records) {
+      for (let rec of records) {
         // Load employee if not cached
         if (!employeeCache[rec.employeeId]) {
           employeeCache[rec.employeeId] = await storage.getEmployee(rec.employeeId);
@@ -3416,6 +3429,42 @@ export async function registerRoutes(
         let penalty = 0;
         // Always compute status from scratch (never inherit stale status)
         let newStatus = "present";
+
+        // --- كشف البيانات المقلوبة للمناوبات الليلية ---
+        // الجهاز البيومتري يُسجّل البصمات بالترتيب الزمني لليوم الواحد:
+        //   - 05:00 (الخروج من مناوبة البارحة) → يُخزَّن خطأً كـ checkIn
+        //   - 22:00 (الدخول لمناوبة الليلة)   → يُخزَّن خطأً كـ checkOut
+        // نكتشف هذا النمط ونعكسه في قاعدة البيانات قبل إجراء أي حساب.
+        if (isOvernight && rec.checkIn && rec.checkOut) {
+          const ciM = rec.checkIn.split(":").map(Number).reduce((h, m) => h * 60 + m);
+          const coM = rec.checkOut.split(":").map(Number).reduce((h, m) => h * 60 + m);
+          const SWAP_TOLERANCE = 60; // دقيقة
+          if (ciM < scheduleStartMins && coM >= (scheduleStartMins - SWAP_TOLERANCE)) {
+            // البيانات مقلوبة → نصحّحها في قاعدة البيانات
+            const correctCheckIn  = rec.checkOut; // "22:xx" → وقت الدخول الحقيقي
+            const correctCheckOut = rec.checkIn;  // "05:xx" → وقت الخروج الحقيقي (صباح اليوم التالي)
+            await storage.updateAttendance(rec.id, {
+              checkIn: correctCheckIn,
+              checkOut: correctCheckOut,
+            });
+            // تحديث القيم المحلية للحسابات التالية
+            rec = { ...rec, checkIn: correctCheckIn, checkOut: correctCheckOut };
+          }
+        }
+
+        // حالة خاصة: بصمة صباحية فقط (خروج من مناوبة البارحة) دون بصمة مسائية
+        // → هذا السجل ليس دخولاً حقيقياً ليوم اليوم → نضعه كـ "غائب"
+        if (isOvernight && rec.checkIn && !rec.checkOut) {
+          const ciM = rec.checkIn.split(":").map(Number).reduce((h, m) => h * 60 + m);
+          if (ciM < scheduleStartMins && (scheduleStartMins - ciM) > 12 * 60) {
+            await storage.updateAttendance(rec.id, {
+              checkIn: null, lateMinutes: 0, earlyLeaveMinutes: 0,
+              totalHours: "0", penalty: "0", status: "absent",
+            });
+            updated++;
+            continue;
+          }
+        }
 
         // --- Resolve effective checkout time ---
         // For overnight shifts the device may record checkOut on the SAME attendance record (same date as checkIn)
