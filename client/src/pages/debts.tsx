@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle, Search } from "lucide-react";
 
 type Employee = { id: string; name: string; employeeCode: string; isActive: boolean };
 type Debt = {
@@ -23,7 +23,7 @@ export default function Debts() {
   const [open, setOpen] = useState(false);
   const [editDebt, setEditDebt] = useState<Debt | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [filterEmp, setFilterEmp] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: debts = [], isLoading } = useQuery<Debt[]>({ queryKey: ["/api/debts"] });
@@ -48,8 +48,16 @@ export default function Debts() {
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
 
-  const filtered = filterEmp === "all" ? debts : debts.filter(d => d.employeeId === filterEmp);
   const getEmpName = (id: string) => employees.find(e => e.id === id)?.name ?? "—";
+  const getEmpCode = (id: string) => employees.find(e => e.id === id)?.employeeCode ?? "";
+
+  const filtered = debts.filter(d => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+    const name = getEmpName(d.employeeId).toLowerCase();
+    const code = getEmpCode(d.employeeId).toLowerCase();
+    return name.includes(q) || code.includes(q);
+  });
 
   function openAdd() { setForm(emptyForm); setOpen(true); }
   function openEdit(d: Debt) { setEditDebt(d); }
@@ -84,16 +92,18 @@ export default function Debts() {
         </Button>
       </div>
 
-      <div className="flex items-center gap-3 mb-4">
-        <Select value={filterEmp} onValueChange={setFilterEmp}>
-          <SelectTrigger className="w-52" data-testid="select-filter-employee">
-            <SelectValue placeholder="كل الموظفين" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الموظفين</SelectItem>
-            {active.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      {/* Search bar */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            className="pr-9"
+            placeholder="بحث باسم الموظف أو رقمه..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            data-testid="input-search-debts"
+          />
+        </div>
         <Badge variant="secondary">{filtered.length} دين</Badge>
       </div>
 
@@ -117,7 +127,10 @@ export default function Debts() {
               {filtered.map((debt, i) => (
                 <tr key={debt.id} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}
                   data-testid={`row-debt-${debt.id}`}>
-                  <td className="px-4 py-3 font-medium">{getEmpName(debt.employeeId)}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{getEmpName(debt.employeeId)}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{getEmpCode(debt.employeeId)}</p>
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{debt.description}</td>
                   <td className="px-4 py-3 font-mono">{parseFloat(debt.totalAmount).toLocaleString("ar-DZ")} دج</td>
                   <td className="px-4 py-3 font-mono">{parseFloat(debt.monthlyDeduction).toLocaleString("ar-DZ")} دج</td>
@@ -145,7 +158,9 @@ export default function Debts() {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">لا توجد ديون مسجلة</td></tr>
+                <tr><td colSpan={7} className="text-center py-12 text-muted-foreground">
+                  {searchQuery ? "لا توجد نتائج مطابقة للبحث" : "لا توجد ديون مسجلة"}
+                </td></tr>
               )}
             </tbody>
           </table>

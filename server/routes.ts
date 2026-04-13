@@ -3756,6 +3756,7 @@ export async function registerRoutes(
           employeeId: emp.id,
           employeeName: emp.name,
           employeeCode: emp.employeeCode,
+          workshopId: emp.workshopId ?? null,
           baseSalary,
           attendanceDeduction: Math.round(attendanceDeduction * 100) / 100,
           debtDeduction: Math.round(debtDeduction * 100) / 100,
