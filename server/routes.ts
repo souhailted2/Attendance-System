@@ -164,6 +164,14 @@ function filterDuplicateSwipes(times: string[], minGapMinutes: number): string[]
   return result;
 }
 
+// تحويل وقت "HH:MM" إلى دقائق منذ منتصف الليل (مشترك لجميع المسارات)
+function timeToMinGlobal(t: string | null): number | null {
+  if (!t) return null;
+  const [h, m] = t.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
 function getYesterday(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   d.setDate(d.getDate() - 1);
@@ -209,7 +217,7 @@ async function processAttendanceLogs(
     const checkOut = filteredTimes.length > 1 ? filteredTimes[filteredTimes.length - 1] : null;
 
     // تحويل وقت بداية الوردية إلى دقائق لتجاهل الفجوات الواقعة قبلها
-    const shiftStartMinForCalc = workRule?.workStartTime ? timeToMin(workRule.workStartTime) : null;
+    const shiftStartMinForCalc = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
     const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc);
 
     // ===== معالجة خاصة لنظام المناوبة 24 ساعة =====
