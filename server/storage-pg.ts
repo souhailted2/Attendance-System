@@ -21,6 +21,8 @@ import type {
   InsertGrantCondition, GrantCondition,
   GrantWithConditions,
   InsertWorkScheduleOverride, WorkScheduleOverride,
+  InsertEmployeeDebt, EmployeeDebt,
+  InsertAdvance, Advance,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -459,4 +461,17 @@ export class PgStorage implements IStorage {
   async deleteScheduleOverride(id: string): Promise<void> {
     await pgDb.delete(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
   }
+
+  // ====== Payroll — not implemented for Postgres (MySQL-only feature) ======
+  async initPayrollTables(): Promise<void> { /* no-op: MySQL only */ }
+  async getEmployeeDebts(_employeeId?: string): Promise<EmployeeDebt[]> { return []; }
+  async getEmployeeDebt(_id: string): Promise<EmployeeDebt | undefined> { return undefined; }
+  async createEmployeeDebt(_data: InsertEmployeeDebt): Promise<EmployeeDebt> { throw new Error("Not implemented for Postgres"); }
+  async updateEmployeeDebt(_id: string, _data: Partial<InsertEmployeeDebt>): Promise<EmployeeDebt | undefined> { return undefined; }
+  async deleteEmployeeDebt(_id: string): Promise<void> { /* no-op */ }
+  async getAdvances(_employeeId?: string, _month?: number, _year?: number): Promise<Advance[]> { return []; }
+  async getAdvance(_id: string): Promise<Advance | undefined> { return undefined; }
+  async createAdvance(_data: InsertAdvance): Promise<Advance> { throw new Error("Not implemented for Postgres"); }
+  async updateAdvance(_id: string, _data: Partial<InsertAdvance>): Promise<Advance | undefined> { return undefined; }
+  async deleteAdvance(_id: string): Promise<void> { /* no-op */ }
 }
