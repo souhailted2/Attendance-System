@@ -108,6 +108,10 @@ export default function ScheduleOverrides() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports/range"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/monthly-trend"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/monthly-summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats/weekly"] });
       toast({ title: "تمت إعادة الحساب بنجاح", description: `تم إعادة حساب ${data?.updated ?? 0} سجل` });
       setRecalcId(null);
     },
