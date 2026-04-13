@@ -3385,39 +3385,54 @@ export async function registerRoutes(
         let earlyLeaveMinutes = 0;
         let totalHours = 0;
         let penalty = 0;
-        let newStatus = rec.status || "present";
+        // Always compute status from scratch (never inherit stale status)
+        let newStatus = "present";
 
-        // --- Late calculation (based on checkIn) ---
+        // --- Resolve effective checkout time ---
+        // For overnight shifts the device may record checkOut on the SAME attendance record (same date as checkIn)
+        // as an after-midnight time (e.g. "05:00"), OR it may be missing (recorded in the next calendar day's record).
+        // We resolve in priority order:
+        //   1. Same-record checkOut that is clearly after-midnight (< scheduleStartMins by a wide margin)
+        //   2. Next-day attendance record's checkIn (which is the physical checkout punch) when same-record checkout is absent
+        let effectiveCheckOutMins: number | null = null;
+
+        if (rec.checkOut) {
+          const [coH, coM] = rec.checkOut.split(":").map(Number);
+          let checkOutMins = coH * 60 + coM;
+          if (isOvernight && checkOutMins < scheduleStartMins) {
+            // checkOut is after midnight (e.g. "05:00" for 22:00 start) — treat as next-day minutes
+            checkOutMins += 24 * 60;
+          }
+          effectiveCheckOutMins = checkOutMins;
+        } else if (isOvernight && rec.date) {
+          // No same-day checkout: look for the next calendar day's earliest attendance record for this employee
+          // which represents the physical checkout from this overnight shift
+          const [yr, mo, dy] = rec.date.split("-").map(Number);
+          const nextDate = new Date(yr, mo - 1, dy + 1);
+          const nextDateStr = nextDate.toISOString().split("T")[0];
+          const nextRec = await storage.getAttendanceByEmployeeAndDate(rec.employeeId, nextDateStr);
+          // Use the earliest punch of the next day as the effective checkout
+          const nextCheckIn = nextRec?.checkIn;
+          if (nextCheckIn) {
+            const [nciH, nciM] = nextCheckIn.split(":").map(Number);
+            effectiveCheckOutMins = nciH * 60 + nciM + 24 * 60; // it's on the next day
+          }
+        }
+
+        // --- Late calculation (based on checkIn vs schedule start) ---
         if (rec.checkIn) {
           const [ciH, ciM] = rec.checkIn.split(":").map(Number);
           let checkInMins = ciH * 60 + ciM;
-          // For overnight shifts, checkIn might look like "22:30" which is before midnight.
-          // If checkIn is less than scheduleStartMins and the difference exceeds 12h, it's "yesterday" relative to schedule — treat as is.
-          // We only adjust if checkIn appears to be early next-day (e.g. 00:30 for a 22:00 start).
+          // For overnight shifts, checkIn that appears to be after midnight (e.g. "00:30" for 22:00 start)
+          // means the employee clocked in the next calendar day — treat as next-day absolute minutes.
           if (isOvernight && checkInMins < scheduleStartMins && scheduleStartMins - checkInMins > 12 * 60) {
-            checkInMins += 24 * 60; // checkIn is after midnight, treat as next-day minutes
+            checkInMins += 24 * 60;
           }
           const diff = checkInMins - scheduleStartMins;
           if (diff > lateGrace) {
             lateMinutes = diff;
             newStatus = "late";
           }
-        }
-
-        // --- checkOut: for overnight, the device records the punch on the next calendar day,
-        //     stored as HH:MM on that day's attendance record OR as HH:MM on the same record.
-        //     The biometric system stores checkOut on the SAME attendance record (same date as checkIn).
-        //     So we normalize checkOut: if isOvernight and checkOut < scheduleStartMins (indicating it's after midnight),
-        //     treat it as scheduleStartMins + (24*60 - scheduleStartMins + checkOutMins).
-        let effectiveCheckOutMins: number | null = null;
-        if (rec.checkOut) {
-          const [coH, coM] = rec.checkOut.split(":").map(Number);
-          let checkOutMins = coH * 60 + coM;
-          if (isOvernight && checkOutMins < scheduleStartMins) {
-            // checkOut is after midnight (e.g. 05:00 for 22:00 start) — add 24h offset
-            checkOutMins += 24 * 60;
-          }
-          effectiveCheckOutMins = checkOutMins;
         }
 
         // --- Early leave calculation ---
