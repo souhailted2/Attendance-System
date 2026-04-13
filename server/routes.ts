@@ -140,6 +140,15 @@ function calculateMiddleAbsenceMinutes(
     // إذا كانت الفجوة تنتهي قبل أو عند بداية الوردية → ساعات إضافية قبل الوردية → لا تُحسب غياباً
     if (shiftStartMin !== null && inMin <= shiftStartMin) continue;
 
+    // إذا بدأت الفجوة عند نافذة بداية الوردية (±5/+15 دقيقة) → بصمة تأكيد إلزامية ZKTeco وليست خروجاً
+    // مثال: [14:21, 15:47, 23:45] وردية 15:45 → 15:47 هي مسح التأكيد الإلزامي عند بداية الوردية
+    // قياسات حقيقية: بصمات التأكيد بفارق [0, +13 دقيقة]؛ الغيابات الحقيقية بفارق ≤ -74 دقيقة
+    const RESCAN_BEFORE = 5;
+    const RESCAN_AFTER  = 15;
+    if (shiftStartMin !== null &&
+        outMin >= shiftStartMin - RESCAN_BEFORE &&
+        outMin <= shiftStartMin + RESCAN_AFTER) continue;
+
     // إذا بدأت الفجوة قبل الوردية لكنها تمتد داخلها → نقلّص البداية لوقت الوردية
     const effectiveOutMin = (shiftStartMin !== null && outMin < shiftStartMin) ? shiftStartMin : outMin;
 
