@@ -14,7 +14,7 @@ $nodeBin = "$nvmDir/$nodeVer/bin";
 $env     = "export HOME=$home PM2_HOME=$home/.pm2 PATH=$nodeBin:/usr/local/bin:/usr/bin:/bin";
 
 // git: سحب آخر التحديثات
-$git = shell_exec("$env && cd $project && git fetch origin 2>&1 && git checkout -f origin/main -- dist/ agent/mdb-agent.js scripts/ 2>&1");
+$git = shell_exec("$env && cd $project && git fetch origin 2>&1 && git checkout -f origin/main -- dist/ agent/ scripts/ 2>&1");
 
 // إعادة التشغيل الآمنة: SIGUSR2 (graceful reload) بدلاً من SIGTERM (إيقاف كامل)
 $pidFile = "$home/.pm2/pids/attendance-0.pid";
