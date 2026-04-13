@@ -1417,11 +1417,19 @@ export async function registerRoutes(
             }
           }
 
-          // للمناوبات الليلية: إذا كان خروج الموظف بعد منتصف الليل يُعدَّل إلى أبعاد مطلقة
+          // للمناوبات الليلية (جدول خاص): إذا كان خروج الموظف بعد منتصف الليل يُعدَّل إلى أبعاد مطلقة
           if (dayOverride?.isOvernight && checkOutMin !== null && checkOutMin < effectiveStartMin) {
             checkOutMin += 24 * 60;
           }
 
+          // [تصليح] كشف عام للخروج الليلي بدون جدول خاص:
+          // إذا كان checkOut أصغر من checkIn فهذا يعني الخروج بعد منتصف الليل (اليوم التالي)
+          // مثال: دخول 22:11 وخروج 04:59 → 04:59 < 22:11 → نضيف 24h لـ checkOutMin
+          if (!dayOverride && checkInMin !== null && checkOutMin !== null && checkOutMin < checkInMin) {
+            checkOutMin += 24 * 60;
+          }
+
+          // حساب التأخير والخروج المبكر من الإحداثيات (للعرض والساعات الإضافية)
           const rawLateMinutes = checkInMin !== null
             ? Math.max(0, checkInMin - effectiveStartMin)
             : 0;
@@ -1433,8 +1441,18 @@ export async function registerRoutes(
             ? Math.max(0, earlyLeaveRefMin - checkOutMin)
             : 0;
 
-          const effectiveLateMinutes = Math.max(0, rawLateMinutes - lateArrivalGrace);
-          const effectiveEarlyLeaveMinutes = Math.max(0, rawEarlyLeaveMinutes - earlyLeaveGrace);
+          // [تصليح] للنقاط: استخدم القيم المُخزَّنة عند غياب الجدول الخاص
+          // (القيم المُخزَّنة حُسبت بالجدول الصحيح وقت التسجيل)
+          // عند وجود جدول خاص نحسب من الإحداثيات الزمنية (سلوك صحيح حالياً)
+          let effectiveLateMinutes: number;
+          let effectiveEarlyLeaveMinutes: number;
+          if (dayOverride) {
+            effectiveLateMinutes = Math.max(0, rawLateMinutes - lateArrivalGrace);
+            effectiveEarlyLeaveMinutes = Math.max(0, rawEarlyLeaveMinutes - earlyLeaveGrace);
+          } else {
+            effectiveLateMinutes = Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
+            effectiveEarlyLeaveMinutes = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
+          }
 
           const middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
 
