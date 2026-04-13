@@ -18,6 +18,10 @@ import {
   Shield,
   Eye,
   CalendarRange,
+  Banknote,
+  CreditCard,
+  Wallet,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -57,7 +61,15 @@ const roleInfo: Record<string, { label: string; displayName: string; icon: typeo
   owner: { label: "مالك النظام", displayName: "المدير العام", icon: Shield },
   attendence: { label: "مسؤول الحضور", displayName: "مسؤول الحضور", icon: ClipboardCheck },
   observer: { label: "مراقب", displayName: "المراقب", icon: Eye },
+  caisse: { label: "موظف الصندوق", displayName: "الصندوق", icon: Banknote },
 };
+
+const caisseItems = [
+  { title: "رواتب الموظفين", url: "/salaries", icon: Banknote },
+  { title: "الديون", url: "/debts", icon: CreditCard },
+  { title: "التسبيقات", url: "/advances", icon: Wallet },
+  { title: "كشف الرواتب", url: "/payroll", icon: FileSpreadsheet },
+];
 
 function getAvatarGradient(username: string): string {
   const gradients = [
@@ -97,146 +109,199 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>الرئيسية</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainItems.map((item) => {
-                const active = location === item.url;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      data-testid={`link-nav-${item.url.replace("/", "") || "dashboard"}`}
-                    >
-                      <Link href={item.url}>
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
-                          <item.icon className="h-3.5 w-3.5" />
-                        </span>
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-              {user?.username === "owner" && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/favorites"} data-testid="link-nav-favorites">
-                    <Link href="/favorites">
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/favorites" ? "bg-primary/20" : ""}`}>
-                        <Star className="h-3.5 w-3.5" />
-                      </span>
-                      <span>المفضلة</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {(user?.username === "owner" || user?.username === "observer") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/leaves-grants"} data-testid="link-nav-leaves-grants">
-                    <Link href="/leaves-grants">
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/leaves-grants" ? "bg-primary/20" : ""}`}>
-                        <CalendarDays className="h-3.5 w-3.5" />
-                      </span>
-                      <span>العطل والمنح</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {(user?.username === "owner" || user?.username === "attendence" || user?.username === "observer") && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/schedule-overrides"} data-testid="link-nav-schedule-overrides">
-                    <Link href="/schedule-overrides">
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/schedule-overrides" ? "bg-primary/20" : ""}`}>
-                        <CalendarRange className="h-3.5 w-3.5" />
-                      </span>
-                      <span>جداول خاصة</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              {user?.username === "owner" && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/monthly-archive"} data-testid="link-nav-monthly-archive">
-                    <Link href="/monthly-archive">
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/monthly-archive" ? "bg-primary/20" : ""}`}>
-                        <Archive className="h-3.5 w-3.5" />
-                      </span>
-                      <span>حفظ الاشهر</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* CAISSE: واجهة خاصة للصندوق */}
+        {user?.username === "caisse" ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>الصندوق</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {caisseItems.map((item) => {
+                  const active = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        data-testid={`link-nav-${item.url.replace("/", "")}`}
+                      >
+                        <Link href={item.url}>
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                            <item.icon className="h-3.5 w-3.5" />
+                          </span>
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          <>
+            <SidebarGroup>
+              <SidebarGroupLabel>الرئيسية</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {mainItems.map((item) => {
+                    const active = location === item.url;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          data-testid={`link-nav-${item.url.replace("/", "") || "dashboard"}`}
+                        >
+                          <Link href={item.url}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                              <item.icon className="h-3.5 w-3.5" />
+                            </span>
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                  {user?.username === "owner" && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/favorites"} data-testid="link-nav-favorites">
+                        <Link href="/favorites">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/favorites" ? "bg-primary/20" : ""}`}>
+                            <Star className="h-3.5 w-3.5" />
+                          </span>
+                          <span>المفضلة</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {(user?.username === "owner" || user?.username === "observer") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/leaves-grants"} data-testid="link-nav-leaves-grants">
+                        <Link href="/leaves-grants">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/leaves-grants" ? "bg-primary/20" : ""}`}>
+                            <CalendarDays className="h-3.5 w-3.5" />
+                          </span>
+                          <span>العطل والمنح</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {(user?.username === "owner" || user?.username === "attendence" || user?.username === "observer") && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/schedule-overrides"} data-testid="link-nav-schedule-overrides">
+                        <Link href="/schedule-overrides">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/schedule-overrides" ? "bg-primary/20" : ""}`}>
+                            <CalendarRange className="h-3.5 w-3.5" />
+                          </span>
+                          <span>جداول خاصة</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {user?.username === "owner" && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/monthly-archive"} data-testid="link-nav-monthly-archive">
+                        <Link href="/monthly-archive">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/monthly-archive" ? "bg-primary/20" : ""}`}>
+                            <Archive className="h-3.5 w-3.5" />
+                          </span>
+                          <span>حفظ الاشهر</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {/* Caisse section visible to owner */}
+                  {user?.username === "owner" && (
+                    <>
+                      {caisseItems.map((item) => {
+                        const active = location === item.url;
+                        return (
+                          <SidebarMenuItem key={item.url}>
+                            <SidebarMenuButton asChild isActive={active}
+                              data-testid={`link-nav-${item.url.replace("/", "")}`}>
+                              <Link href={item.url}>
+                                <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                                  <item.icon className="h-3.5 w-3.5" />
+                                </span>
+                                <span>{item.title}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>الإعدادات</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => {
-                const active = location === item.url;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      data-testid={`link-nav-${item.url.replace("/", "")}`}
-                    >
-                      <Link href={item.url}>
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
-                          <item.icon className="h-3.5 w-3.5" />
-                        </span>
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            <SidebarGroup>
+              <SidebarGroupLabel>الإعدادات</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {settingsItems.map((item) => {
+                    const active = location === item.url;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          data-testid={`link-nav-${item.url.replace("/", "")}`}
+                        >
+                          <Link href={item.url}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                              <item.icon className="h-3.5 w-3.5" />
+                            </span>
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>أدوات</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {toolsItems.map((item) => {
-                const active = location === item.url;
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      data-testid={`link-nav-${item.url.replace("/", "")}`}
-                    >
-                      <Link href={item.url}>
-                        <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
-                          <item.icon className="h-3.5 w-3.5" />
-                        </span>
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-              {user?.username === "owner" && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/activity-log"} data-testid="link-nav-activity-log">
-                    <Link href="/activity-log">
-                      <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/activity-log" ? "bg-primary/20" : ""}`}>
-                        <History className="h-3.5 w-3.5" />
-                      </span>
-                      <span>سجل النشاطات</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+            <SidebarGroup>
+              <SidebarGroupLabel>أدوات</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {toolsItems.map((item) => {
+                    const active = location === item.url;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          data-testid={`link-nav-${item.url.replace("/", "")}`}
+                        >
+                          <Link href={item.url}>
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                              <item.icon className="h-3.5 w-3.5" />
+                            </span>
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                  {user?.username === "owner" && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/activity-log"} data-testid="link-nav-activity-log">
+                        <Link href="/activity-log">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/activity-log" ? "bg-primary/20" : ""}`}>
+                            <History className="h-3.5 w-3.5" />
+                          </span>
+                          <span>سجل النشاطات</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       {/* Rich Profile Card Footer */}

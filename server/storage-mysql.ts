@@ -19,6 +19,8 @@ import type {
   InsertLeave, Leave,
   InsertGrant, InsertGrantCondition, GrantCondition, GrantWithConditions,
   InsertWorkScheduleOverride, WorkScheduleOverride,
+  InsertEmployeeDebt, EmployeeDebt,
+  InsertAdvance, Advance,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -626,5 +628,107 @@ export class MysqlStorage implements IStorage {
 
   async deleteScheduleOverride(id: string): Promise<void> {
     await mysqlDb.delete(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
+  }
+
+  async initPayrollTables(): Promise<void> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    // MySQL < 8.0 doesn't support ADD COLUMN IF NOT EXISTS; use information_schema check instead
+    const [cols] = await rawPool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='employees' AND COLUMN_NAME='base_salary'`
+    ) as [any[], any];
+    if (!Array.isArray(cols) || cols.length === 0) {
+      await rawPool.query(`ALTER TABLE employees ADD COLUMN base_salary VARCHAR(50) DEFAULT '0'`);
+    }
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS employee_debts (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      description TEXT NOT NULL,
+      total_amount VARCHAR(50) NOT NULL DEFAULT '0',
+      monthly_deduction VARCHAR(50) NOT NULL DEFAULT '0',
+      remaining_amount VARCHAR(50) NOT NULL DEFAULT '0',
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at VARCHAR(50) NOT NULL
+    )`);
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS advances (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      amount VARCHAR(50) NOT NULL DEFAULT '0',
+      advance_date VARCHAR(50) NOT NULL,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      notes TEXT,
+      created_at VARCHAR(50) NOT NULL
+    )`);
+  }
+
+  async getEmployeeDebts(employeeId?: string): Promise<EmployeeDebt[]> {
+    if (employeeId) {
+      const rows = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.employeeId, employeeId));
+      return rows as EmployeeDebt[];
+    }
+    return mysqlDb.select().from(schema.employeeDebts) as Promise<EmployeeDebt[]>;
+  }
+
+  async getEmployeeDebt(id: string): Promise<EmployeeDebt | undefined> {
+    const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
+    return row as EmployeeDebt | undefined;
+  }
+
+  async createEmployeeDebt(data: InsertEmployeeDebt): Promise<EmployeeDebt> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.employeeDebts).values({
+      id,
+      employeeId: data.employeeId,
+      description: data.description,
+      totalAmount: data.totalAmount,
+      monthlyDeduction: data.monthlyDeduction,
+      remainingAmount: data.remainingAmount,
+      isActive: data.isActive !== false,
+      createdAt: data.createdAt,
+    });
+    const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
+    return row as EmployeeDebt;
+  }
+
+  async updateEmployeeDebt(id: string, data: Partial<InsertEmployeeDebt>): Promise<EmployeeDebt | undefined> {
+    await mysqlDb.update(schema.employeeDebts).set(data as any).where(eq(schema.employeeDebts.id, id));
+    const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
+    return row as EmployeeDebt | undefined;
+  }
+
+  async deleteEmployeeDebt(id: string): Promise<void> {
+    await mysqlDb.delete(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
+  }
+
+  async getAdvances(employeeId?: string, month?: number, year?: number): Promise<Advance[]> {
+    const conditions: any[] = [];
+    if (employeeId) conditions.push(eq(schema.advances.employeeId, employeeId));
+    if (month !== undefined) conditions.push(eq(schema.advances.month, month));
+    if (year !== undefined) conditions.push(eq(schema.advances.year, year));
+    if (conditions.length > 0) {
+      const rows = await mysqlDb.select().from(schema.advances).where(and(...conditions));
+      return rows as Advance[];
+    }
+    return mysqlDb.select().from(schema.advances) as Promise<Advance[]>;
+  }
+
+  async createAdvance(data: InsertAdvance): Promise<Advance> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.advances).values({
+      id,
+      employeeId: data.employeeId,
+      amount: data.amount,
+      advanceDate: data.advanceDate,
+      month: data.month,
+      year: data.year,
+      notes: data.notes ?? null,
+      createdAt: data.createdAt,
+    });
+    const [row] = await mysqlDb.select().from(schema.advances).where(eq(schema.advances.id, id));
+    return row as Advance;
+  }
+
+  async deleteAdvance(id: string): Promise<void> {
+    await mysqlDb.delete(schema.advances).where(eq(schema.advances.id, id));
   }
 }

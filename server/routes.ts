@@ -3563,5 +3563,172 @@ export async function registerRoutes(
     res.send("OK");
   });
 
+  // ===== CAISSE / PAYROLL (الصندوق والرواتب) =====
+
+  function requireCaisseOrOwner(req: Request, res: Response): boolean {
+    if (!["owner", "caisse"].includes(req.session.username ?? "")) {
+      res.status(403).json({ message: "غير مصرح — هذه الميزة لحساب الصندوق فقط" });
+      return false;
+    }
+    return true;
+  }
+
+  // تهيئة جداول الرواتب والديون والتسبيقات عند بدء التشغيل
+  storage.initPayrollTables().catch(e => console.error("[payroll-init]", e.message));
+
+  // PATCH /api/employees/:id/salary — تحديث الراتب الأساسي
+  app.patch("/api/employees/:id/salary", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { baseSalary } = req.body;
+      if (baseSalary === undefined) return res.status(400).json({ message: "الراتب الأساسي مطلوب" });
+      const updated = await storage.updateEmployee(req.params.id, { baseSalary: String(baseSalary) });
+      if (!updated) return res.status(404).json({ message: "الموظف غير موجود" });
+      return res.json(updated);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // GET /api/debts — قائمة الديون
+  app.get("/api/debts", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const employeeId = req.query.employeeId as string | undefined;
+      const debts = await storage.getEmployeeDebts(employeeId);
+      return res.json(debts);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/debts — إضافة دين جديد
+  app.post("/api/debts", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { employeeId, description, totalAmount, monthlyDeduction } = req.body;
+      if (!employeeId || !description || !totalAmount || !monthlyDeduction) {
+        return res.status(400).json({ message: "جميع الحقول المطلوبة يجب تعبئتها" });
+      }
+      const debt = await storage.createEmployeeDebt({
+        employeeId,
+        description,
+        totalAmount: String(totalAmount),
+        monthlyDeduction: String(monthlyDeduction),
+        remainingAmount: String(totalAmount),
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      });
+      return res.status(201).json(debt);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // PATCH /api/debts/:id — تعديل دين
+  app.patch("/api/debts/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const updated = await storage.updateEmployeeDebt(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ message: "الدين غير موجود" });
+      return res.json(updated);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/debts/:id — حذف دين
+  app.delete("/api/debts/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      await storage.deleteEmployeeDebt(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // GET /api/advances — قائمة التسبيقات
+  app.get("/api/advances", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const employeeId = req.query.employeeId as string | undefined;
+      const month = req.query.month ? parseInt(req.query.month as string) : undefined;
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+      const advances = await storage.getAdvances(employeeId, month, year);
+      return res.json(advances);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/advances — إضافة تسبيقة
+  app.post("/api/advances", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { employeeId, amount, advanceDate, notes } = req.body;
+      if (!employeeId || !amount || !advanceDate) {
+        return res.status(400).json({ message: "الموظف والمبلغ والتاريخ مطلوبة" });
+      }
+      const d = new Date(advanceDate);
+      const advance = await storage.createAdvance({
+        employeeId,
+        amount: String(amount),
+        advanceDate,
+        month: d.getMonth() + 1,
+        year: d.getFullYear(),
+        notes: notes || null,
+        createdAt: new Date().toISOString(),
+      });
+      return res.status(201).json(advance);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/advances/:id — حذف تسبيقة
+  app.delete("/api/advances/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      await storage.deleteAdvance(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // GET /api/payroll/monthly?year=&month= — كشف الرواتب الشهري
+  app.get("/api/payroll/monthly", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const year = parseInt(req.query.year as string);
+      const month = parseInt(req.query.month as string);
+      if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
+
+      // حساب نطاق تواريخ الشهر
+      const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+      const employees = await storage.getEmployees();
+      const activeEmployees = employees.filter(e => e.isActive);
+      const advances = await storage.getAdvances(undefined, month, year);
+      const allDebts = await storage.getEmployeeDebts();
+      const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
+
+      const rows = activeEmployees.map(emp => {
+        const baseSalary = parseFloat((emp as any).baseSalary ?? "0") || 0;
+        // خصم الحضور (مجموع الغرامات)
+        const empAttendance = attendanceRecords.filter(a => a.employeeId === emp.id);
+        const attendanceDeduction = empAttendance.reduce((sum, a) => sum + (parseFloat(a.penalty ?? "0") || 0), 0);
+        // خصم الديون النشطة
+        const empDebts = allDebts.filter(d => d.employeeId === emp.id && d.isActive);
+        const debtDeduction = empDebts.reduce((sum, d) => sum + (parseFloat(d.monthlyDeduction ?? "0") || 0), 0);
+        // التسبيقات
+        const empAdvances = advances.filter(a => a.employeeId === emp.id);
+        const advanceDeduction = empAdvances.reduce((sum, a) => sum + (parseFloat(a.amount ?? "0") || 0), 0);
+        const netSalary = Math.max(0, baseSalary - attendanceDeduction - debtDeduction - advanceDeduction);
+        return {
+          employeeId: emp.id,
+          employeeName: emp.name,
+          employeeCode: emp.employeeCode,
+          baseSalary,
+          attendanceDeduction: Math.round(attendanceDeduction * 100) / 100,
+          debtDeduction: Math.round(debtDeduction * 100) / 100,
+          advanceDeduction: Math.round(advanceDeduction * 100) / 100,
+          netSalary: Math.round(netSalary * 100) / 100,
+          debts: empDebts,
+          advances: empAdvances,
+        };
+      });
+
+      return res.json({ year, month, rows });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   return httpServer;
 }

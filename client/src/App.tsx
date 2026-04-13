@@ -28,6 +28,10 @@ import LeavesGrants from "@/pages/leaves-grants";
 import ScheduleOverrides from "@/pages/schedule-overrides";
 import EmployeeAttendance from "@/pages/employee-attendance";
 import Favorites from "@/pages/favorites";
+import Salaries from "@/pages/salaries";
+import Debts from "@/pages/debts";
+import Advances from "@/pages/advances";
+import Payroll from "@/pages/payroll";
 import { Building2, Briefcase, ChevronLeft } from "lucide-react";
 
 const routeLabels: Record<string, string> = {
@@ -47,12 +51,17 @@ const routeLabels: Record<string, string> = {
   "/leaves-grants": "العطل والمنح",
   "/schedule-overrides": "جداول خاصة",
   "/favorites": "المفضلة",
+  "/salaries": "رواتب الموظفين",
+  "/debts": "إدارة الديون",
+  "/advances": "التسبيقات",
+  "/payroll": "كشف الرواتب",
 };
 
 const roleLabels: Record<string, { label: string; color: string }> = {
   owner: { label: "مالك", color: "hsl(271 76% 45%)" },
   attendence: { label: "حضور", color: "hsl(160 70% 38%)" },
   observer: { label: "مراقب", color: "hsl(43 96% 42%)" },
+  caisse: { label: "صندوق", color: "hsl(36 90% 44%)" },
 };
 
 function getInitials(name: string): string {
@@ -201,6 +210,18 @@ function Router() {
       </Route>
       <Route path="/employees/:id/attendance">
         <ProtectedRoute component={EmployeeAttendance} allowedUsers={["owner", "attendence"]} />
+      </Route>
+      <Route path="/salaries">
+        <ProtectedRoute component={Salaries} allowedUsers={["owner", "caisse"]} />
+      </Route>
+      <Route path="/debts">
+        <ProtectedRoute component={Debts} allowedUsers={["owner", "caisse"]} />
+      </Route>
+      <Route path="/advances">
+        <ProtectedRoute component={Advances} allowedUsers={["owner", "caisse"]} />
+      </Route>
+      <Route path="/payroll">
+        <ProtectedRoute component={Payroll} allowedUsers={["owner", "caisse"]} />
       </Route>
       <Route component={NotFound} />
     </Switch>

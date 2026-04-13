@@ -60,9 +60,32 @@ export const employees = mysqlTable("employees", {
   nonRenewalDate: text("non_renewal_date"),
   isActive: boolean("is_active").notNull().default(true),
   hourlyRate: text("hourly_rate").default("0"),
+  baseSalary: text("base_salary").default("0"),
 }, (table) => [
   uniqueIndex("employees_employee_code_idx").on(table.employeeCode),
 ]);
+
+export const employeeDebts = mysqlTable("employee_debts", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  employeeId: varchar("employee_id", { length: 36 }).notNull(),
+  description: text("description").notNull(),
+  totalAmount: text("total_amount").notNull().default("0"),
+  monthlyDeduction: text("monthly_deduction").notNull().default("0"),
+  remainingAmount: text("remaining_amount").notNull().default("0"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: text("created_at").notNull(),
+});
+
+export const advances = mysqlTable("advances", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  employeeId: varchar("employee_id", { length: 36 }).notNull(),
+  amount: text("amount").notNull().default("0"),
+  advanceDate: text("advance_date").notNull(),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  notes: text("notes"),
+  createdAt: text("created_at").notNull(),
+});
 
 export const attendanceRecords = mysqlTable("attendance_records", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -287,3 +310,15 @@ export type InsertGrantCondition = z.infer<typeof insertGrantConditionSchema>;
 export type GrantCondition = typeof grantConditions.$inferSelect;
 
 export type GrantWithConditions = Grant & { conditions: GrantCondition[] };
+
+export const insertEmployeeDebtSchema = createInsertSchema(employeeDebts).pick({
+  employeeId: true, description: true, totalAmount: true, monthlyDeduction: true, remainingAmount: true, isActive: true, createdAt: true,
+});
+export type InsertEmployeeDebt = z.infer<typeof insertEmployeeDebtSchema>;
+export type EmployeeDebt = typeof employeeDebts.$inferSelect;
+
+export const insertAdvanceSchema = createInsertSchema(advances).pick({
+  employeeId: true, amount: true, advanceDate: true, month: true, year: true, notes: true, createdAt: true,
+});
+export type InsertAdvance = z.infer<typeof insertAdvanceSchema>;
+export type Advance = typeof advances.$inferSelect;

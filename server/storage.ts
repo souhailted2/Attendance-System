@@ -16,6 +16,8 @@ import type {
   InsertGrantCondition, GrantCondition,
   GrantWithConditions,
   InsertWorkScheduleOverride, WorkScheduleOverride,
+  InsertEmployeeDebt, EmployeeDebt,
+  InsertAdvance, Advance,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -102,6 +104,18 @@ export interface IStorage {
   createScheduleOverride(data: InsertWorkScheduleOverride): Promise<WorkScheduleOverride>;
   updateScheduleOverride(id: string, data: Partial<InsertWorkScheduleOverride>): Promise<WorkScheduleOverride | undefined>;
   deleteScheduleOverride(id: string): Promise<void>;
+
+  getEmployeeDebts(employeeId?: string): Promise<EmployeeDebt[]>;
+  getEmployeeDebt(id: string): Promise<EmployeeDebt | undefined>;
+  createEmployeeDebt(data: InsertEmployeeDebt): Promise<EmployeeDebt>;
+  updateEmployeeDebt(id: string, data: Partial<InsertEmployeeDebt>): Promise<EmployeeDebt | undefined>;
+  deleteEmployeeDebt(id: string): Promise<void>;
+
+  getAdvances(employeeId?: string, month?: number, year?: number): Promise<Advance[]>;
+  createAdvance(data: InsertAdvance): Promise<Advance>;
+  deleteAdvance(id: string): Promise<void>;
+
+  initPayrollTables(): Promise<void>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -208,6 +222,18 @@ class LazyStorage implements IStorage {
   createScheduleOverride(d: InsertWorkScheduleOverride) { return this.impl().then(s => s.createScheduleOverride(d)); }
   updateScheduleOverride(id: string, d: Partial<InsertWorkScheduleOverride>) { return this.impl().then(s => s.updateScheduleOverride(id, d)); }
   deleteScheduleOverride(id: string) { return this.impl().then(s => s.deleteScheduleOverride(id)); }
+
+  getEmployeeDebts(employeeId?: string) { return this.impl().then(s => s.getEmployeeDebts(employeeId)); }
+  getEmployeeDebt(id: string) { return this.impl().then(s => s.getEmployeeDebt(id)); }
+  createEmployeeDebt(d: InsertEmployeeDebt) { return this.impl().then(s => s.createEmployeeDebt(d)); }
+  updateEmployeeDebt(id: string, d: Partial<InsertEmployeeDebt>) { return this.impl().then(s => s.updateEmployeeDebt(id, d)); }
+  deleteEmployeeDebt(id: string) { return this.impl().then(s => s.deleteEmployeeDebt(id)); }
+
+  getAdvances(employeeId?: string, month?: number, year?: number) { return this.impl().then(s => s.getAdvances(employeeId, month, year)); }
+  createAdvance(d: InsertAdvance) { return this.impl().then(s => s.createAdvance(d)); }
+  deleteAdvance(id: string) { return this.impl().then(s => s.deleteAdvance(id)); }
+
+  initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
 }
 
 export const storage: IStorage = new LazyStorage();

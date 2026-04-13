@@ -59,6 +59,7 @@ export const employees = pgTable("employees", {
   nonRenewalDate: text("non_renewal_date"),
   isActive: boolean("is_active").notNull().default(true),
   hourlyRate: text("hourly_rate").default("0"),
+  baseSalary: text("base_salary").default("0"),
 });
 
 export const attendanceRecords = pgTable("attendance_records", {
@@ -347,3 +348,45 @@ export const insertWorkScheduleOverrideSchema = createInsertSchema(workScheduleO
 });
 export type InsertWorkScheduleOverride = z.infer<typeof insertWorkScheduleOverrideSchema>;
 export type WorkScheduleOverride = typeof workScheduleOverrides.$inferSelect;
+
+export const insertEmployeeDebtSchema = z.object({
+  employeeId: z.string(),
+  description: z.string(),
+  totalAmount: z.string(),
+  monthlyDeduction: z.string(),
+  remainingAmount: z.string(),
+  isActive: z.boolean().optional(),
+  createdAt: z.string(),
+});
+export type InsertEmployeeDebt = z.infer<typeof insertEmployeeDebtSchema>;
+export type EmployeeDebt = {
+  id: string;
+  employeeId: string;
+  description: string;
+  totalAmount: string;
+  monthlyDeduction: string;
+  remainingAmount: string;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export const insertAdvanceSchema = z.object({
+  employeeId: z.string(),
+  amount: z.string(),
+  advanceDate: z.string(),
+  month: z.number(),
+  year: z.number(),
+  notes: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+export type InsertAdvance = z.infer<typeof insertAdvanceSchema>;
+export type Advance = {
+  id: string;
+  employeeId: string;
+  amount: string;
+  advanceDate: string;
+  month: number;
+  year: number;
+  notes: string | null;
+  createdAt: string;
+};
