@@ -1263,14 +1263,20 @@ export async function registerRoutes(
       }
 
       // جلب كل البيانات بالتوازي بدل التتابع
-      const [allEmployees, allWorkshops, allWorkRules, records, offDaySetting, allLeavesRange] = await Promise.all([
+      const [allEmployees, allWorkshops, allWorkRules, records, offDaySetting, allLeavesRange, allOverrides] = await Promise.all([
         storage.getEmployees(),
         storage.getWorkshops(),
         storage.getWorkRules(),
         storage.getAttendanceByDateRange(from, to),
         storage.getAppSetting("weeklyOffDays"),
         storage.getLeaves(),
+        storage.getScheduleOverrides(),
       ]);
+
+      // فلترة الجداول الخاصة النشطة ضمن نطاق التاريخ المطلوب
+      const activeOverrides = allOverrides.filter(
+        ov => ov.dateFrom <= to && ov.dateTo >= from
+      );
 
       const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
 
@@ -1371,22 +1377,45 @@ export async function registerRoutes(
 
         let attendanceScore = 0;
         const dailyRecords = empRecords.map(rec => {
+          // فحص إن كان هناك جدول خاص نشط لهذا اليوم ولقاعدة عمل الموظف
+          const dayOverride = activeOverrides.find(ov =>
+            rec.date >= ov.dateFrom && rec.date <= ov.dateTo &&
+            (!ov.workRuleId || ov.workRuleId === emp.workRuleId)
+          );
+
+          // أوقات العمل الفعلية: من الجدول الخاص إن وُجد، وإلا من قاعدة العمل
+          const effectiveStartTime = dayOverride?.workStartTime ?? workRule?.workStartTime ?? "08:00";
+          const effectiveEndTime   = dayOverride?.workEndTime   ?? workRule?.workEndTime   ?? "16:00";
+          const effectiveStartMin  = timeToMin(effectiveStartTime)!;
+          let   effectiveEndMin    = timeToMin(effectiveEndTime)!;
+          if (dayOverride?.isOvernight && effectiveEndMin <= effectiveStartMin) {
+            effectiveEndMin += 24 * 60;
+          }
+          const effectiveTotalWorkDayMin = dayOverride
+            ? Math.max(1, effectiveEndMin - effectiveStartMin)
+            : totalWorkDayMinutes;
+
           const normalizedCheckIn = normalizeTime(
-            rec.checkIn, workRule?.workStartTime ?? "08:00", earlyArrivalGrace, lateArrivalGrace,
+            rec.checkIn, effectiveStartTime, earlyArrivalGrace, lateArrivalGrace,
           );
           const normalizedCheckOut = normalizeTime(
-            rec.checkOut, workRule?.workEndTime ?? "16:00", earlyLeaveGrace, lateLeaveGrace,
+            rec.checkOut, effectiveEndTime, earlyLeaveGrace, lateLeaveGrace,
           );
 
           const checkInMin = timeToMin(rec.checkIn);
-          const checkOutMin = timeToMin(rec.checkOut);
+          let checkOutMin = timeToMin(rec.checkOut);
+          // للمناوبات الليلية: إذا كان خروج الموظف بعد منتصف الليل يُعدَّل إلى أبعاد مطلقة
+          if (dayOverride?.isOvernight && checkOutMin !== null && checkOutMin < effectiveStartMin) {
+            checkOutMin += 24 * 60;
+          }
 
           const rawLateMinutes = checkInMin !== null
-            ? Math.max(0, checkInMin - workStartMin)
+            ? Math.max(0, checkInMin - effectiveStartMin)
             : 0;
-          // إذا كان هناك أقرب وقت مسموح للخروج، يُحسب الخروج المبكر منه بدلاً من نهاية الدوام
-          const checkoutEarliestMin = workRule?.checkoutEarliestTime ? timeToMin(workRule.checkoutEarliestTime) : null;
-          const earlyLeaveRefMin = checkoutEarliestMin ?? workEndMin;
+          const checkoutEarliestMin = !dayOverride && workRule?.checkoutEarliestTime
+            ? timeToMin(workRule.checkoutEarliestTime)
+            : null;
+          const earlyLeaveRefMin = checkoutEarliestMin ?? effectiveEndMin;
           const rawEarlyLeaveMinutes = checkOutMin !== null
             ? Math.max(0, earlyLeaveRefMin - checkOutMin)
             : 0;
@@ -1406,16 +1435,16 @@ export async function registerRoutes(
           } else if (workRule?.is24hShift && (rec.status === "present" || rec.status === "late") && Number(rec.totalHours || 0) >= 20) {
             dailyScore = 2;
           } else {
-            dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes + middleAbsenceMin) / totalWorkDayMinutes);
+            dailyScore = Math.max(0, 1 - (effectiveLateMinutes + effectiveEarlyLeaveMinutes + middleAbsenceMin) / effectiveTotalWorkDayMin);
           }
           const roundedScore = Math.round(dailyScore * 100) / 100;
           attendanceScore += roundedScore;
 
-          const earlyGraceCutoff = workStartMin - earlyArrivalGrace;
+          const earlyGraceCutoff = effectiveStartMin - earlyArrivalGrace;
           const earlyOT = (checkInMin !== null && checkInMin < earlyGraceCutoff)
-            ? workStartMin - checkInMin : 0;
-          const lateOT = (checkOutMin !== null && checkOutMin > workEndMin + lateLeaveGrace)
-            ? checkOutMin - workEndMin : 0;
+            ? effectiveStartMin - checkInMin : 0;
+          const lateOT = (checkOutMin !== null && checkOutMin > effectiveEndMin + lateLeaveGrace)
+            ? checkOutMin - effectiveEndMin : 0;
           const overtimeHours = Math.round((earlyOT + lateOT) / 60 * 10) / 10;
 
           return {
