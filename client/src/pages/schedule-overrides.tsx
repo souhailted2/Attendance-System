@@ -376,12 +376,12 @@ export default function ScheduleOverrides() {
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-lg" dir="rtl">
+        <DialogContent className="max-w-lg flex flex-col max-h-[90vh]" dir="rtl">
           <DialogHeader>
             <DialogTitle>{editId ? "تعديل الجدول الخاص" : "إضافة جدول خاص"}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 overflow-y-auto flex-1 px-1">
             <div className="space-y-1">
               <Label htmlFor="override-name">اسم الجدول *</Label>
               <Input
