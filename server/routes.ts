@@ -3512,12 +3512,22 @@ export async function registerRoutes(
 
   // ===== SCHEDULE OVERRIDES (جداول خاصة) =====
 
+  // دالة مساعدة: تحويل weeklyOffDays من JSON string إلى number[]
+  function parseOverrideWeeklyOffDays(ov: any) {
+    return {
+      ...ov,
+      weeklyOffDays: ov.weeklyOffDays
+        ? (Array.isArray(ov.weeklyOffDays) ? ov.weeklyOffDays : JSON.parse(ov.weeklyOffDays))
+        : null,
+    };
+  }
+
   // GET /api/schedule-overrides
   app.get("/api/schedule-overrides", async (req, res) => {
     if (!requireAnyRole(req, res)) return;
     try {
       const list = await storage.getScheduleOverrides();
-      return res.json(list);
+      return res.json(list.map(parseOverrideWeeklyOffDays));
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
@@ -3537,7 +3547,7 @@ export async function registerRoutes(
         notes: notes || null,
         weeklyOffDays: weeklyOffDays ? JSON.stringify(weeklyOffDays) : null,
       });
-      return res.status(201).json(record);
+      return res.status(201).json(parseOverrideWeeklyOffDays(record));
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
@@ -3553,7 +3563,7 @@ export async function registerRoutes(
       }
       const updated = await storage.updateScheduleOverride(req.params.id, patchBody);
       if (!updated) return res.status(404).json({ message: "الجدول الخاص غير موجود" });
-      return res.json(updated);
+      return res.json(parseOverrideWeeklyOffDays(updated));
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
