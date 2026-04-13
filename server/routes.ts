@@ -3739,12 +3739,35 @@ export async function registerRoutes(
       const advances = await storage.getAdvances(undefined, month, year);
       const allDebts = await storage.getEmployeeDebts();
       const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
+      const workRules = await storage.getWorkRules();
+
+      // عدد أيام العمل في الشهر (معيار 26 يوم عمل)
+      const WORKING_DAYS = 26;
 
       const rows = activeEmployees.map(emp => {
         const baseSalary = parseFloat(emp.baseSalary ?? "0") || 0;
-        // خصم الحضور (مجموع الغرامات)
+        const dailyRate = baseSalary / WORKING_DAYS;
+
+        // قاعدة عمل الموظف (إن وجدت)
+        const workRule = workRules.find(r => r.id === emp.workRuleId);
+        const latePenaltyPerMinute = parseFloat(workRule?.latePenaltyPerMinute ?? "0") || 0;
+
+        // سجلات حضور الموظف هذا الشهر
         const empAttendance = attendanceRecords.filter(a => a.employeeId === emp.id);
-        const attendanceDeduction = empAttendance.reduce((sum, a) => sum + (parseFloat(a.penalty ?? "0") || 0), 0);
+
+        // حساب الخصم من الغياب والتأخير مباشرةً
+        let attendanceDeduction = 0;
+        for (const rec of empAttendance) {
+          // أيام الغياب: خصم اليوم كاملاً بالمعدل اليومي
+          if (rec.status === "absent") {
+            attendanceDeduction += dailyRate;
+          }
+          // التأخير: دقائق × غرامة الدقيقة من قاعدة العمل (إن وجدت)
+          const lateMin = Number(rec.lateMinutes ?? 0) || 0;
+          if (lateMin > 0 && latePenaltyPerMinute > 0) {
+            attendanceDeduction += lateMin * latePenaltyPerMinute;
+          }
+        }
         // خصم الديون النشطة
         const empDebts = allDebts.filter(d => d.employeeId === emp.id && d.isActive);
         const debtDeduction = empDebts.reduce((sum, d) => sum + (parseFloat(d.monthlyDeduction ?? "0") || 0), 0);
