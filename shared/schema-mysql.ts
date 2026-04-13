@@ -101,6 +101,7 @@ export const attendanceRecords = mysqlTable("attendance_records", {
   penalty: text("penalty").default("0"),
   notes: text("notes"),
   rawPunches: text("raw_punches"),
+  deletedPunches: text("deleted_punches"),
 }, (table) => [
   uniqueIndex("attendance_employee_date_idx").on(table.employeeId, table.date),
 ]);

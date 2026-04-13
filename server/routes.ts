@@ -371,8 +371,17 @@ async function processAttendanceLogs(
         ? existingPunches
         : [existing.checkIn, existing.checkOut].filter(Boolean) as string[];
 
+      // استعادة البصمات المحذوفة يدوياً لاستثنائها من الدمج
+      let manuallyDeleted: string[] = [];
+      try {
+        const dp = (existing as any).deletedPunches;
+        if (dp) manuallyDeleted = JSON.parse(dp);
+      } catch { manuallyDeleted = []; }
+
       const allTimes = filterDuplicateSwipes(
-        [...new Set([...baseTimes, ...entry.times])].sort(),
+        [...new Set([...baseTimes, ...entry.times])]
+          .filter(t => !manuallyDeleted.includes(t))
+          .sort(),
         5
       );
 
@@ -384,7 +393,7 @@ async function processAttendanceLogs(
 
       const existingMiddle = (existing as { middleAbsenceMinutes?: number }).middleAbsenceMinutes ?? 0;
       if (newCheckOut !== existing.checkOut || newCheckIn !== existing.checkIn || newMiddleAbsenceMinutes !== existingMiddle || newRawPunches !== existingRaw) {
-        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes, rawPunches: newRawPunches };
+        let updateData: any = { checkIn: newCheckIn, checkOut: newCheckOut, middleAbsenceMinutes: newMiddleAbsenceMinutes, rawPunches: newRawPunches, deletedPunches: (existing as any).deletedPunches ?? null };
         if (workRule) {
           const calc = calculateAttendanceDetails(
             newCheckIn, newCheckOut,
@@ -1083,6 +1092,7 @@ export async function registerRoutes(
         }
 
         // حذف البصمة وإعادة الحساب
+        const deletedTime = rawArr[punchIdx];
         const newRawArr = rawArr.filter((_, i) => i !== punchIdx);
         const newRawPunches = JSON.stringify(newRawArr);
         const newCheckIn  = newRawArr[0] || null;
@@ -1092,11 +1102,22 @@ export async function registerRoutes(
           ? calculateMiddleAbsenceMinutes(newRawArr, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinP)
           : 0;
 
+        // إضافة الوقت المحذوف لقائمة deletedPunches لمنع عودته عند المزامنة
+        let deletedArr: string[] = [];
+        try {
+          const dp = (existingRecords as any).deletedPunches;
+          if (dp) deletedArr = JSON.parse(dp);
+        } catch { deletedArr = []; }
+        if (!deletedArr.includes(deletedTime)) {
+          deletedArr.push(deletedTime);
+        }
+
         const punchUpdateData: Partial<InsertAttendance> = {
           checkIn: newCheckIn,
           checkOut: newCheckOut,
           rawPunches: newRawPunches,
           middleAbsenceMinutes: newMiddleAbs,
+          deletedPunches: JSON.stringify(deletedArr),
         };
 
         if (workRule) {

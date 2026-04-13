@@ -271,6 +271,7 @@ export class MysqlStorage implements IStorage {
       penalty: data.penalty ?? "0",
       notes: data.notes ?? null,
       rawPunches: data.rawPunches ?? null,
+      deletedPunches: data.deletedPunches ?? null,
     });
     const [result] = await mysqlDb.select().from(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
     return result as AttendanceRecord;
