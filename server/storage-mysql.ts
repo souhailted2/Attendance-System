@@ -616,6 +616,7 @@ export class MysqlStorage implements IStorage {
       workEndTime: data.workEndTime,
       isOvernight: data.isOvernight ?? false,
       notes: data.notes ?? null,
+      weeklyOffDays: data.weeklyOffDays ?? null,
     });
     const [row] = await mysqlDb.select().from(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
     return row as WorkScheduleOverride;

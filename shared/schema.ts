@@ -182,6 +182,7 @@ export const workScheduleOverrides = pgTable("work_schedule_overrides", {
   workEndTime: text("work_end_time").notNull(),
   isOvernight: boolean("is_overnight").notNull().default(false),
   notes: text("notes"),
+  weeklyOffDays: text("weekly_off_days"),
 });
 
 export const frozenArchives = pgTable("frozen_archives", {
@@ -344,7 +345,7 @@ export type GrantWithConditions = Grant & { conditions: GrantCondition[] };
 
 export const insertWorkScheduleOverrideSchema = createInsertSchema(workScheduleOverrides).pick({
   name: true, dateFrom: true, dateTo: true, workRuleId: true,
-  workStartTime: true, workEndTime: true, isOvernight: true, notes: true,
+  workStartTime: true, workEndTime: true, isOvernight: true, notes: true, weeklyOffDays: true,
 });
 export type InsertWorkScheduleOverride = z.infer<typeof insertWorkScheduleOverrideSchema>;
 export type WorkScheduleOverride = typeof workScheduleOverrides.$inferSelect;

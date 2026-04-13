@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -34,7 +35,18 @@ interface ScheduleOverride {
   workEndTime: string;
   isOvernight: boolean;
   notes: string | null;
+  weeklyOffDays: number[] | null;
 }
+
+const WEEKDAYS = [
+  { dow: 0, label: "الأحد" },
+  { dow: 1, label: "الاثنين" },
+  { dow: 2, label: "الثلاثاء" },
+  { dow: 3, label: "الأربعاء" },
+  { dow: 4, label: "الخميس" },
+  { dow: 5, label: "الجمعة" },
+  { dow: 6, label: "السبت" },
+];
 
 function daysBetween(from: string, to: string): number {
   const a = new Date(from + "T00:00:00");
@@ -55,6 +67,7 @@ const EMPTY_FORM = {
   workEndTime: "",
   isOvernight: false,
   notes: "",
+  weeklyOffDays: [] as number[],
 };
 
 export default function ScheduleOverrides() {
@@ -138,8 +151,19 @@ export default function ScheduleOverrides() {
       workEndTime: o.workEndTime,
       isOvernight: o.isOvernight,
       notes: o.notes || "",
+      weeklyOffDays: o.weeklyOffDays ?? [],
     });
     setShowDialog(true);
+  }
+
+  function toggleWeekDay(dow: number) {
+    setForm(prev => {
+      const cur = prev.weeklyOffDays;
+      return {
+        ...prev,
+        weeklyOffDays: cur.includes(dow) ? cur.filter(d => d !== dow) : [...cur, dow],
+      };
+    });
   }
 
   function handleSubmit() {
@@ -156,6 +180,7 @@ export default function ScheduleOverrides() {
       workEndTime: form.workEndTime,
       isOvernight: form.isOvernight,
       notes: form.notes || null,
+      weeklyOffDays: form.weeklyOffDays.length > 0 ? form.weeklyOffDays : null,
     };
     if (editId) {
       updateMutation.mutate({ id: editId, body });
@@ -168,6 +193,11 @@ export default function ScheduleOverrides() {
     if (!id) return "جميع الجداول";
     const wr = workRules.find((r) => r.id === id);
     return wr ? wr.name : id;
+  }
+
+  function getOffDaysLabel(days: number[] | null): string {
+    if (!days || days.length === 0) return "";
+    return days.map(d => WEEKDAYS.find(w => w.dow === d)?.label ?? d).join(" + ");
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending;
@@ -213,6 +243,7 @@ export default function ScheduleOverrides() {
                   <TableHead className="text-right">المدة</TableHead>
                   <TableHead className="text-right">قاعدة العمل</TableHead>
                   <TableHead className="text-right">وقت العمل</TableHead>
+                  <TableHead className="text-right">أيام الراحة</TableHead>
                   <TableHead className="text-right">إجراءات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -241,6 +272,13 @@ export default function ScheduleOverrides() {
                         <span>{formatTime(o.workEndTime)}</span>
                         {o.isOvernight && <Badge variant="secondary" className="text-xs">ليلي</Badge>}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {o.weeklyOffDays && o.weeklyOffDays.length > 0 ? (
+                        <span className="text-xs text-muted-foreground">{getOffDaysLabel(o.weeklyOffDays)}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground/50">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
@@ -434,6 +472,29 @@ export default function ScheduleOverrides() {
                 </Label>
                 <p className="text-xs text-muted-foreground mt-0.5">فعّل هذا إذا كانت ساعة الانتهاء في اليوم التالي (مثلاً: بداية 22:00 ونهاية 05:00)</p>
               </div>
+            </div>
+
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
+              <Label className="text-sm font-medium">أيام الراحة الأسبوعية (اختياري)</Label>
+              <p className="text-xs text-muted-foreground">إذا تركتها فارغة، تُطبَّق أيام الراحة العامة للتطبيق</p>
+              <div className="flex flex-wrap gap-3 mt-1">
+                {WEEKDAYS.map(({ dow, label }) => (
+                  <div key={dow} className="flex items-center gap-1.5">
+                    <Checkbox
+                      id={`dow-${dow}`}
+                      checked={form.weeklyOffDays.includes(dow)}
+                      onCheckedChange={() => toggleWeekDay(dow)}
+                      data-testid={`checkbox-offday-${dow}`}
+                    />
+                    <Label htmlFor={`dow-${dow}`} className="text-sm cursor-pointer">{label}</Label>
+                  </div>
+                ))}
+              </div>
+              {form.weeklyOffDays.length > 0 && (
+                <p className="text-xs text-primary mt-1">
+                  أيام الراحة المحددة: {getOffDaysLabel(form.weeklyOffDays)}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1">

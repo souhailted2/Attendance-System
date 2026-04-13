@@ -264,6 +264,7 @@ export const workScheduleOverrides = mysqlTable("work_schedule_overrides", {
   workEndTime: text("work_end_time").notNull(),
   isOvernight: boolean("is_overnight").notNull().default(false),
   notes: text("notes"),
+  weeklyOffDays: text("weekly_off_days"),
 });
 
 export const grants = mysqlTable("grants", {

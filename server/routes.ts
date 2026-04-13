@@ -173,6 +173,24 @@ function filterDuplicateSwipes(times: string[], minGapMinutes: number): string[]
   return result;
 }
 
+// الحصول على أيام الراحة الفعلية لموظف في تاريخ معين
+// يأخذ بعين الاعتبار الجداول الاستثنائية (رمضان وغيره) التي قد تُغيّر أيام الراحة
+function getEffectiveWeeklyOffDays(
+  date: string,
+  workRuleId: string | null | undefined,
+  overrides: { dateFrom: string; dateTo: string; workRuleId?: string | null; weeklyOffDays?: string | null }[],
+  globalOffDays: number[]
+): number[] {
+  for (const ov of overrides) {
+    if (date < ov.dateFrom || date > ov.dateTo) continue;
+    if (ov.workRuleId && ov.workRuleId !== workRuleId) continue;
+    if (ov.weeklyOffDays) {
+      try { return JSON.parse(ov.weeklyOffDays); } catch { /* continue to global */ }
+    }
+  }
+  return globalOffDays;
+}
+
 // تحويل وقت "HH:MM" إلى دقائق منذ منتصف الليل (مشترك لجميع المسارات)
 function timeToMinGlobal(t: string | null): number | null {
   if (!t) return null;
@@ -1417,15 +1435,7 @@ export async function registerRoutes(
         allDatesInRange.push(curDate.toISOString().slice(0, 10));
         curDate.setDate(curDate.getDate() + 1);
       }
-      // Set of dates that are holidays (day-of-week in weeklyOffDays)
-      const holidayDateSet = new Set<string>(
-        weeklyOffDays.length > 0
-          ? allDatesInRange.filter(d => {
-              const dow = new Date(d + "T00:00:00").getDay();
-              return weeklyOffDays.includes(dow);
-            })
-          : []
-      );
+      // (holidayDateSet مزالة — أيام الراحة تُحسب per-employee باستخدام getEffectiveWeeklyOffDays)
 
       // بناء Map لبحث O(1) بدل filter O(N×M) لكل موظف
       const recordsByEmployee = new Map<string, typeof records>();
@@ -1469,6 +1479,12 @@ export async function registerRoutes(
         const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
         const workshop = workshopsMap.get(emp.workshopId ?? "");
         const empRecords = recordsByEmployee.get(emp.id) ?? [];
+
+        // أيام الراحة الفعلية للموظف (تراعي الجداول الاستثنائية كرمضان)
+        const isEmpHoliday = (date: string): boolean => {
+          const dow = new Date(date + "T00:00:00").getDay();
+          return getEffectiveWeeklyOffDays(date, emp.workRuleId, activeOverrides, weeklyOffDays).includes(dow);
+        };
 
         let totalWorkDayMinutes = 480;
         if (workRule) {
@@ -1642,7 +1658,7 @@ export async function registerRoutes(
         // --- Holiday injection ---
         // Override existing records on holiday dates, and add synthetic records for missing dates
         // عمال المناوبة 24 ساعة يعملون حتى في أيام العطلة — لا تُطبَّق عليهم العطلة الأسبوعية
-        for (const date of (workRule?.is24hShift ? [] : Array.from(holidayDateSet))) {
+        for (const date of (workRule?.is24hShift ? [] : allDatesInRange.filter(isEmpHoliday))) {
           const existing = dailyRecords.find(r => r.date === date);
           if (existing) {
             // Override status and score; keep checkIn/checkOut for reference
@@ -1686,7 +1702,7 @@ export async function registerRoutes(
         // --- Absent injection for missing working days ---
         // For every day in the report range that is NOT a holiday and has no record → inject absent (0.00)
         for (const date of allDatesInRange) {
-          if (holidayDateSet.has(date)) continue;
+          if (isEmpHoliday(date)) continue;
           if (date > todayStr) continue;
           const hasRecord = dailyRecords.some(r => r.date === date);
           if (!hasRecord) {
@@ -2974,7 +2990,7 @@ export async function registerRoutes(
       const daysInMonth = new Date(year, monthNum, 0).getDate();
       const to = `${month}-${String(daysInMonth).padStart(2, "0")}`;
 
-      const [allGrantsRaw, allEmployees, allWorkshops, allWorkRules, records, offDaySetting, allLeavesGrants] = await Promise.all([
+      const [allGrantsRaw, allEmployees, allWorkshops, allWorkRules, records, offDaySetting, allLeavesGrants, allScheduleOverrides] = await Promise.all([
         storage.getGrants(),
         storage.getEmployees(),
         storage.getWorkshops(),
@@ -2982,6 +2998,7 @@ export async function registerRoutes(
         storage.getAttendanceByDateRange(from, to),
         storage.getAppSetting("weeklyOffDays"),
         storage.getLeaves(),
+        storage.getScheduleOverrides(),
       ]);
 
       const targetGrants = grantId === "all"
@@ -2990,6 +3007,7 @@ export async function registerRoutes(
       if (!targetGrants.length) return res.json([]);
 
       const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
+      const activeOverridesGrants = allScheduleOverrides.filter(ov => ov.dateFrom <= to && ov.dateTo >= from);
       const activeEmployees = allEmployees.filter(e => e.isActive);
       const workshopsMap = new Map(allWorkshops.map(w => [w.id, w]));
       const workRulesMap = new Map(allWorkRules.map(r => [r.id, r]));
@@ -3001,9 +3019,6 @@ export async function registerRoutes(
       { const cur = new Date(from + "T00:00:00"); const end = new Date(to + "T00:00:00");
         while (cur <= end) { allDates.push(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
       }
-      const holidayDateSet = new Set<string>(
-        allDates.filter(d => weeklyOffDays.includes(new Date(d + "T00:00:00").getDay()))
-      );
 
       const recordsByEmployee = new Map<string, typeof records>();
       for (const rec of records) {
@@ -3026,11 +3041,11 @@ export async function registerRoutes(
 
       const results: GrantReportRow[] = [];
 
-      // دالة: بناء مجموعة تواريخ العطل غير المدفوعة لموظف معين (ضمن الشهر)
-      function buildUnpaidLeaveDatesGrants(emp: typeof allEmployees[0]): Set<string> {
+      // دالة: بناء مجموعة تواريخ الإجازات (مدفوعة وغير مدفوعة) لموظف معين (ضمن الشهر)
+      // الغياب المرخص (مدفوع) لا يُعدّ مخالفة وبالتالي لا يؤثر على منحة الانضباط
+      function buildAllLeaveDatesGrants(emp: typeof allEmployees[0]): Set<string> {
         const s = new Set<string>();
         for (const lv of allLeavesGrants) {
-          if (lv.isPaid) continue;
           const applies =
             lv.targetType === "all" ||
             (lv.targetType === "shift" && (emp.shift || "morning") === lv.shiftValue) ||
@@ -3078,6 +3093,10 @@ export async function registerRoutes(
           const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
           const workshop = workshopsMap.get(emp.workshopId ?? "");
           const is24h = workRule?.is24hShift ?? false;
+          const isEmpHolidayGrants = (date: string): boolean => {
+            const dow = new Date(date + "T00:00:00").getDay();
+            return getEffectiveWeeklyOffDays(date, emp.workRuleId, activeOverridesGrants, weeklyOffDays).includes(dow);
+          };
           const lateGrace = workRule?.lateGraceMinutes ?? 0;
           const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
           const workStartMin = timeToMinLocal(workRule?.workStartTime ?? "08:00")!;
@@ -3096,12 +3115,12 @@ export async function registerRoutes(
           const weekdayAbsences: Record<number, number> = {};
 
           // أيام العطلة غير المدفوعة للموظف في هذا الشهر
-          const empUnpaidLeaveDatesGrants = buildUnpaidLeaveDatesGrants(emp);
+          const empUnpaidLeaveDatesGrants = buildAllLeaveDatesGrants(emp);
 
           for (const date of allDates) {
             if (date > todayStr) continue;
             const dow = new Date(date + "T00:00:00").getDay();
-            const isHoliday = !is24h && holidayDateSet.has(date);
+            const isHoliday = !is24h && isEmpHolidayGrants(date);
             if (isHoliday) continue;
             // أيام العطلة غير المدفوعة لا تُحسب غياباً
             if (empUnpaidLeaveDatesGrants.has(date)) continue;
@@ -3169,7 +3188,7 @@ export async function registerRoutes(
                 } else if (periodType === "week") {
                   // آخر أسبوع: نتحقق من آخر 7 أيام عمل في الفترة (باستثناء أيام العطلة غير المدفوعة)
                   const recentDates = allDates
-                    .filter(d => d <= todayStr && !(!is24h && holidayDateSet.has(d)) && !empUnpaidLeaveDatesGrants.has(d))
+                    .filter(d => d <= todayStr && !(!is24h && isEmpHolidayGrants(d)) && !empUnpaidLeaveDatesGrants.has(d))
                     .slice(-7);
                   const recentAbsent = recentDates.filter(d =>
                     !empRecordsByDate.has(d) || empRecordsByDate.get(d)!.status === "absent"
@@ -3231,13 +3250,15 @@ export async function registerRoutes(
       const fiscalStart = `${year}-07-01`;
       const fiscalEnd = `${year + 1}-06-30`;
 
-      const allEmployees = await storage.getEmployees();
-      const allWorkRules = await storage.getWorkRules();
-      const allWorkshops = await storage.getWorkshops();
-      const allRecords = await storage.getAttendanceByDateRange(fiscalStart, fiscalEnd);
-      const allLeaves = await storage.getLeaves();
-
-      const offDaySetting = await storage.getAppSetting("weeklyOffDays");
+      const [allEmployees, allWorkRules, allWorkshops, allRecords, allLeaves, offDaySetting, allScheduleOverridesDetailed] = await Promise.all([
+        storage.getEmployees(),
+        storage.getWorkRules(),
+        storage.getWorkshops(),
+        storage.getAttendanceByDateRange(fiscalStart, fiscalEnd),
+        storage.getLeaves(),
+        storage.getAppSetting("weeklyOffDays"),
+        storage.getScheduleOverrides(),
+      ]);
       const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
 
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -3310,11 +3331,11 @@ export async function registerRoutes(
           const allDaysInMonth: string[] = [];
           for (let d = 1; d <= daysInMonth; d++) allDaysInMonth.push(`${ym}-${String(d).padStart(2, "0")}`);
 
-          const holidayDateSet = new Set<string>(
-            weeklyOffDays.length > 0
-              ? allDaysInMonth.filter(d => weeklyOffDays.includes(new Date(d + "T00:00:00").getDay()))
-              : []
-          );
+          const activeOverridesForMonth = allScheduleOverridesDetailed.filter(ov => ov.dateFrom <= monthEnd && ov.dateTo >= monthStart);
+          const isEmpHolidayDetailed = (date: string): boolean => {
+            const dow = new Date(date + "T00:00:00").getDay();
+            return getEffectiveWeeklyOffDays(date, emp.workRuleId, activeOverridesForMonth, weeklyOffDays).includes(dow);
+          };
 
           // بناء سجلات الأيام
           interface DayRecord { date: string; status: string; dailyScore: number; }
@@ -3341,7 +3362,7 @@ export async function registerRoutes(
 
           // حقن أيام العطلة الأسبوعية
           if (!workRule?.is24hShift) {
-            for (const date of Array.from(holidayDateSet)) {
+            for (const date of allDaysInMonth.filter(isEmpHolidayDetailed)) {
               if (date > todayStr) continue;
               const ex = dayRecords.find(r => r.date === date);
               if (ex) { ex.status = "holiday"; ex.dailyScore = 1.00; }
@@ -3351,7 +3372,7 @@ export async function registerRoutes(
 
           // حقن الغياب للأيام الناقصة
           for (const date of allDaysInMonth) {
-            if (holidayDateSet.has(date) && !workRule?.is24hShift) continue;
+            if (isEmpHolidayDetailed(date) && !workRule?.is24hShift) continue;
             if (date > todayStr) continue;
             if (!dayRecords.some(r => r.date === date)) {
               dayRecords.push({ date, status: "absent", dailyScore: 0.00 });
@@ -3504,7 +3525,7 @@ export async function registerRoutes(
   app.post("/api/schedule-overrides", async (req, res) => {
     if (!requireAnyRole(req, res)) return;
     try {
-      const { name, dateFrom, dateTo, workRuleId, workStartTime, workEndTime, isOvernight, notes } = req.body;
+      const { name, dateFrom, dateTo, workRuleId, workStartTime, workEndTime, isOvernight, notes, weeklyOffDays } = req.body;
       if (!name || !dateFrom || !dateTo || !workStartTime || !workEndTime) {
         return res.status(400).json({ message: "جميع الحقول المطلوبة يجب تعبئتها" });
       }
@@ -3514,6 +3535,7 @@ export async function registerRoutes(
         workStartTime, workEndTime,
         isOvernight: isOvernight === true || isOvernight === "true",
         notes: notes || null,
+        weeklyOffDays: weeklyOffDays ? JSON.stringify(weeklyOffDays) : null,
       });
       return res.status(201).json(record);
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
@@ -3523,7 +3545,13 @@ export async function registerRoutes(
   app.patch("/api/schedule-overrides/:id", async (req, res) => {
     if (!requireAnyRole(req, res)) return;
     try {
-      const updated = await storage.updateScheduleOverride(req.params.id, req.body);
+      const patchBody = { ...req.body };
+      if (Array.isArray(patchBody.weeklyOffDays)) {
+        patchBody.weeklyOffDays = JSON.stringify(patchBody.weeklyOffDays);
+      } else if (patchBody.weeklyOffDays === null || patchBody.weeklyOffDays === "") {
+        patchBody.weeklyOffDays = null;
+      }
+      const updated = await storage.updateScheduleOverride(req.params.id, patchBody);
       if (!updated) return res.status(404).json({ message: "الجدول الخاص غير موجود" });
       return res.json(updated);
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
@@ -3925,12 +3953,7 @@ export async function registerRoutes(
       for (let d = 1; d <= daysInMonth; d++)
         allDatesInMonth.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
 
-      // مجموعة أيام العطلة الأسبوعية
-      const holidayDateSet = new Set<string>(
-        weeklyOffDays.length > 0
-          ? allDatesInMonth.filter(d => weeklyOffDays.includes(new Date(d + "T00:00:00").getDay()))
-          : []
-      );
+      // (holidayDateSet مزالة — أيام الراحة تُحسب per-employee باستخدام getEffectiveWeeklyOffDays)
 
       // الجداول الخاصة النشطة في هذا الشهر
       const activeOverrides = allOverrides.filter(ov => ov.dateFrom <= endDate && ov.dateTo >= startDate);
@@ -3961,6 +3984,10 @@ export async function registerRoutes(
       const rows = activeEmployees.map(emp => {
         const baseSalary = parseFloat(emp.baseSalary ?? "0") || 0;
         const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
+        const isEmpHolidayPay = (date: string): boolean => {
+          const dow = new Date(date + "T00:00:00").getDay();
+          return getEffectiveWeeklyOffDays(date, emp.workRuleId, activeOverrides, weeklyOffDays).includes(dow);
+        };
 
         // مدة يوم العمل الفعلية
         let totalWorkDayMinutes = 480;
@@ -4033,7 +4060,7 @@ export async function registerRoutes(
 
         // حقن أيام العطلة الأسبوعية
         if (!workRule?.is24hShift) {
-          for (const date of Array.from(holidayDateSet)) {
+          for (const date of allDatesInMonth.filter(isEmpHolidayPay)) {
             if (date > todayStr) continue;
             const ex = dailyRecords.find(r => r.date === date);
             if (ex) { ex.status = "holiday"; ex.dailyScore = 1.00; }
@@ -4043,7 +4070,7 @@ export async function registerRoutes(
 
         // حقن الغياب للأيام الناقصة في نطاق الشهر
         for (const date of allDatesInMonth) {
-          if (holidayDateSet.has(date) && !workRule?.is24hShift) continue;
+          if (isEmpHolidayPay(date) && !workRule?.is24hShift) continue;
           if (date > todayStr) continue;
           if (!dailyRecords.some(r => r.date === date))
             dailyRecords.push({ date, status: "absent", dailyScore: 0.00 });
