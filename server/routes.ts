@@ -1726,6 +1726,48 @@ export async function registerRoutes(
           }
         }
 
+        // --- Paid leave injection: الإجازات المدفوعة (عيد الفطر، عيد الأضحى...) تُصحح الغياب إلى نقطة 1 ---
+        for (const lv of allLeavesRange) {
+          if (!lv.isPaid) continue;
+          const lvApplies =
+            lv.targetType === "all" ||
+            (lv.targetType === "shift" && (emp.shift || "morning") === lv.shiftValue) ||
+            (lv.targetType === "workshop" && emp.workshopId === lv.workshopId) ||
+            (lv.targetType === "employee" && emp.id === lv.employeeId);
+          if (!lvApplies) continue;
+          if (lv.startDate > to || lv.endDate < from) continue;
+
+          const lvFrom = lv.startDate > from ? lv.startDate : from;
+          const lvTo   = lv.endDate   < to   ? lv.endDate   : to;
+          let d = new Date(lvFrom + "T00:00:00");
+          const dEnd = new Date(lvTo + "T00:00:00");
+          while (d <= dEnd) {
+            const dateStr = d.toISOString().slice(0, 10);
+            if (dateStr <= todayStr) {
+              const existing = dailyRecords.find(r => r.date === dateStr);
+              if (existing) {
+                if (existing.status === "absent") {
+                  existing.status   = "leave";
+                  existing.dailyScore = 1.00;
+                }
+                // حاضر / متأخر / عطلة → لا تغيير (الموظف عمل في يوم الإجازة)
+              } else {
+                dailyRecords.push({
+                  attendanceId: null, date: dateStr,
+                  checkIn: null, checkOut: null,
+                  normalizedCheckIn: null, normalizedCheckOut: null,
+                  status: "leave",
+                  lateMinutes: 0, earlyLeaveMinutes: 0,
+                  effectiveLateMinutes: 0, effectiveEarlyLeaveMinutes: 0,
+                  totalHours: null, dailyScore: 1.00,
+                  pending: false, overtimeHours: 0,
+                });
+              }
+            }
+            d.setDate(d.getDate() + 1);
+          }
+        }
+
         // Re-sort by date after injection
         dailyRecords.sort((a, b) => a.date.localeCompare(b.date));
 
