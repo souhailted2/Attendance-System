@@ -119,8 +119,13 @@ function notifyAttendanceUpdate() {
 
 // حساب دقائق الغياب الوسيطة: مجموع الفجوات بين أزواج البصمات التي تتجاوز مدة السماح
 // مثال: [08:00, 10:00, 10:40, 12:00] → فجوة 40 دقيقة > 15 → middleAbsenceMinutes = 40
+// shiftStartMin: وقت بداية الوردية بالدقائق (اختياري) — الفجوات قبل بداية الوردية لا تُحتسب غياباً
 const MIDDLE_ABSENCE_GRACE_MINUTES = 15;
-function calculateMiddleAbsenceMinutes(filteredTimes: string[], graceMinutes: number = MIDDLE_ABSENCE_GRACE_MINUTES): number {
+function calculateMiddleAbsenceMinutes(
+  filteredTimes: string[],
+  graceMinutes: number = MIDDLE_ABSENCE_GRACE_MINUTES,
+  shiftStartMin: number | null = null
+): number {
   if (filteredTimes.length <= 2) return 0;
   let totalAbsence = 0;
   // الأزواج: (t[0],t[1]), (t[2],t[3])... الفجوات: t[1]→t[2], t[3]→t[4]...
@@ -129,7 +134,16 @@ function calculateMiddleAbsenceMinutes(filteredTimes: string[], graceMinutes: nu
     const inTime  = filteredTimes[i + 1];
     const [outH, outM] = outTime.split(":").map(Number);
     const [inH,  inM ] = inTime.split(":").map(Number);
-    const gapMin = (inH * 60 + inM) - (outH * 60 + outM);
+    const outMin = outH * 60 + outM;
+    const inMin  = inH * 60 + inM;
+
+    // إذا كانت الفجوة تنتهي قبل أو عند بداية الوردية → ساعات إضافية قبل الوردية → لا تُحسب غياباً
+    if (shiftStartMin !== null && inMin <= shiftStartMin) continue;
+
+    // إذا بدأت الفجوة قبل الوردية لكنها تمتد داخلها → نقلّص البداية لوقت الوردية
+    const effectiveOutMin = (shiftStartMin !== null && outMin < shiftStartMin) ? shiftStartMin : outMin;
+
+    const gapMin = inMin - effectiveOutMin;
     if (gapMin > graceMinutes) {
       totalAbsence += gapMin;
     }
@@ -194,7 +208,9 @@ async function processAttendanceLogs(
     const checkIn = filteredTimes[0] || null;
     const checkOut = filteredTimes.length > 1 ? filteredTimes[filteredTimes.length - 1] : null;
 
-    const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes);
+    // تحويل وقت بداية الوردية إلى دقائق لتجاهل الفجوات الواقعة قبلها
+    const shiftStartMinForCalc = workRule?.workStartTime ? timeToMin(workRule.workStartTime) : null;
+    const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc);
 
     // ===== معالجة خاصة لنظام المناوبة 24 ساعة =====
     if (workRule?.is24hShift) {
@@ -345,7 +361,7 @@ async function processAttendanceLogs(
 
       const newCheckIn  = allTimes[0] || null;
       const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
-      const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes);
+      const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc);
       const newRawPunches = JSON.stringify(allTimes);
       const existingRaw = (existing as any).rawPunches ?? null;
 
@@ -1454,7 +1470,19 @@ export async function registerRoutes(
             effectiveEarlyLeaveMinutes = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
           }
 
-          const middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
+          // إعادة حساب الغياب الوسيطي من البصمات الخام مع مراعاة وقت بداية الوردية
+          // هذا يُصحح السجلات المُخزَّنة قبل تطبيق الإصلاح (الفجوات قبل الوردية لا تُحسب غياباً)
+          let middleAbsenceMin: number;
+          if ((rec as any).rawPunches) {
+            try {
+              const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
+              middleAbsenceMin = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, effectiveStartMin);
+            } catch {
+              middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
+            }
+          } else {
+            middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
+          }
 
           let dailyScore = 0;
           if (rec.status === "absent") {
