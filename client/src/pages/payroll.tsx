@@ -16,6 +16,7 @@ type PayrollRow = {
   employeeCode: string;
   workshopId: string | null;
   baseSalary: number;
+  attendanceScore: number;
   attendanceDeduction: number;
   debtDeduction: number;
   advanceDeduction: number;
@@ -193,6 +194,7 @@ export default function Payroll() {
                         <tr className="bg-muted/30 text-muted-foreground border-b">
                           <th className="px-4 py-2 text-right font-medium">الموظف</th>
                           <th className="px-4 py-2 text-right font-medium">الراتب الأساسي</th>
+                          <th className="px-4 py-2 text-right font-medium">مجموع النقطة</th>
                           <th className="px-4 py-2 text-right font-medium">خصم الحضور</th>
                           <th className="px-4 py-2 text-right font-medium">قسط الدين</th>
                           <th className="px-4 py-2 text-right font-medium">التسبيقات</th>
@@ -208,6 +210,12 @@ export default function Payroll() {
                               <p className="text-xs text-muted-foreground font-mono">{row.employeeCode}</p>
                             </td>
                             <td className="px-4 py-2.5 font-mono">{row.baseSalary.toLocaleString("ar-DZ")} دج</td>
+                            <td className="px-4 py-2.5 font-mono text-center" data-testid={`score-payroll-${row.employeeId}`}>
+                              <span className={`font-bold ${row.attendanceScore >= 28 ? "text-green-600 dark:text-green-400" : row.attendanceScore >= 24 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
+                                {row.attendanceScore.toFixed(2)}
+                              </span>
+                              <span className="text-xs text-muted-foreground"> / 30</span>
+                            </td>
                             <td className="px-4 py-2.5 font-mono">
                               {row.attendanceDeduction > 0
                                 ? <span className="text-red-600 dark:text-red-400">- {row.attendanceDeduction.toLocaleString("ar-DZ")} دج</span>
@@ -236,6 +244,9 @@ export default function Payroll() {
                         <tr className="border-t bg-muted/50 font-bold text-sm">
                           <td className="px-4 py-2">مجموع الورشة</td>
                           <td className="px-4 py-2 font-mono">{wsBase.toLocaleString("ar-DZ")} دج</td>
+                          <td className="px-4 py-2 font-mono text-center text-muted-foreground">
+                            {(rows.reduce((s, r) => s + r.attendanceScore, 0) / rows.length).toFixed(2)} متوسط
+                          </td>
                           <td className="px-4 py-2 font-mono text-red-600 dark:text-red-400">
                             {rows.reduce((s, r) => s + r.attendanceDeduction, 0).toLocaleString("ar-DZ")} دج
                           </td>

@@ -3747,58 +3747,248 @@ export async function registerRoutes(
       const month = parseInt(req.query.month as string);
       if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
 
-      // حساب نطاق تواريخ الشهر
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
       const lastDay = new Date(year, month, 0).getDate();
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const todayStr = new Date().toISOString().slice(0, 10);
 
-      const employees = await storage.getEmployees();
+      // جلب كل البيانات بالتوازي
+      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves] =
+        await Promise.all([
+          storage.getEmployees(),
+          storage.getAdvances(undefined, month, year),
+          storage.getEmployeeDebts(),
+          storage.getAttendanceByDateRange(startDate, endDate),
+          storage.getWorkRules(),
+          storage.getAppSetting("weeklyOffDays"),
+          storage.getScheduleOverrides(),
+          storage.getLeaves(),
+        ]);
+
       const activeEmployees = employees.filter(e => e.isActive);
-      const advances = await storage.getAdvances(undefined, month, year);
-      const allDebts = await storage.getEmployeeDebts();
-      const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
-      const workRules = await storage.getWorkRules();
+      const workRulesMap = new Map(workRules.map(r => [r.id, r]));
+      const defaultRule = workRules.find(r => r.isDefault) ?? workRules[0];
 
-      // عدد أيام العمل في الشهر (معيار 26 يوم عمل)
-      const WORKING_DAYS = 26;
+      // أيام العطلة الأسبوعية
+      const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
+
+      // تطبيع الشهر (فيفري=+1/2، 31يوم=قاعدة اليوم31)
+      const daysInMonth = lastDay;
+      let isFullMonth31 = false;
+      let monthBonus = 0;
+      if (daysInMonth === 28 || daysInMonth === 29) monthBonus = 30 - daysInMonth;
+      else if (daysInMonth === 31) { isFullMonth31 = true; monthBonus = 0; }
+
+      // قائمة كل أيام الشهر
+      const allDatesInMonth: string[] = [];
+      for (let d = 1; d <= daysInMonth; d++)
+        allDatesInMonth.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+
+      // مجموعة أيام العطلة الأسبوعية
+      const holidayDateSet = new Set<string>(
+        weeklyOffDays.length > 0
+          ? allDatesInMonth.filter(d => weeklyOffDays.includes(new Date(d + "T00:00:00").getDay()))
+          : []
+      );
+
+      // الجداول الخاصة النشطة في هذا الشهر
+      const activeOverrides = allOverrides.filter(ov => ov.dateFrom <= endDate && ov.dateTo >= startDate);
+
+      function payTimeToMin(t: string | null): number | null {
+        if (!t) return null;
+        const [h, m] = t.split(":").map(Number);
+        return h * 60 + m;
+      }
+
+      function payLeaveApplies(lv: any, emp: any): boolean {
+        return (
+          lv.targetType === "all" ||
+          (lv.targetType === "shift" && (emp.shift || "morning") === lv.shiftValue) ||
+          (lv.targetType === "workshop" && emp.workshopId === lv.workshopId) ||
+          (lv.targetType === "employee" && emp.id === lv.employeeId)
+        );
+      }
+
+      // بناء Map للسجلات بحسب الموظف
+      const recordsByEmployee = new Map<string, typeof attendanceRecords>();
+      for (const rec of attendanceRecords) {
+        const list = recordsByEmployee.get(rec.employeeId);
+        if (list) list.push(rec);
+        else recordsByEmployee.set(rec.employeeId, [rec]);
+      }
 
       const rows = activeEmployees.map(emp => {
         const baseSalary = parseFloat(emp.baseSalary ?? "0") || 0;
-        const dailyRate = baseSalary / WORKING_DAYS;
+        const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
 
-        // قاعدة عمل الموظف (إن وجدت)
-        const workRule = workRules.find(r => r.id === emp.workRuleId);
-        const latePenaltyPerMinute = parseFloat(workRule?.latePenaltyPerMinute ?? "0") || 0;
+        // مدة يوم العمل الفعلية
+        let totalWorkDayMinutes = 480;
+        if (workRule?.is24hShift) {
+          totalWorkDayMinutes = 1440;
+        } else if (workRule) {
+          const [sh, sm] = workRule.workStartTime.split(":").map(Number);
+          const [eh, em] = workRule.workEndTime.split(":").map(Number);
+          totalWorkDayMinutes = Math.max(1, (eh * 60 + em) - (sh * 60 + sm));
+        }
 
-        // سجلات حضور الموظف هذا الشهر
-        const empAttendance = attendanceRecords.filter(a => a.employeeId === emp.id);
+        const lateArrivalGrace = workRule?.lateGraceMinutes ?? 0;
+        const earlyLeaveGrace = workRule?.earlyLeaveGraceMinutes ?? 0;
 
-        // حساب الخصم من الغياب والتأخير مباشرةً
-        let attendanceDeduction = 0;
-        for (const rec of empAttendance) {
-          // أيام الغياب: خصم اليوم كاملاً بالمعدل اليومي
+        const empRecords = recordsByEmployee.get(emp.id) ?? [];
+
+        interface PayDayRecord { date: string; status: string; dailyScore: number; }
+        const dailyRecords: PayDayRecord[] = [];
+
+        // حساب نقطة كل سجل حضور
+        for (const rec of empRecords) {
+          const dayOverride = activeOverrides.find(ov =>
+            rec.date >= ov.dateFrom && rec.date <= ov.dateTo &&
+            (!ov.workRuleId || ov.workRuleId === emp.workRuleId)
+          );
+
+          let score = 0;
           if (rec.status === "absent") {
-            attendanceDeduction += dailyRate;
+            score = 0;
+          } else if (rec.status === "leave" || rec.status === "rest") {
+            score = 1;
+          } else if (dayOverride) {
+            const effStart = dayOverride.workStartTime ?? workRule?.workStartTime ?? "08:00";
+            const effEnd   = dayOverride.workEndTime   ?? workRule?.workEndTime   ?? "16:00";
+            const effStartMin = payTimeToMin(effStart)!;
+            let effEndMin = payTimeToMin(effEnd)!;
+            if (dayOverride.isOvernight && effEndMin <= effStartMin) effEndMin += 24 * 60;
+            const effDayMin = Math.max(1, effEndMin - effStartMin);
+
+            let ciMin = payTimeToMin(rec.checkIn);
+            let coMin = payTimeToMin(rec.checkOut);
+            // تصحيح التبديل الليلي
+            if (dayOverride.isOvernight && ciMin !== null && coMin !== null) {
+              if (ciMin < effStartMin && coMin >= (effStartMin - 60)) {
+                const t = ciMin; ciMin = coMin; coMin = t + 24 * 60;
+              }
+            }
+            if (dayOverride.isOvernight && coMin !== null && coMin < effStartMin) coMin += 24 * 60;
+
+            const rawLate      = ciMin !== null ? Math.max(0, ciMin - effStartMin) : 0;
+            const rawEarlyLeave = coMin !== null ? Math.max(0, effEndMin - coMin)  : 0;
+            const effLate  = Math.max(0, rawLate      - lateArrivalGrace);
+            const effEarly = Math.max(0, rawEarlyLeave - earlyLeaveGrace);
+            const midAbs   = rec.middleAbsenceMinutes ?? 0;
+
+            if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
+            else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / effDayMin);
+          } else {
+            // بدون جدول خاص: نستخدم القيم المخزنة (المحسوبة وقت التسجيل بالجدول الصحيح)
+            const effLate  = Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
+            const effEarly = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
+            const midAbs   = rec.middleAbsenceMinutes ?? 0;
+
+            if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
+            else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / totalWorkDayMinutes);
           }
-          // التأخير: دقائق × غرامة الدقيقة من قاعدة العمل (إن وجدت)
-          const lateMin = Number(rec.lateMinutes ?? 0) || 0;
-          if (lateMin > 0 && latePenaltyPerMinute > 0) {
-            attendanceDeduction += lateMin * latePenaltyPerMinute;
+
+          dailyRecords.push({ date: rec.date, status: rec.status, dailyScore: Math.round(score * 100) / 100 });
+        }
+
+        // حقن أيام العطلة الأسبوعية
+        if (!workRule?.is24hShift) {
+          for (const date of Array.from(holidayDateSet)) {
+            if (date > todayStr) continue;
+            const ex = dailyRecords.find(r => r.date === date);
+            if (ex) { ex.status = "holiday"; ex.dailyScore = 1.00; }
+            else dailyRecords.push({ date, status: "holiday", dailyScore: 1.00 });
           }
         }
-        // خصم الديون النشطة
+
+        // حقن الغياب للأيام الناقصة في نطاق الشهر
+        for (const date of allDatesInMonth) {
+          if (holidayDateSet.has(date) && !workRule?.is24hShift) continue;
+          if (date > todayStr) continue;
+          if (!dailyRecords.some(r => r.date === date))
+            dailyRecords.push({ date, status: "absent", dailyScore: 0.00 });
+        }
+
+        // قاعدة اليوم 31
+        if (isFullMonth31) {
+          const day31Str = `${year}-${String(month).padStart(2, "0")}-31`;
+          const rec31 = dailyRecords.find(r => r.date === day31Str);
+          if (rec31) rec31.dailyScore = rec31.status === "absent" ? -1.00 : 0.00;
+        }
+
+        // خصم نقطة العطلة الأسبوعية عند الغياب (بدون أيام الإجازة غير المدفوعة)
+        function payGetWeekStart(dateStr: string): string {
+          const d = new Date(dateStr + "T00:00:00");
+          d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+          return d.toISOString().slice(0, 10);
+        }
+
+        const empUnpaidLeaveDates = new Set<string>();
+        for (const lv of allLeaves) {
+          if (lv.isPaid || !payLeaveApplies(lv, emp)) continue;
+          if (lv.startDate > endDate || lv.endDate < startDate) continue;
+          let d = new Date((lv.startDate > startDate ? lv.startDate : startDate) + "T00:00:00");
+          const dEnd = new Date((lv.endDate < endDate ? lv.endDate : endDate) + "T00:00:00");
+          while (d <= dEnd) { empUnpaidLeaveDates.add(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+        }
+
+        const holidaysByWeek = new Map<string, PayDayRecord[]>();
+        for (const rec of dailyRecords) {
+          if (rec.status === "holiday") {
+            const wk = payGetWeekStart(rec.date);
+            if (!holidaysByWeek.has(wk)) holidaysByWeek.set(wk, []);
+            holidaysByWeek.get(wk)!.push(rec);
+          }
+        }
+        for (const [wk, holidays] of holidaysByWeek) {
+          const absenceCount = dailyRecords.filter(
+            r => payGetWeekStart(r.date) === wk && r.status === "absent" && !empUnpaidLeaveDates.has(r.date)
+          ).length;
+          if (absenceCount === 0) continue;
+          let toDeduct = absenceCount * 0.5;
+          for (const holiday of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
+            if (toDeduct <= 0) break;
+            const deduct = Math.min(toDeduct, holiday.dailyScore);
+            holiday.dailyScore = Math.round((holiday.dailyScore - deduct) * 100) / 100;
+            toDeduct = Math.round((toDeduct - deduct) * 100) / 100;
+          }
+        }
+
+        // تطبيق الإجازات الجماعية (آخر مرحلة — تتجاوز الخصومات)
+        for (const lv of allLeaves) {
+          if (!payLeaveApplies(lv, emp)) continue;
+          if (lv.startDate > endDate || lv.endDate < startDate) continue;
+          for (const dr of dailyRecords) {
+            if (dr.date >= lv.startDate && dr.date <= lv.endDate) {
+              dr.status = lv.isPaid ? "leave" : "absent";
+              dr.dailyScore = lv.isPaid ? 1.00 : 0.00;
+            }
+          }
+        }
+
+        // مجموع النقطة + تعويض فيفري
+        let attendanceScore = dailyRecords.reduce((s, r) => s + r.dailyScore, 0);
+        attendanceScore += monthBonus;
+        attendanceScore = Math.round(attendanceScore * 100) / 100;
+
+        // الصيغة الجديدة: الراتب الصافي = (مجموع النقطة × الراتب الأساسي) ÷ 30
+        const attendanceSalary = Math.round((attendanceScore * baseSalary / 30) * 100) / 100;
+        const attendanceDeduction = Math.max(0, Math.round((baseSalary - attendanceSalary) * 100) / 100);
+
+        // الديون والتسبيقات
         const empDebts = allDebts.filter(d => d.employeeId === emp.id && d.isActive);
         const debtDeduction = empDebts.reduce((sum, d) => sum + (parseFloat(d.monthlyDeduction ?? "0") || 0), 0);
-        // التسبيقات
         const empAdvances = advances.filter(a => a.employeeId === emp.id);
         const advanceDeduction = empAdvances.reduce((sum, a) => sum + (parseFloat(a.amount ?? "0") || 0), 0);
-        const netSalary = Math.max(0, baseSalary - attendanceDeduction - debtDeduction - advanceDeduction);
+
+        const netSalary = Math.max(0, attendanceSalary - debtDeduction - advanceDeduction);
+
         return {
           employeeId: emp.id,
           employeeName: emp.name,
           employeeCode: emp.employeeCode,
           workshopId: emp.workshopId ?? null,
           baseSalary,
+          attendanceScore,
           attendanceDeduction: Math.round(attendanceDeduction * 100) / 100,
           debtDeduction: Math.round(debtDeduction * 100) / 100,
           advanceDeduction: Math.round(advanceDeduction * 100) / 100,
