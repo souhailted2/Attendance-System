@@ -102,8 +102,11 @@ export default function ScheduleOverrides() {
   });
 
   const recalcMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("POST", `/api/schedule-overrides/${id}/recalculate`, {}),
-    onSuccess: (data: any) => {
+    mutationFn: async (id: string) => {
+      const res = await apiRequest("POST", `/api/schedule-overrides/${id}/recalculate`, {});
+      return res.json() as Promise<{ message: string; updated: number }>;
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
       toast({ title: "تمت إعادة الحساب بنجاح", description: `تم تحديث ${data?.updated ?? 0} سجل` });
       setRecalcId(null);

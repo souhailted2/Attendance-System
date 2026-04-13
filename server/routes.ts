@@ -3284,6 +3284,7 @@ export async function registerRoutes(
 
   // GET /api/schedule-overrides
   app.get("/api/schedule-overrides", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
     try {
       const list = await storage.getScheduleOverrides();
       return res.json(list);
@@ -3338,63 +3339,47 @@ export async function registerRoutes(
 
       const { dateFrom, dateTo, workRuleId, workStartTime, workEndTime, isOvernight } = override;
 
-      // Fetch all attendance records in range
+      // Parse work schedule times as absolute minutes from midnight
+      const [startH, startM] = workStartTime.split(":").map(Number);
+      const [endH, endM] = workEndTime.split(":").map(Number);
+      const scheduleStartMins = startH * 60 + startM;
+      // For overnight shifts: end time is on the "next day" in absolute minutes
+      let scheduleEndMins = endH * 60 + endM;
+      if (isOvernight && scheduleEndMins <= scheduleStartMins) {
+        scheduleEndMins += 24 * 60; // shift end is next calendar day
+      }
+
+      // Load all attendance records in date range
       const records = await storage.getAttendanceByDateRange(dateFrom, dateTo);
 
-      // Filter by workRuleId if specified
-      let employees: Record<string, any> = {};
-      const workRules: Record<string, any> = {};
-
-      const filtered = workRuleId
-        ? records.filter(r => {
-            // will check employee's workRule below
-            return true; // filter after loading employees
-          })
-        : records;
+      // Cache employees and work rules
+      const employeeCache: Record<string, any> = {};
+      const workRuleCache: Record<string, any> = {};
 
       let updated = 0;
       for (const rec of records) {
-        // Get employee work rule
-        if (!employees[rec.employeeId]) {
-          const emp = await storage.getEmployee(rec.employeeId);
-          employees[rec.employeeId] = emp;
+        // Load employee if not cached
+        if (!employeeCache[rec.employeeId]) {
+          employeeCache[rec.employeeId] = await storage.getEmployee(rec.employeeId);
         }
-        const emp = employees[rec.employeeId];
+        const emp = employeeCache[rec.employeeId];
         if (!emp) continue;
 
-        // If override is for a specific workRule, skip employees not matching
+        // If override targets a specific workRule, skip non-matching employees
         if (workRuleId && emp.workRuleId !== workRuleId) continue;
 
-        // Get work rule for penalties
-        const empWorkRuleId = emp.workRuleId;
-        if (empWorkRuleId && !workRules[empWorkRuleId]) {
-          const wr = await storage.getWorkRule(empWorkRuleId);
-          workRules[empWorkRuleId] = wr;
-        }
-        const workRule = empWorkRuleId ? workRules[empWorkRuleId] : null;
-
-        // Use override times for calculation
-        const effStartTime = workStartTime;
-        let effEndTime = workEndTime;
-
-        // For overnight shifts: if checkOut < workEnd (in raw minutes), add 24h
-        let checkOutAdj = rec.checkOut;
-        if (isOvernight && rec.checkOut) {
-          const [endH, endM] = workEndTime.split(":").map(Number);
-          const [outH, outM] = rec.checkOut.split(":").map(Number);
-          const endMins = endH * 60 + endM;
-          const outMins = outH * 60 + outM;
-          // If checkOut is before workEnd by more than 12h (i.e. it crosses midnight from the other side), treat as next day — keep as is
-          // Just adjust totalHours calculation to handle overnight
-        }
-
-        // Skip absent/leave/rest — keep them unchanged
+        // Skip statuses that are not time-based
         if (rec.status === "absent" || rec.status === "leave" || rec.status === "rest") continue;
 
+        // Load work rule for penalty rates
+        const empWorkRuleId = emp.workRuleId;
+        if (empWorkRuleId && !workRuleCache[empWorkRuleId]) {
+          workRuleCache[empWorkRuleId] = await storage.getWorkRule(empWorkRuleId);
+        }
+        const workRule = empWorkRuleId ? workRuleCache[empWorkRuleId] : null;
         const lateGrace = workRule ? (workRule.lateGraceMinutes || 0) : 0;
-        const latePenaltyPer = workRule ? (workRule.latePenaltyPerMinute || "0") : "0";
-        const earlyPenaltyPer = workRule ? (workRule.earlyLeavePenaltyPerMinute || "0") : "0";
-        const absencePenalty = workRule ? (workRule.absencePenalty || "0") : "0";
+        const latePenaltyPer = parseFloat(workRule?.latePenaltyPerMinute || "0");
+        const earlyPenaltyPer = parseFloat(workRule?.earlyLeavePenaltyPerMinute || "0");
 
         let lateMinutes = 0;
         let earlyLeaveMinutes = 0;
@@ -3402,47 +3387,58 @@ export async function registerRoutes(
         let penalty = 0;
         let newStatus = rec.status || "present";
 
-        if (rec.checkIn && effStartTime) {
-          const [checkH, checkM] = rec.checkIn.split(":").map(Number);
-          const [startH, startM] = effStartTime.split(":").map(Number);
-          const checkMins = checkH * 60 + checkM;
-          let startMins = startH * 60 + startM;
-          if (isOvernight && checkMins < startMins - 12 * 60) {
-            // checkIn is on the next calendar day for overnight shifts
+        // --- Late calculation (based on checkIn) ---
+        if (rec.checkIn) {
+          const [ciH, ciM] = rec.checkIn.split(":").map(Number);
+          let checkInMins = ciH * 60 + ciM;
+          // For overnight shifts, checkIn might look like "22:30" which is before midnight.
+          // If checkIn is less than scheduleStartMins and the difference exceeds 12h, it's "yesterday" relative to schedule — treat as is.
+          // We only adjust if checkIn appears to be early next-day (e.g. 00:30 for a 22:00 start).
+          if (isOvernight && checkInMins < scheduleStartMins && scheduleStartMins - checkInMins > 12 * 60) {
+            checkInMins += 24 * 60; // checkIn is after midnight, treat as next-day minutes
           }
-          const diff = checkMins - startMins;
+          const diff = checkInMins - scheduleStartMins;
           if (diff > lateGrace) {
             lateMinutes = diff;
             newStatus = "late";
           }
         }
 
-        if (rec.checkOut && effEndTime) {
-          const [checkH, checkM] = rec.checkOut.split(":").map(Number);
-          const [endH, endM] = effEndTime.split(":").map(Number);
-          let checkMins = checkH * 60 + checkM;
-          let endMins = endH * 60 + endM;
-          if (isOvernight && checkMins < endMins - 12 * 60) {
-            checkMins += 24 * 60; // checkOut is next day
+        // --- checkOut: for overnight, the device records the punch on the next calendar day,
+        //     stored as HH:MM on that day's attendance record OR as HH:MM on the same record.
+        //     The biometric system stores checkOut on the SAME attendance record (same date as checkIn).
+        //     So we normalize checkOut: if isOvernight and checkOut < scheduleStartMins (indicating it's after midnight),
+        //     treat it as scheduleStartMins + (24*60 - scheduleStartMins + checkOutMins).
+        let effectiveCheckOutMins: number | null = null;
+        if (rec.checkOut) {
+          const [coH, coM] = rec.checkOut.split(":").map(Number);
+          let checkOutMins = coH * 60 + coM;
+          if (isOvernight && checkOutMins < scheduleStartMins) {
+            // checkOut is after midnight (e.g. 05:00 for 22:00 start) — add 24h offset
+            checkOutMins += 24 * 60;
           }
-          if (checkMins < endMins) {
-            earlyLeaveMinutes = endMins - checkMins;
+          effectiveCheckOutMins = checkOutMins;
+        }
+
+        // --- Early leave calculation ---
+        if (effectiveCheckOutMins !== null) {
+          if (effectiveCheckOutMins < scheduleEndMins) {
+            earlyLeaveMinutes = scheduleEndMins - effectiveCheckOutMins;
           }
         }
 
-        if (rec.checkIn && rec.checkOut) {
-          const [inH, inM] = rec.checkIn.split(":").map(Number);
-          const [outH, outM] = rec.checkOut.split(":").map(Number);
-          let inMins = inH * 60 + inM;
-          let outMins = outH * 60 + outM;
-          if (isOvernight && outMins < inMins) {
-            outMins += 24 * 60;
+        // --- Total hours ---
+        if (rec.checkIn && effectiveCheckOutMins !== null) {
+          const [ciH, ciM] = rec.checkIn.split(":").map(Number);
+          let checkInMins = ciH * 60 + ciM;
+          if (isOvernight && checkInMins < scheduleStartMins && scheduleStartMins - checkInMins > 12 * 60) {
+            checkInMins += 24 * 60;
           }
-          totalHours = Math.round((outMins - inMins) / 60 * 100) / 100;
+          totalHours = Math.round((effectiveCheckOutMins - checkInMins) / 60 * 100) / 100;
         }
 
-        penalty = (lateMinutes > 0 ? lateMinutes * (parseFloat(latePenaltyPer) || 0) : 0)
-          + (earlyLeaveMinutes > 0 ? earlyLeaveMinutes * (parseFloat(earlyPenaltyPer) || 0) : 0);
+        penalty = (lateMinutes > 0 ? lateMinutes * latePenaltyPer : 0)
+          + (earlyLeaveMinutes > 0 ? earlyLeaveMinutes * earlyPenaltyPer : 0);
 
         await storage.updateAttendance(rec.id, {
           lateMinutes,
