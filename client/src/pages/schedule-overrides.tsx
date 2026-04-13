@@ -108,7 +108,7 @@ export default function ScheduleOverrides() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
-      toast({ title: "تمت إعادة الحساب بنجاح", description: `تم تحديث ${data?.updated ?? 0} سجل` });
+      toast({ title: "تمت إعادة الحساب بنجاح", description: `تم إعادة حساب ${data?.updated ?? 0} سجل` });
       setRecalcId(null);
     },
     onError: (e: any) => {
