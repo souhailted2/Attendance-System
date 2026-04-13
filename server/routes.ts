@@ -3619,6 +3619,16 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // GET /api/debts/:id — دين واحد
+  app.get("/api/debts/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const debt = await storage.getEmployeeDebt(req.params.id);
+      if (!debt) return res.status(404).json({ message: "الدين غير موجود" });
+      return res.json(debt);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // PATCH /api/debts/:id — تعديل دين
   app.patch("/api/debts/:id", async (req, res) => {
     if (!requireCaisseOrOwner(req, res)) return;
@@ -3687,7 +3697,7 @@ export async function registerRoutes(
     if (!requireCaisseOrOwner(req, res)) return;
     try {
       const { amount, advanceDate, notes } = req.body;
-      const data: Record<string, any> = {};
+      const data: Partial<{ amount: string; advanceDate: string; month: number; year: number; notes: string | null }> = {};
       if (amount !== undefined) data.amount = String(amount);
       if (advanceDate !== undefined) {
         const d = new Date(advanceDate);
@@ -3695,7 +3705,7 @@ export async function registerRoutes(
         data.month = d.getMonth() + 1;
         data.year = d.getFullYear();
       }
-      if (notes !== undefined) data.notes = notes;
+      if (notes !== undefined) data.notes = notes ?? null;
       const advance = await storage.updateAdvance(req.params.id, data);
       if (!advance) return res.status(404).json({ message: "التسبيقة غير موجودة" });
       return res.json(advance);
@@ -3731,7 +3741,7 @@ export async function registerRoutes(
       const attendanceRecords = await storage.getAttendanceByDateRange(startDate, endDate);
 
       const rows = activeEmployees.map(emp => {
-        const baseSalary = parseFloat((emp as any).baseSalary ?? "0") || 0;
+        const baseSalary = parseFloat(emp.baseSalary ?? "0") || 0;
         // خصم الحضور (مجموع الغرامات)
         const empAttendance = attendanceRecords.filter(a => a.employeeId === emp.id);
         const attendanceDeduction = empAttendance.reduce((sum, a) => sum + (parseFloat(a.penalty ?? "0") || 0), 0);

@@ -643,22 +643,35 @@ export class MysqlStorage implements IStorage {
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       employee_id VARCHAR(36) NOT NULL,
       description TEXT NOT NULL,
-      total_amount VARCHAR(50) NOT NULL DEFAULT '0',
-      monthly_deduction VARCHAR(50) NOT NULL DEFAULT '0',
-      remaining_amount VARCHAR(50) NOT NULL DEFAULT '0',
+      total_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      monthly_deduction DECIMAL(12,2) NOT NULL DEFAULT 0,
+      remaining_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
       is_active TINYINT(1) NOT NULL DEFAULT 1,
       created_at VARCHAR(50) NOT NULL
     )`);
     await rawPool.query(`CREATE TABLE IF NOT EXISTS advances (
       id VARCHAR(36) NOT NULL PRIMARY KEY,
       employee_id VARCHAR(36) NOT NULL,
-      amount VARCHAR(50) NOT NULL DEFAULT '0',
+      amount DECIMAL(12,2) NOT NULL DEFAULT 0,
       advance_date VARCHAR(50) NOT NULL,
       month INT NOT NULL,
       year INT NOT NULL,
       notes TEXT,
       created_at VARCHAR(50) NOT NULL
     )`);
+    // Migrate existing VARCHAR columns to DECIMAL if needed
+    const [debtCols] = await rawPool.query(
+      `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='employee_debts' AND COLUMN_NAME IN ('total_amount','monthly_deduction','remaining_amount') AND DATA_TYPE != 'decimal'`
+    ) as [any[], any];
+    if (Array.isArray(debtCols) && debtCols.length > 0) {
+      await rawPool.query(`ALTER TABLE employee_debts MODIFY COLUMN total_amount DECIMAL(12,2) NOT NULL DEFAULT 0, MODIFY COLUMN monthly_deduction DECIMAL(12,2) NOT NULL DEFAULT 0, MODIFY COLUMN remaining_amount DECIMAL(12,2) NOT NULL DEFAULT 0`);
+    }
+    const [advCols] = await rawPool.query(
+      `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='advances' AND COLUMN_NAME='amount' AND DATA_TYPE != 'decimal'`
+    ) as [any[], any];
+    if (Array.isArray(advCols) && advCols.length > 0) {
+      await rawPool.query(`ALTER TABLE advances MODIFY COLUMN amount DECIMAL(12,2) NOT NULL DEFAULT 0`);
+    }
   }
 
   async getEmployeeDebts(employeeId?: string): Promise<EmployeeDebt[]> {

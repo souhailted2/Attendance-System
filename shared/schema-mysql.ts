@@ -1,4 +1,4 @@
-import { mysqlTable, text, varchar, int, boolean, uniqueIndex } from "drizzle-orm/mysql-core";
+import { mysqlTable, text, varchar, int, boolean, decimal, uniqueIndex } from "drizzle-orm/mysql-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -69,9 +69,9 @@ export const employeeDebts = mysqlTable("employee_debts", {
   id: varchar("id", { length: 36 }).primaryKey(),
   employeeId: varchar("employee_id", { length: 36 }).notNull(),
   description: text("description").notNull(),
-  totalAmount: text("total_amount").notNull().default("0"),
-  monthlyDeduction: text("monthly_deduction").notNull().default("0"),
-  remainingAmount: text("remaining_amount").notNull().default("0"),
+  totalAmount: decimal("total_amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  monthlyDeduction: decimal("monthly_deduction", { precision: 12, scale: 2 }).notNull().default("0"),
+  remainingAmount: decimal("remaining_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: text("created_at").notNull(),
 });
@@ -79,7 +79,7 @@ export const employeeDebts = mysqlTable("employee_debts", {
 export const advances = mysqlTable("advances", {
   id: varchar("id", { length: 36 }).primaryKey(),
   employeeId: varchar("employee_id", { length: 36 }).notNull(),
-  amount: text("amount").notNull().default("0"),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull().default("0"),
   advanceDate: text("advance_date").notNull(),
   month: int("month").notNull(),
   year: int("year").notNull(),
