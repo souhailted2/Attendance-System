@@ -14,15 +14,20 @@ if ! git diff --quiet HEAD origin/main -- dist/ agent/ scripts/; then
     $NODE_BIN/pm2 save --force 2>/dev/null
     echo "$(date): deployed + pm2 reloaded" >> /home/u807293731/attendance/deploy.log
 
-    # تحقق من أن تحميل حزمة MDB يعمل
+    # تحقق من أن تحميل حزمة MDB يعمل (401 = endpoint حي لكن يحتاج مفتاح)
     sleep 3
-    MDB_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -m 10 \
+    MDB_STATUS=$(curl -s -o /tmp/mdb_check.zip -w "%{http_code}" -m 15 \
         https://allal.alllal.com/api/agent/download-mdb-package 2>/dev/null || echo "000")
-    if [ "$MDB_STATUS" = "200" ] || [ "$MDB_STATUS" = "401" ]; then
-        echo "$(date): mdb-package endpoint OK ($MDB_STATUS)" >> /home/u807293731/attendance/deploy.log
+    if [ "$MDB_STATUS" = "200" ]; then
+        CTYPE=$(file -b --mime-type /tmp/mdb_check.zip 2>/dev/null || echo "unknown")
+        echo "$(date): mdb-package OK (200, type=$CTYPE)" >> /home/u807293731/attendance/deploy.log
+    elif [ "$MDB_STATUS" = "401" ]; then
+        # endpoint حي — يحتاج مفتاح API (الحزمة نفسها ستعمل مع المفتاح الصحيح)
+        echo "$(date): mdb-package endpoint alive (401 - needs API key, expected)" >> /home/u807293731/attendance/deploy.log
     else
         echo "$(date): WARNING mdb-package endpoint returned $MDB_STATUS" >> /home/u807293731/attendance/deploy.log
     fi
+    rm -f /tmp/mdb_check.zip
 fi
 
 # تحقق دائماً أن PM2 يعمل حتى بدون تحديثات
