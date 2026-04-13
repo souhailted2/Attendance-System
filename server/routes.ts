@@ -1097,7 +1097,10 @@ export async function registerRoutes(
         finalMiddleAbsenceMinutes = 0;
       } else if (timesChanged) {
         const punchesForCalc: string[] = newRawPunches ? (() => { try { return JSON.parse(newRawPunches); } catch { return []; } })() : [];
-        finalMiddleAbsenceMinutes = punchesForCalc.length >= 2 ? calculateMiddleAbsenceMinutes(punchesForCalc) : 0;
+        const patchShiftStartMin = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
+        finalMiddleAbsenceMinutes = punchesForCalc.length >= 2
+          ? calculateMiddleAbsenceMinutes(punchesForCalc, MIDDLE_ABSENCE_GRACE_MINUTES, patchShiftStartMin)
+          : 0;
       }
 
       const updateData: Partial<InsertAttendance> = {
