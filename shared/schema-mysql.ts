@@ -201,7 +201,7 @@ export const insertEmployeeSchema = createInsertSchema(employees).pick({
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({
   employeeId: true, date: true, checkIn: true, checkOut: true, status: true,
   lateMinutes: true, earlyLeaveMinutes: true, middleAbsenceMinutes: true, totalHours: true, penalty: true, notes: true,
-  rawPunches: true,
+  rawPunches: true, deletedPunches: true,
 });
 export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pick({
   name: true, ipAddress: true, port: true, isActive: true, lastSyncAt: true, workshopId: true, serialNumber: true,
