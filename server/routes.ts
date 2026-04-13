@@ -3167,6 +3167,20 @@ export async function registerRoutes(
             // أيام العطلة غير المدفوعة لا تُحسب غياباً
             if (empUnpaidLeaveDatesGrants.has(date)) continue;
 
+            // وقت بداية/نهاية العمل الفعلي مع مراعاة الجدول الاستثنائي (رمضان، إلخ)
+            const dayOverride = activeOverridesGrants.find(ov =>
+              date >= ov.dateFrom && date <= ov.dateTo &&
+              (!ov.workRuleId || ov.workRuleId === emp.workRuleId) &&
+              (ov as any).workStartTime
+            );
+            const effWorkStartMin = dayOverride
+              ? (timeToMinLocal((dayOverride as any).workStartTime) ?? workStartMin)
+              : workStartMin;
+            const effWorkEndMin = dayOverride
+              ? (timeToMinLocal((dayOverride as any).workEndTime) ?? workEndMin)
+              : workEndMin;
+            const effEarlyLeaveRefMin = checkoutEarliestMin ?? effWorkEndMin;
+
             const rec = empRecordsByDate.get(date);
             if (!rec || rec.status === "absent") {
               absentDays++;
@@ -3174,13 +3188,13 @@ export async function registerRoutes(
             } else if (rec.status === "present" || rec.status === "late") {
               const checkInMin = timeToMinLocal(rec.checkIn);
               if (checkInMin !== null) {
-                const rawLate = Math.max(0, checkInMin - workStartMin);
+                const rawLate = Math.max(0, checkInMin - effWorkStartMin);
                 const effLate = Math.max(0, rawLate - lateGrace);
                 if (effLate > 0) { lateDays++; totalLateMinutes += effLate; }
               }
               const checkOutMin = timeToMinLocal(rec.checkOut ?? null);
               if (checkOutMin !== null) {
-                const rawEarly = Math.max(0, earlyLeaveRefMin - checkOutMin);
+                const rawEarly = Math.max(0, effEarlyLeaveRefMin - checkOutMin);
                 const effEarly = Math.max(0, rawEarly - earlyLeaveGrace);
                 if (effEarly > 0) totalEarlyLeaveMinutes += effEarly;
               }
