@@ -154,45 +154,76 @@ function ProtectedRoute({
 }) {
   const { user } = useAuth();
   if (!user || !allowedUsers.includes(user.username)) {
-    return <Redirect to="/" />;
+    const fallback = user?.username === "caisse" ? "/salaries" : "/";
+    return <Redirect to={fallback} />;
   }
   return <Component />;
 }
 
+const NON_CAISSE_ROLES = ["owner", "attendence", "observer"];
+
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
-      <Route path="/employees" component={Employees} />
-      <Route path="/attendance" component={Attendance} />
-      <Route path="/reports" component={Reports} />
+      <Route path="/">
+        <ProtectedRoute component={Dashboard} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
+      <Route path="/employees">
+        <ProtectedRoute component={Employees} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
+      <Route path="/attendance">
+        <ProtectedRoute component={Attendance} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
+      <Route path="/reports">
+        <ProtectedRoute component={Reports} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
       <Route path="/companies">
-        <CrudPage
-          title="الشركات"
-          apiPath="/api/companies"
-          icon={Building2}
-          fields={[
-            { key: "name", label: "اسم الشركة", required: true },
-            { key: "description", label: "الوصف" },
-          ]}
+        <ProtectedRoute
+          component={() => (
+            <CrudPage
+              title="الشركات"
+              apiPath="/api/companies"
+              icon={Building2}
+              fields={[
+                { key: "name", label: "اسم الشركة", required: true },
+                { key: "description", label: "الوصف" },
+              ]}
+            />
+          )}
+          allowedUsers={[...NON_CAISSE_ROLES]}
         />
       </Route>
-      <Route path="/workshops" component={Workshops} />
+      <Route path="/workshops">
+        <ProtectedRoute component={Workshops} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
       <Route path="/positions">
-        <CrudPage
-          title="المناصب"
-          apiPath="/api/positions"
-          icon={Briefcase}
-          fields={[
-            { key: "name", label: "اسم المنصب", required: true },
-            { key: "description", label: "الوصف" },
-          ]}
+        <ProtectedRoute
+          component={() => (
+            <CrudPage
+              title="المناصب"
+              apiPath="/api/positions"
+              icon={Briefcase}
+              fields={[
+                { key: "name", label: "اسم المنصب", required: true },
+                { key: "description", label: "الوصف" },
+              ]}
+            />
+          )}
+          allowedUsers={[...NON_CAISSE_ROLES]}
         />
       </Route>
-      <Route path="/shifts" component={Shifts} />
-      <Route path="/work-rules" component={WorkRules} />
-      <Route path="/import" component={ImportData} />
-      <Route path="/agent-settings" component={AgentSettings} />
+      <Route path="/shifts">
+        <ProtectedRoute component={Shifts} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
+      <Route path="/work-rules">
+        <ProtectedRoute component={WorkRules} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
+      <Route path="/import">
+        <ProtectedRoute component={ImportData} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
+      <Route path="/agent-settings">
+        <ProtectedRoute component={AgentSettings} allowedUsers={[...NON_CAISSE_ROLES]} />
+      </Route>
       <Route path="/activity-log">
         <ProtectedRoute component={ActivityLog} allowedUsers={["owner"]} />
       </Route>

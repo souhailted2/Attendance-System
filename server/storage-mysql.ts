@@ -691,7 +691,13 @@ export class MysqlStorage implements IStorage {
   }
 
   async updateEmployeeDebt(id: string, data: Partial<InsertEmployeeDebt>): Promise<EmployeeDebt | undefined> {
-    await mysqlDb.update(schema.employeeDebts).set(data as any).where(eq(schema.employeeDebts.id, id));
+    const updateObj: Partial<typeof schema.employeeDebts.$inferInsert> = {};
+    if (data.description !== undefined) updateObj.description = data.description;
+    if (data.totalAmount !== undefined) updateObj.totalAmount = data.totalAmount;
+    if (data.monthlyDeduction !== undefined) updateObj.monthlyDeduction = data.monthlyDeduction;
+    if (data.remainingAmount !== undefined) updateObj.remainingAmount = data.remainingAmount;
+    if (data.isActive !== undefined) updateObj.isActive = data.isActive;
+    await mysqlDb.update(schema.employeeDebts).set(updateObj).where(eq(schema.employeeDebts.id, id));
     const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
     return row as EmployeeDebt | undefined;
   }
@@ -726,6 +732,24 @@ export class MysqlStorage implements IStorage {
     });
     const [row] = await mysqlDb.select().from(schema.advances).where(eq(schema.advances.id, id));
     return row as Advance;
+  }
+
+  async getAdvance(id: string): Promise<Advance | undefined> {
+    const [row] = await mysqlDb.select().from(schema.advances).where(eq(schema.advances.id, id));
+    return row as Advance | undefined;
+  }
+
+  async updateAdvance(id: string, data: Partial<InsertAdvance>): Promise<Advance | undefined> {
+    const updateObj: Partial<typeof schema.advances.$inferInsert> = {};
+    if (data.employeeId !== undefined) updateObj.employeeId = data.employeeId;
+    if (data.amount !== undefined) updateObj.amount = data.amount;
+    if (data.advanceDate !== undefined) updateObj.advanceDate = data.advanceDate;
+    if (data.month !== undefined) updateObj.month = data.month;
+    if (data.year !== undefined) updateObj.year = data.year;
+    if (data.notes !== undefined) updateObj.notes = data.notes;
+    await mysqlDb.update(schema.advances).set(updateObj).where(eq(schema.advances.id, id));
+    const [row] = await mysqlDb.select().from(schema.advances).where(eq(schema.advances.id, id));
+    return row as Advance | undefined;
   }
 
   async deleteAdvance(id: string): Promise<void> {

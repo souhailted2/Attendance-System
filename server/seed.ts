@@ -45,11 +45,20 @@ async function ensureObserverUser() {
   console.log(`✅ تم إنشاء مستخدم المراقب: ${OBSERVER_USERNAME} / observer123`);
 }
 
+async function ensureCaisseUser() {
+  const existing = await storage.getUserByUsername("caisse");
+  if (existing) return;
+  const hashed = await bcrypt.hash("allaltpl2040", 10);
+  await storage.createUser({ username: "caisse", password: hashed });
+  console.log(`✅ تم إنشاء مستخدم الصندوق: caisse / allaltpl2040`);
+}
+
 export async function seedDatabase() {
   await storage.initActivityLogs();
   await ensureAdminUser();
   await ensureAttendanceUser();
   await ensureObserverUser();
+  await ensureCaisseUser();
 
   const existingCompanies = await storage.getCompanies();
   if (existingCompanies.length > 0) return;

@@ -3672,6 +3672,36 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // GET /api/advances/:id — تسبيقة واحدة
+  app.get("/api/advances/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const advance = await storage.getAdvance(req.params.id);
+      if (!advance) return res.status(404).json({ message: "التسبيقة غير موجودة" });
+      return res.json(advance);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // PATCH /api/advances/:id — تعديل تسبيقة
+  app.patch("/api/advances/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { amount, advanceDate, notes } = req.body;
+      const data: Record<string, any> = {};
+      if (amount !== undefined) data.amount = String(amount);
+      if (advanceDate !== undefined) {
+        const d = new Date(advanceDate);
+        data.advanceDate = advanceDate;
+        data.month = d.getMonth() + 1;
+        data.year = d.getFullYear();
+      }
+      if (notes !== undefined) data.notes = notes;
+      const advance = await storage.updateAdvance(req.params.id, data);
+      if (!advance) return res.status(404).json({ message: "التسبيقة غير موجودة" });
+      return res.json(advance);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // DELETE /api/advances/:id — حذف تسبيقة
   app.delete("/api/advances/:id", async (req, res) => {
     if (!requireCaisseOrOwner(req, res)) return;

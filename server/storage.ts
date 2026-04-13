@@ -112,7 +112,9 @@ export interface IStorage {
   deleteEmployeeDebt(id: string): Promise<void>;
 
   getAdvances(employeeId?: string, month?: number, year?: number): Promise<Advance[]>;
+  getAdvance(id: string): Promise<Advance | undefined>;
   createAdvance(data: InsertAdvance): Promise<Advance>;
+  updateAdvance(id: string, data: Partial<InsertAdvance>): Promise<Advance | undefined>;
   deleteAdvance(id: string): Promise<void>;
 
   initPayrollTables(): Promise<void>;
@@ -230,7 +232,9 @@ class LazyStorage implements IStorage {
   deleteEmployeeDebt(id: string) { return this.impl().then(s => s.deleteEmployeeDebt(id)); }
 
   getAdvances(employeeId?: string, month?: number, year?: number) { return this.impl().then(s => s.getAdvances(employeeId, month, year)); }
+  getAdvance(id: string) { return this.impl().then(s => s.getAdvance(id)); }
   createAdvance(d: InsertAdvance) { return this.impl().then(s => s.createAdvance(d)); }
+  updateAdvance(id: string, data: Partial<InsertAdvance>) { return this.impl().then(s => s.updateAdvance(id, data)); }
   deleteAdvance(id: string) { return this.impl().then(s => s.deleteAdvance(id)); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
