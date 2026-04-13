@@ -1068,6 +1068,9 @@ export async function registerRoutes(
       // ===== حذف بصمة وسطى من rawPunches =====
       if (removePunchIndex !== undefined) {
         const punchIdx = Number(removePunchIndex);
+        if (!Number.isInteger(punchIdx) || isNaN(punchIdx)) {
+          return res.status(400).json({ message: "index البصمة غير صالح" });
+        }
         let rawArr: string[] = [];
         try {
           const rp = (existingRecords as any).rawPunches;
@@ -1125,8 +1128,8 @@ export async function registerRoutes(
           workshopName: wsListP.find(w => w.id === empPunch?.workshopId)?.name ?? "—",
           workRuleName: workRule?.name ?? "—",
           recordDate: existingRecords.date,
-          oldValues: { checkIn: existingRecords.checkIn, checkOut: existingRecords.checkOut },
-          newValues: { checkIn: newCheckIn, checkOut: newCheckOut, removedPunch: rawArr[punchIdx] },
+          oldValues: { checkIn: existingRecords.checkIn, checkOut: existingRecords.checkOut, status: existingRecords.status },
+          newValues: { checkIn: newCheckIn, checkOut: newCheckOut, status: existingRecords.status, notes: `حُذفت البصمة الوسيطة: ${rawArr[punchIdx]}` },
         });
 
         notifyAttendanceUpdate();
