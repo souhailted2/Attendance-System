@@ -235,13 +235,19 @@ export default function Reports() {
 
   const activeEmployees = employees.filter((e) => e.isActive !== false);
 
-  const reportKey = selectedRule
-    ? `/api/reports/range?from=${dateFrom}&to=${dateTo}&workRuleId=${selectedRule.id}${selectedWorkshop ? `&workshopId=${selectedWorkshop.id}` : ""}`
-    : null;
+  const isValidDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+  const datesValid =
+    isValidDate(dateFrom) && isValidDate(dateTo) && dateFrom <= dateTo;
 
-  const { data: reportData = [], isLoading: reportLoading } = useQuery<EmployeeReport[]>({
+  const reportKey =
+    selectedRule && datesValid
+      ? `/api/reports/range?from=${dateFrom}&to=${dateTo}&workRuleId=${selectedRule.id}${selectedWorkshop ? `&workshopId=${selectedWorkshop.id}` : ""}`
+      : null;
+
+  const { data: reportData = [], isLoading: reportLoading, isError: reportIsError } = useQuery<EmployeeReport[]>({
     queryKey: reportKey ? ["/api/reports/range", dateFrom, dateTo, selectedRule?.id, selectedWorkshop?.id] : ["noop"],
     enabled: !!reportKey && !!selectedRule,
+    retry: false,
     queryFn: async () => {
       if (!reportKey) return [];
       const res = await fetch(reportKey);
@@ -1590,8 +1596,22 @@ export default function Reports() {
             </div>
           )}
 
-          {reportLoading ? (
+          {!datesValid ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
+                <p>الرجاء إدخال تواريخ صحيحة لعرض التقرير</p>
+              </CardContent>
+            </Card>
+          ) : reportLoading ? (
             <Skeleton className="h-64 w-full" />
+          ) : reportIsError ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
+                <p>حدث خطأ أثناء تحميل التقرير — تحقق من التواريخ وأعد المحاولة</p>
+              </CardContent>
+            </Card>
           ) : reportData.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
