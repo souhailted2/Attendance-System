@@ -304,6 +304,7 @@ export default function Reports() {
       apiRequest("POST", `/api/attendance-score-override`, { employeeId, month: selectedMonth, score }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance-score-override"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/monthly"] });
       toast({ title: "تم حفظ الإجمالي المعدَّل" });
       setEditingScoreEmpId(null);
     },
@@ -315,6 +316,7 @@ export default function Reports() {
       apiRequest("DELETE", `/api/attendance-score-override`, { employeeId, month: selectedMonth }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance-score-override"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/monthly"] });
       toast({ title: "تم إلغاء التعديل" });
     },
     onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
