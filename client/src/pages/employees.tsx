@@ -56,6 +56,7 @@ export default function Employees() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
   const [name, setName] = useState("");
+  const [frenchName, setFrenchName] = useState("");
   const [employeeCode, setEmployeeCode] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [positionId, setPositionId] = useState("");
@@ -117,7 +118,7 @@ export default function Employees() {
   });
 
   function resetForm() {
-    setName(""); setEmployeeCode(""); setCardNumber(""); setPositionId(""); setWorkRuleId("");
+    setName(""); setFrenchName(""); setEmployeeCode(""); setCardNumber(""); setPositionId(""); setWorkRuleId("");
     setCompanyId(""); setWorkshopId(""); setPhone("");
     setShift("morning"); setContractEndDate(""); setIsActive(true); setHourlyRate("0");
     setEditingEmployee(null);
@@ -126,6 +127,7 @@ export default function Employees() {
   function openEdit(emp: Employee) {
     setEditingEmployee(emp);
     setName(emp.name);
+    setFrenchName((emp as any).frenchName || "");
     setEmployeeCode(emp.employeeCode);
     setCardNumber(emp.cardNumber || "");
     setPositionId(emp.positionId || "");
@@ -143,7 +145,7 @@ export default function Employees() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const data = {
-      name, employeeCode,
+      name, frenchName: frenchName || null, employeeCode,
       cardNumber: cardNumber || null,
       positionId: positionId || null,
       workRuleId: workRuleId || null,
@@ -164,7 +166,7 @@ export default function Employees() {
 
   const filtered = (employees || [])
     .filter((e) => {
-      const matchSearch = e.name.includes(search) || e.employeeCode.includes(search) || (e.cardNumber || "").includes(search);
+      const matchSearch = e.name.includes(search) || e.employeeCode.includes(search) || (e.cardNumber || "").includes(search) || ((e as any).frenchName || "").toLowerCase().includes(search.toLowerCase());
       const matchWorkshop = filterWorkshop === "all" || e.workshopId === filterWorkshop;
       const matchCompany = filterCompany === "all" || e.companyId === filterCompany;
       const matchActive = filterActive === "all" || (filterActive === "active" ? e.isActive : !e.isActive);
@@ -204,14 +206,18 @@ export default function Employees() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>الاسم *</Label>
+                    <Label>الاسم بالعربية *</Label>
                     <Input value={name} onChange={(e) => setName(e.target.value)} required data-testid="input-employee-name" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>الاسم بالفرنسية</Label>
+                    <Input value={frenchName} onChange={(e) => setFrenchName(e.target.value)} placeholder="Nom en français" dir="ltr" data-testid="input-french-name" />
                   </div>
                   <div className="space-y-2">
                     <Label>رقم الموظف *</Label>
                     <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required data-testid="input-employee-code" />
                   </div>
-                  <div className="space-y-2 md:col-span-2">
+                  <div className="space-y-2">
                     <Label>رقم البطاقة</Label>
                     <Input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} placeholder="رقم البطاقة من جهاز البصمة (اختياري)" data-testid="input-card-number" />
                   </div>
@@ -387,6 +393,9 @@ export default function Employees() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm" data-testid={`text-name-${emp.id}`}>{emp.name}</p>
+                          {(emp as any).frenchName && (
+                            <span className="text-xs text-muted-foreground" dir="ltr" data-testid={`text-french-name-${emp.id}`}>{(emp as any).frenchName}</span>
+                          )}
                           {emp.isActive
                             ? <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" data-testid={`badge-status-${emp.id}`}>نشط</Badge>
                             : <Badge variant="secondary" className="text-xs text-muted-foreground" data-testid={`badge-status-${emp.id}`}>غير نشط</Badge>

@@ -189,6 +189,7 @@ export class MysqlStorage implements IStorage {
     await mysqlDb.insert(schema.employees).values({
       id,
       name: data.name,
+      frenchName: data.frenchName ?? null,
       employeeCode: data.employeeCode,
       cardNumber: data.cardNumber ?? null,
       positionId: data.positionId ?? null,

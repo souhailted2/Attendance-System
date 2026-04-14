@@ -48,6 +48,7 @@ export const workRules = mysqlTable("work_rules", {
 export const employees = mysqlTable("employees", {
   id: varchar("id", { length: 36 }).primaryKey(),
   name: text("name").notNull(),
+  frenchName: text("french_name"),
   employeeCode: varchar("employee_code", { length: 100 }).notNull(),
   cardNumber: varchar("card_number", { length: 100 }),
   positionId: varchar("position_id", { length: 36 }),
@@ -194,7 +195,7 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
   latePenaltyPerMinute: true, earlyLeavePenaltyPerMinute: true, absencePenalty: true, isDefault: true, is24hShift: true,
 });
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
-  name: true, employeeCode: true, cardNumber: true, positionId: true, workRuleId: true,
+  name: true, frenchName: true, employeeCode: true, cardNumber: true, positionId: true, workRuleId: true,
   companyId: true, workshopId: true, phone: true, shift: true,
   contractEndDate: true, nonRenewalDate: true, isActive: true, hourlyRate: true,
 });

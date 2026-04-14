@@ -47,6 +47,7 @@ export const workRules = pgTable("work_rules", {
 export const employees = pgTable("employees", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  frenchName: text("french_name"),
   employeeCode: text("employee_code").notNull().unique(),
   cardNumber: text("card_number"),
   positionId: varchar("position_id"),
@@ -235,6 +236,7 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
 
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
   name: true,
+  frenchName: true,
   employeeCode: true,
   cardNumber: true,
   positionId: true,
