@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, FileSpreadsheet, TrendingDown, Search, ChevronRight, ChevronLeft, Save } from "lucide-react";
+import { Loader2, FileSpreadsheet, TrendingDown, Search, ChevronRight, ChevronLeft, Save, Pause, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -24,10 +24,12 @@ type PayrollRow = {
   overtimePay: number;
   grantAmount: number;
   debtDeduction: number;
+  debtSkipped: boolean;
   advanceDeduction: number;
   netSalary: number;
   amountPaid: number;
   remainingBalance: number;
+  debts?: any[];
 };
 
 type PayrollData = { year: number; month: number; rows: PayrollRow[] };
@@ -61,6 +63,33 @@ export default function Payroll() {
       queryClient.invalidateQueries({ queryKey: ["/api/payroll/monthly"] });
     },
   });
+
+  const [skippingIds, setSkippingIds] = useState<Set<string>>(new Set());
+
+  const skipDebtMutation = useMutation({
+    mutationFn: ({ employeeId, month, skip }: { employeeId: string; month: string; skip: boolean }) =>
+      apiRequest(skip ? "POST" : "DELETE", "/api/debt-skips", { employeeId, month }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/payroll/monthly"] });
+    },
+  });
+
+  async function handleToggleDebtSkip(row: PayrollRow) {
+    setSkippingIds(s => { const n = new Set(Array.from(s)); n.add(row.employeeId); return n; });
+    try {
+      await skipDebtMutation.mutateAsync({ employeeId: row.employeeId, month: monthStr, skip: !row.debtSkipped });
+      toast({
+        title: row.debtSkipped ? "تم إلغاء التعليق" : "تم التعليق",
+        description: row.debtSkipped
+          ? `سيُخصم قسط الدين من راتب ${row.employeeName} الشهر القادم`
+          : `تم تعليق خصم الدين لـ ${row.employeeName} هذا الشهر`,
+      });
+    } catch {
+      toast({ title: "خطأ", description: "فشل تغيير حالة التعليق", variant: "destructive" });
+    } finally {
+      setSkippingIds(s => { const n = new Set(Array.from(s)); n.delete(row.employeeId); return n; });
+    }
+  }
 
   const years = Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - 2 + i));
 
@@ -300,9 +329,51 @@ export default function Payroll() {
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
-                                {row.debtDeduction > 0
-                                  ? <span className="text-amber-600 dark:text-amber-400">- {row.debtDeduction.toLocaleString("ar-DZ")} دج</span>
-                                  : <span className="text-muted-foreground">—</span>}
+                                {(() => {
+                                  const hasActiveDebts = (row.debts?.length ?? 0) > 0;
+                                  const isSkipping = skippingIds.has(row.employeeId);
+                                  if (!hasActiveDebts) {
+                                    return <span className="text-muted-foreground">—</span>;
+                                  }
+                                  if (row.debtSkipped) {
+                                    return (
+                                      <div className="flex items-center gap-1">
+                                        <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                                          معلَّق
+                                        </span>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-5 w-5 p-0 text-green-600 hover:text-green-700"
+                                          onClick={() => handleToggleDebtSkip(row)}
+                                          disabled={isSkipping}
+                                          data-testid={`button-resume-debt-${row.employeeId}`}
+                                          title="إلغاء التعليق"
+                                        >
+                                          {isSkipping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                                        </Button>
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-amber-600 dark:text-amber-400">
+                                        - {row.debtDeduction.toLocaleString("ar-DZ")} دج
+                                      </span>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-5 w-5 p-0 text-muted-foreground hover:text-amber-600"
+                                        onClick={() => handleToggleDebtSkip(row)}
+                                        disabled={isSkipping}
+                                        data-testid={`button-skip-debt-${row.employeeId}`}
+                                        title="تعليق الخصم"
+                                      >
+                                        {isSkipping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
+                                      </Button>
+                                    </div>
+                                  );
+                                })()}
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
                                 {row.advanceDeduction > 0

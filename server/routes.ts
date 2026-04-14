@@ -4075,6 +4075,39 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // GET /api/debt-skips?month=YYYY-MM — قائمة employee_id المعلَّقة
+  app.get("/api/debt-skips", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const month = req.query.month as string;
+      if (!month) return res.status(400).json({ message: "month مطلوب" });
+      const skips = await storage.getDebtSkips(month);
+      return res.json(skips);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/debt-skips — تعليق خصم الدين
+  app.post("/api/debt-skips", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { employeeId, month } = req.body;
+      if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });
+      await storage.addDebtSkip(employeeId, month);
+      return res.json({ ok: true });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/debt-skips — إلغاء تعليق خصم الدين
+  app.delete("/api/debt-skips", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { employeeId, month } = req.body;
+      if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });
+      await storage.removeDebtSkip(employeeId, month);
+      return res.json({ ok: true });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // ---- دالة مشتركة لحساب صفوف الرواتب (تُستخدم من /monthly و /export) ----
   async function computePayrollRows(year: number, month: number) {
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -4087,7 +4120,7 @@ export async function registerRoutes(
       const prevYear = month === 1 ? year - 1 : year;
       const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
 
-      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments] =
+      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments, debtSkipsList] =
         await Promise.all([
           storage.getEmployees(),
           storage.getAdvances(undefined, month, year),
@@ -4100,7 +4133,9 @@ export async function registerRoutes(
           storage.getGrants(),
           storage.getSalaryPayments(currentMonthStr),
           storage.getSalaryPayments(prevMonthStr),
+          storage.getDebtSkips(currentMonthStr),
         ]);
+      const debtSkipsSet = new Set<string>(debtSkipsList);
 
       const activeEmployees = employees.filter(e => e.isActive);
       const workRulesMap = new Map(workRules.map(r => [r.id, r]));
@@ -4462,8 +4497,9 @@ export async function registerRoutes(
 
         // ---- الديون والتسبيقات ----
         const empDebts = allDebts.filter(d => d.employeeId === emp.id && d.isActive);
-        // نحدد قسط الخصم الشهري بحيث لا يتجاوز الرصيد المتبقي
-        const debtDeduction = empDebts.reduce((sum, d) => {
+        const isDebtSkipped = debtSkipsSet.has(emp.id);
+        // نحدد قسط الخصم الشهري بحيث لا يتجاوز الرصيد المتبقي (صفر إذا كان الخصم معلَّقاً)
+        const debtDeduction = isDebtSkipped ? 0 : empDebts.reduce((sum, d) => {
           const monthly = parseFloat(d.monthlyDeduction ?? "0") || 0;
           const remaining = parseFloat(d.remainingAmount ?? "0") || 0;
           return sum + Math.min(monthly, remaining);
@@ -4490,6 +4526,7 @@ export async function registerRoutes(
           overtimePay,
           grantAmount,
           debtDeduction: Math.round(debtDeduction * 100) / 100,
+          debtSkipped: isDebtSkipped,
           advanceDeduction: Math.round(advanceDeduction * 100) / 100,
           netSalary,
           amountPaid,
@@ -4700,6 +4737,11 @@ export async function registerRoutes(
 
       // تحديث رصيد الديون وإغلاقها تلقائياً عند اكتمال السداد (مع ضمان عدم التكرار)
       try {
+        // إذا كان الموظف معلَّق الخصم، لا تُحدَّث أرصدة ديونه
+        const skipList = await storage.getDebtSkips(month);
+        if (skipList.includes(employeeId)) {
+          return res.json(result);
+        }
         const empDebts = await storage.getEmployeeDebts(employeeId);
         const activeDebts = empDebts.filter(d => d.isActive);
         for (const debt of activeDebts) {

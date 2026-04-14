@@ -121,6 +121,10 @@ export interface IStorage {
   getSalaryPayments(month: string): Promise<SalaryPayment[]>;
   upsertSalaryPayment(employeeId: string, month: string, amountPaid: string, remainingBalance?: string): Promise<SalaryPayment>;
 
+  getDebtSkips(month: string): Promise<string[]>;
+  addDebtSkip(employeeId: string, month: string): Promise<void>;
+  removeDebtSkip(employeeId: string, month: string): Promise<void>;
+
   initPayrollTables(): Promise<void>;
 }
 
@@ -243,6 +247,10 @@ class LazyStorage implements IStorage {
 
   getSalaryPayments(month: string) { return this.impl().then(s => s.getSalaryPayments(month)); }
   upsertSalaryPayment(empId: string, month: string, amount: string, remaining?: string) { return this.impl().then(s => s.upsertSalaryPayment(empId, month, amount, remaining)); }
+
+  getDebtSkips(month: string) { return this.impl().then(s => s.getDebtSkips(month)); }
+  addDebtSkip(employeeId: string, month: string) { return this.impl().then(s => s.addDebtSkip(employeeId, month)); }
+  removeDebtSkip(employeeId: string, month: string) { return this.impl().then(s => s.removeDebtSkip(employeeId, month)); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
 }

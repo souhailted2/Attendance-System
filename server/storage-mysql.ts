@@ -639,6 +639,30 @@ export class MysqlStorage implements IStorage {
     await mysqlDb.delete(schema.workScheduleOverrides).where(eq(schema.workScheduleOverrides.id, id));
   }
 
+  async getDebtSkips(month: string): Promise<string[]> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    const [rows] = await rawPool.query(
+      `SELECT employee_id FROM debt_skips WHERE month = ?`, [month]
+    ) as [any[], any];
+    return rows.map((r: any) => r.employee_id);
+  }
+
+  async addDebtSkip(employeeId: string, month: string): Promise<void> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    await rawPool.query(
+      `INSERT IGNORE INTO debt_skips (id, employee_id, month, created_at) VALUES (UUID(), ?, ?, ?)`,
+      [employeeId, month, new Date().toISOString()]
+    );
+  }
+
+  async removeDebtSkip(employeeId: string, month: string): Promise<void> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    await rawPool.query(
+      `DELETE FROM debt_skips WHERE employee_id = ? AND month = ?`,
+      [employeeId, month]
+    );
+  }
+
   async initPayrollTables(): Promise<void> {
     const rawPool = pool as import("mysql2/promise").Pool;
     // MySQL < 8.0 doesn't support ADD COLUMN IF NOT EXISTS; use information_schema check instead
@@ -698,6 +722,13 @@ export class MysqlStorage implements IStorage {
       remaining_balance DECIMAL(12,2) NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       UNIQUE KEY salary_payments_emp_month_idx (employee_id, month)
+    )`);
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS debt_skips (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      month VARCHAR(7) NOT NULL,
+      created_at VARCHAR(50) NOT NULL,
+      UNIQUE KEY debt_skips_emp_month_idx (employee_id, month)
     )`);
     // إضافة عمود remaining_balance إن لم يكن موجوداً (للجداول القديمة)
     const [spCols] = await rawPool.query(

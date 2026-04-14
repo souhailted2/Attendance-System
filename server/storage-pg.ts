@@ -477,4 +477,7 @@ export class PgStorage implements IStorage {
   async deleteAdvance(_id: string): Promise<void> { /* no-op */ }
   async getSalaryPayments(_month: string): Promise<SalaryPayment[]> { return []; }
   async upsertSalaryPayment(_employeeId: string, _month: string, _amountPaid: string, _remainingBalance?: string): Promise<SalaryPayment> { throw new Error("Not implemented for Postgres"); }
+  async getDebtSkips(_month: string): Promise<string[]> { return []; }
+  async addDebtSkip(_employeeId: string, _month: string): Promise<void> { /* no-op: MySQL only */ }
+  async removeDebtSkip(_employeeId: string, _month: string): Promise<void> { /* no-op: MySQL only */ }
 }
