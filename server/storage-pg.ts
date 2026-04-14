@@ -23,6 +23,7 @@ import type {
   InsertWorkScheduleOverride, WorkScheduleOverride,
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
+  SalaryPayment,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -474,4 +475,6 @@ export class PgStorage implements IStorage {
   async createAdvance(_data: InsertAdvance): Promise<Advance> { throw new Error("Not implemented for Postgres"); }
   async updateAdvance(_id: string, _data: Partial<InsertAdvance>): Promise<Advance | undefined> { return undefined; }
   async deleteAdvance(_id: string): Promise<void> { /* no-op */ }
+  async getSalaryPayments(_month: string): Promise<SalaryPayment[]> { return []; }
+  async upsertSalaryPayment(_employeeId: string, _month: string, _amountPaid: string, _remainingBalance?: string): Promise<SalaryPayment> { throw new Error("Not implemented for Postgres"); }
 }

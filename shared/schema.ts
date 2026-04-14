@@ -393,3 +393,12 @@ export type Advance = {
   notes: string | null;
   createdAt: string;
 };
+
+export type SalaryPayment = {
+  id: string;
+  employeeId: string;
+  month: string;
+  amountPaid: string;
+  remainingBalance: string;
+  createdAt: string;
+};
