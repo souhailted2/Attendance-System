@@ -4546,7 +4546,7 @@ export async function registerRoutes(
       workbook.creator = "Attendance System";
       const ws = workbook.addWorksheet(sheetTitle, { views: [{ rightToLeft: true }] });
 
-      const NCOLS = 14;
+      const NCOLS = 13;
       const moneyFmt = "#,##0.00";
       const scoreFmt = "0.00";
 
@@ -4572,8 +4572,11 @@ export async function registerRoutes(
       titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } };
       ws.getRow(1).height = 36;
 
-      // Header row
-      const headers = ["الاسم","رمز الموظف","الورشة","الراتب الأساسي","نقطة الحضور","خصم الغياب","ساعات إضافية","أجر إضافي","المنحة","خصم الدين","خصم التسبيقة","صافي الراتب","المبلغ المدفوع","الباقي"];
+      // Header row — 13 columns
+      // ci: 0=الاسم 1=رقم الموظف 2=الورشة 3=الراتب الأساسي 4=نقطة الحضور
+      //     5=خصم الحضور 6=الساعات الإضافية 7=المنحة 8=خصم الدين
+      //     9=خصم التسبيقة 10=صافي الراتب 11=المبلغ المدفوع 12=باقي الصرف
+      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","خصم الحضور","الساعات الإضافية","المنحة","خصم الدين","خصم التسبيقة","صافي الراتب","المبلغ المدفوع","باقي الصرف"];
       headers.forEach((h, i) => trackWidth(i, h));
       const hRow = ws.getRow(2);
       headers.forEach((h, i) => {
@@ -4591,8 +4594,8 @@ export async function registerRoutes(
       let totalBase = 0, totalDeduction = 0, totalOtPay = 0, totalGrant = 0;
       let totalDebt = 0, totalAdvance = 0, totalNet = 0, totalPaid = 0, totalRemaining = 0;
 
-      // Column number formats (index 0-13): score col uses 0.00, monetary cols use #,##0.00
-      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
+      // Column number formats (13 cols): score uses 0.00, monetary cols use #,##0.00
+      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
 
       sortedRows.forEach((row: PayrollRow, idx: number) => {
         const r = ws.getRow(idx + 3);
@@ -4604,15 +4607,14 @@ export async function registerRoutes(
           workshopMap.get(row.workshopId ?? "") ?? "",
           row.baseSalary,
           row.attendanceScore,
-          row.attendanceDeduction,
-          row.overtimeHours,
-          row.overtimePay,
-          row.grantAmount,
-          row.debtDeduction,
-          row.advanceDeduction,
-          row.netSalary,
-          row.amountPaid,
-          row.remainingBalance,
+          row.attendanceDeduction,    // ci=5 خصم الحضور → red
+          row.overtimePay,             // ci=6 الساعات الإضافية → blue
+          row.grantAmount,             // ci=7 المنحة → blue
+          row.debtDeduction,           // ci=8 خصم الدين → red
+          row.advanceDeduction,        // ci=9 خصم التسبيقة → red
+          row.netSalary,               // ci=10 صافي الراتب → green bg
+          row.amountPaid,              // ci=11 المبلغ المدفوع → yellow bg
+          row.remainingBalance,        // ci=12 باقي الصرف → orange bg
         ];
 
         cells.forEach((val, ci) => {
@@ -4624,21 +4626,21 @@ export async function registerRoutes(
           const fmt = colFmt[ci];
           if (fmt) cell.numFmt = fmt;
           // Special column background colors
-          if (ci === 11) {
+          if (ci === 10) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
-          } else if (ci === 12) {
+          } else if (ci === 11) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
-          } else if (ci === 13) {
+          } else if (ci === 12) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE5CC" } };
           } else {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
           }
-          // Deduction columns (خصم الغياب، خصم الدين، خصم التسبيقة) — red text
-          if (ci === 5 || ci === 9 || ci === 10) {
+          // Deduction columns (خصم الحضور، خصم الدين، خصم التسبيقة) — red text
+          if (ci === 5 || ci === 8 || ci === 9) {
             cell.font = { color: { argb: "FFCC0000" } };
           }
-          // Addition columns (أجر إضافي، المنحة) — blue text
-          if (ci === 7 || ci === 8) {
+          // Addition columns (الساعات الإضافية، المنحة) — blue text
+          if (ci === 6 || ci === 7) {
             cell.font = { color: { argb: "FF0055CC" } };
           }
         });
@@ -4659,7 +4661,7 @@ export async function registerRoutes(
       const tRowIdx = sortedRows.length + 3;
       const tRow = ws.getRow(tRowIdx);
       tRow.height = 28;
-      const totals: (string | number)[] = ["الإجمالي", "", "", totalBase, 0, totalDeduction, 0, totalOtPay, totalGrant, totalDebt, totalAdvance, totalNet, totalPaid, totalRemaining];
+      const totals: (string | number)[] = ["الإجمالي", "", "", totalBase, 0, totalDeduction, totalOtPay, totalGrant, totalDebt, totalAdvance, totalNet, totalPaid, totalRemaining];
       totals.forEach((val, ci) => {
         trackWidth(ci, val);
         const cell = tRow.getCell(ci + 1);

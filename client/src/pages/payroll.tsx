@@ -128,7 +128,7 @@ export default function Payroll() {
     const url = `/api/payroll/export?year=${year}&month=${month}`;
     const a = document.createElement("a");
     a.href = url;
-    a.download = `payroll-${year}-${String(month).padStart(2, "0")}.xlsx`;
+    a.download = `رواتب_${year}-${String(month).padStart(2, "0")}.xlsx`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
