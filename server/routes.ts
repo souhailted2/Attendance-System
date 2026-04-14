@@ -4462,12 +4462,12 @@ export async function registerRoutes(
         const activeDebts = empDebts.filter(d => d.isActive);
         for (const debt of activeDebts) {
           // idempotency: لا تخصم نفس الشهر مرتين
-          if ((debt as any).lastDeductedMonth === month) continue;
+          if (debt.lastDeductedMonth === month) continue;
           const monthly = parseFloat(debt.monthlyDeduction ?? "0") || 0;
           const remaining = parseFloat(debt.remainingAmount ?? "0") || 0;
           if (remaining <= 0) {
             // الدين منتهٍ بالفعل، أغلقه
-            await storage.updateEmployeeDebt(debt.id, { isActive: false, remainingAmount: "0" } as any);
+            await storage.updateEmployeeDebt(debt.id, { isActive: false, remainingAmount: "0" });
             continue;
           }
           const deduction = Math.min(monthly, remaining);
@@ -4476,7 +4476,7 @@ export async function registerRoutes(
             remainingAmount: String(newRemaining),
             isActive: newRemaining > 0,
             lastDeductedMonth: month,
-          } as any);
+          });
         }
       } catch (debtErr: any) {
         console.error("[debt-update]", debtErr.message);

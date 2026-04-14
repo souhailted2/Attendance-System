@@ -333,7 +333,7 @@ export type InsertSalaryPayment = z.infer<typeof insertSalaryPaymentSchema>;
 export type SalaryPayment = typeof salaryPayments.$inferSelect;
 
 export const insertEmployeeDebtSchema = createInsertSchema(employeeDebts).pick({
-  employeeId: true, description: true, totalAmount: true, monthlyDeduction: true, remainingAmount: true, isActive: true, createdAt: true,
+  employeeId: true, description: true, totalAmount: true, monthlyDeduction: true, remainingAmount: true, isActive: true, lastDeductedMonth: true, createdAt: true,
 });
 export type InsertEmployeeDebt = z.infer<typeof insertEmployeeDebtSchema>;
 export type EmployeeDebt = typeof employeeDebts.$inferSelect;

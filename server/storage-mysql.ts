@@ -731,6 +731,7 @@ export class MysqlStorage implements IStorage {
       monthlyDeduction: data.monthlyDeduction,
       remainingAmount: data.remainingAmount,
       isActive: data.isActive !== false,
+      lastDeductedMonth: data.lastDeductedMonth ?? null,
       createdAt: data.createdAt,
     });
     const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
@@ -744,7 +745,7 @@ export class MysqlStorage implements IStorage {
     if (data.monthlyDeduction !== undefined) updateObj.monthlyDeduction = data.monthlyDeduction;
     if (data.remainingAmount !== undefined) updateObj.remainingAmount = data.remainingAmount;
     if (data.isActive !== undefined) updateObj.isActive = data.isActive;
-    if ((data as any).lastDeductedMonth !== undefined) updateObj.lastDeductedMonth = (data as any).lastDeductedMonth;
+    if (data.lastDeductedMonth !== undefined) updateObj.lastDeductedMonth = data.lastDeductedMonth;
     await mysqlDb.update(schema.employeeDebts).set(updateObj).where(eq(schema.employeeDebts.id, id));
     const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
     return row as EmployeeDebt | undefined;

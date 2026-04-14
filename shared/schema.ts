@@ -359,6 +359,7 @@ export const insertEmployeeDebtSchema = z.object({
   monthlyDeduction: z.string(),
   remainingAmount: z.string(),
   isActive: z.boolean().optional(),
+  lastDeductedMonth: z.string().optional(),
   createdAt: z.string(),
 });
 export type InsertEmployeeDebt = z.infer<typeof insertEmployeeDebtSchema>;
@@ -370,6 +371,7 @@ export type EmployeeDebt = {
   monthlyDeduction: string;
   remainingAmount: string;
   isActive: boolean;
+  lastDeductedMonth: string | null;
   createdAt: string;
 };
 
