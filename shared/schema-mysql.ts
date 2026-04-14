@@ -74,6 +74,7 @@ export const employeeDebts = mysqlTable("employee_debts", {
   monthlyDeduction: decimal("monthly_deduction", { precision: 12, scale: 2 }).notNull().default("0"),
   remainingAmount: decimal("remaining_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),
+  lastDeductedMonth: varchar("last_deducted_month", { length: 7 }),
   createdAt: text("created_at").notNull(),
 });
 

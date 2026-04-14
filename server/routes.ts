@@ -4404,7 +4404,12 @@ export async function registerRoutes(
 
         // ---- الديون والتسبيقات ----
         const empDebts = allDebts.filter(d => d.employeeId === emp.id && d.isActive);
-        const debtDeduction = empDebts.reduce((sum, d) => sum + (parseFloat(d.monthlyDeduction ?? "0") || 0), 0);
+        // نحدد قسط الخصم الشهري بحيث لا يتجاوز الرصيد المتبقي
+        const debtDeduction = empDebts.reduce((sum, d) => {
+          const monthly = parseFloat(d.monthlyDeduction ?? "0") || 0;
+          const remaining = parseFloat(d.remainingAmount ?? "0") || 0;
+          return sum + Math.min(monthly, remaining);
+        }, 0);
         const empAdvances = advances.filter(a => a.employeeId === emp.id);
         const advanceDeduction = empAdvances.reduce((sum, a) => sum + (parseFloat(a.amount ?? "0") || 0), 0);
 
@@ -4450,6 +4455,34 @@ export async function registerRoutes(
       const result = await storage.upsertSalaryPayment(
         employeeId, month, String(amountPaid), String(remainingBalance ?? 0)
       );
+
+      // تحديث رصيد الديون وإغلاقها تلقائياً عند اكتمال السداد (مع ضمان عدم التكرار)
+      try {
+        const empDebts = await storage.getEmployeeDebts(employeeId);
+        const activeDebts = empDebts.filter(d => d.isActive);
+        for (const debt of activeDebts) {
+          // idempotency: لا تخصم نفس الشهر مرتين
+          if ((debt as any).lastDeductedMonth === month) continue;
+          const monthly = parseFloat(debt.monthlyDeduction ?? "0") || 0;
+          const remaining = parseFloat(debt.remainingAmount ?? "0") || 0;
+          if (remaining <= 0) {
+            // الدين منتهٍ بالفعل، أغلقه
+            await storage.updateEmployeeDebt(debt.id, { isActive: false, remainingAmount: "0" } as any);
+            continue;
+          }
+          const deduction = Math.min(monthly, remaining);
+          const newRemaining = Math.max(0, Math.round((remaining - deduction) * 100) / 100);
+          await storage.updateEmployeeDebt(debt.id, {
+            remainingAmount: String(newRemaining),
+            isActive: newRemaining > 0,
+            lastDeductedMonth: month,
+          } as any);
+        }
+      } catch (debtErr: any) {
+        console.error("[debt-update]", debtErr.message);
+        // لا نوقف الاستجابة بسبب خطأ في تحديث الديون
+      }
+
       return res.json(result);
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });

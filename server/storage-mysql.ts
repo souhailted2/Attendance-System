@@ -677,6 +677,13 @@ export class MysqlStorage implements IStorage {
     if (Array.isArray(debtCols) && debtCols.length > 0) {
       await rawPool.query(`ALTER TABLE employee_debts MODIFY COLUMN total_amount DECIMAL(12,2) NOT NULL DEFAULT 0, MODIFY COLUMN monthly_deduction DECIMAL(12,2) NOT NULL DEFAULT 0, MODIFY COLUMN remaining_amount DECIMAL(12,2) NOT NULL DEFAULT 0`);
     }
+    // إضافة عمود last_deducted_month إن لم يكن موجوداً
+    const [ldmCols] = await rawPool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='employee_debts' AND COLUMN_NAME='last_deducted_month'`
+    ) as [any[], any];
+    if (!Array.isArray(ldmCols) || ldmCols.length === 0) {
+      await rawPool.query(`ALTER TABLE employee_debts ADD COLUMN last_deducted_month VARCHAR(7) NULL DEFAULT NULL`);
+    }
     const [advCols] = await rawPool.query(
       `SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='advances' AND COLUMN_NAME='amount' AND DATA_TYPE != 'decimal'`
     ) as [any[], any];
@@ -737,6 +744,7 @@ export class MysqlStorage implements IStorage {
     if (data.monthlyDeduction !== undefined) updateObj.monthlyDeduction = data.monthlyDeduction;
     if (data.remainingAmount !== undefined) updateObj.remainingAmount = data.remainingAmount;
     if (data.isActive !== undefined) updateObj.isActive = data.isActive;
+    if ((data as any).lastDeductedMonth !== undefined) updateObj.lastDeductedMonth = (data as any).lastDeductedMonth;
     await mysqlDb.update(schema.employeeDebts).set(updateObj).where(eq(schema.employeeDebts.id, id));
     const [row] = await mysqlDb.select().from(schema.employeeDebts).where(eq(schema.employeeDebts.id, id));
     return row as EmployeeDebt | undefined;
