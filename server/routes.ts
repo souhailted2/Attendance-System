@@ -4181,7 +4181,8 @@ export async function registerRoutes(
             if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
             else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / effDayMin);
           } else {
-            // بدون جدول خاص: نستخدم القيم المخزنة (المحسوبة وقت التسجيل بالجدول الصحيح)
+            // بدون جدول خاص: نُعيد حساب الغياب الوسيطي من البصمات الخام إن توفرت (كما تفعل صفحة التقارير)
+            // وإلا نستخدم القيم المخزنة احتياطياً
             const effLate  = Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
             const effEarly = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
             const baseShiftStartMin = payTimeToMin(workRule?.workStartTime ?? "08:00") ?? 480;
