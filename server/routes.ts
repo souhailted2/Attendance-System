@@ -4523,11 +4523,13 @@ export async function registerRoutes(
       if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
 
       const rows = await computePayrollRows(year, month);
-      const workshops = await storage.getWorkshops();
-      const workshopMap = new Map(workshops.map((w: any) => [w.id, w.name]));
+      type PayrollRow = (typeof rows)[number];
+
+      const allWorkshops = await storage.getWorkshops();
+      const workshopMap = new Map(allWorkshops.map(w => [w.id as string, w.name as string]));
 
       // Sort: workshop name ASC → employee name ASC
-      const sortedRows = [...rows].sort((a: any, b: any) => {
+      const sortedRows = [...rows].sort((a: PayrollRow, b: PayrollRow) => {
         const wa = workshopMap.get(a.workshopId ?? "") ?? "";
         const wb = workshopMap.get(b.workshopId ?? "") ?? "";
         const wCmp = wa.localeCompare(wb, "ar");
@@ -4536,7 +4538,7 @@ export async function registerRoutes(
       });
 
       const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-      const sheetTitle = `كشف رواتب ${MONTHS_AR[month - 1]} ${year}`;
+      const sheetTitle = `كشف رواتب — شهر ${MONTHS_AR[month - 1]} سنة ${year}`;
       const monthStr = String(month).padStart(2, "0");
       const filename = `رواتب_${year}-${monthStr}.xlsx`;
 
@@ -4545,13 +4547,18 @@ export async function registerRoutes(
       const ws = workbook.addWorksheet(sheetTitle, { views: [{ rightToLeft: true }] });
 
       const NCOLS = 14;
-      const numFmt = "#,##0.00";
-      const borderThin = { style: "thin" as const };
-      const allBorders = { top: borderThin, bottom: borderThin, left: borderThin, right: borderThin };
+      const moneyFmt = "#,##0.00";
+      const scoreFmt = "0.00";
+
+      // Helper: apply thin borders to a cell (no type cast needed)
+      function setBorder(cell: ExcelJS.Cell) {
+        const s = { style: "thin" as const };
+        cell.border = { top: s, bottom: s, left: s, right: s };
+      }
 
       // Column width tracker (for auto-fit)
       const colWidths: number[] = new Array(NCOLS).fill(6);
-      function trackWidth(ci: number, val: any) {
+      function trackWidth(ci: number, val: string | number | null | undefined) {
         const len = String(val ?? "").length;
         if (len > colWidths[ci]) colWidths[ci] = len;
       }
@@ -4575,7 +4582,7 @@ export async function registerRoutes(
         cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
         cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
-        cell.border = allBorders as any;
+        setBorder(cell);
       });
       hRow.height = 28;
       ws.views = [{ state: "frozen", ySplit: 2, rightToLeft: true }];
@@ -4584,11 +4591,14 @@ export async function registerRoutes(
       let totalBase = 0, totalDeduction = 0, totalOtPay = 0, totalGrant = 0;
       let totalDebt = 0, totalAdvance = 0, totalNet = 0, totalPaid = 0, totalRemaining = 0;
 
-      sortedRows.forEach((row: any, idx: number) => {
+      // Column number formats (index 0-13): score col uses 0.00, monetary cols use #,##0.00
+      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
+
+      sortedRows.forEach((row: PayrollRow, idx: number) => {
         const r = ws.getRow(idx + 3);
         const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
 
-        const cells = [
+        const cells: (string | number)[] = [
           row.employeeName,
           row.employeeCode ?? "",
           workshopMap.get(row.workshopId ?? "") ?? "",
@@ -4609,9 +4619,10 @@ export async function registerRoutes(
           trackWidth(ci, val);
           const cell = r.getCell(ci + 1);
           cell.value = val;
-          cell.border = allBorders as any;
-          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: ci <= 2 ? "right" : "right" };
-          if (ci >= 3) cell.numFmt = numFmt;
+          setBorder(cell);
+          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+          const fmt = colFmt[ci];
+          if (fmt) cell.numFmt = fmt;
           // Special column background colors
           if (ci === 11) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
@@ -4648,16 +4659,17 @@ export async function registerRoutes(
       const tRowIdx = sortedRows.length + 3;
       const tRow = ws.getRow(tRowIdx);
       tRow.height = 28;
-      const totals = ["الإجمالي", "", "", totalBase, "", totalDeduction, "", totalOtPay, totalGrant, totalDebt, totalAdvance, totalNet, totalPaid, totalRemaining];
+      const totals: (string | number)[] = ["الإجمالي", "", "", totalBase, 0, totalDeduction, 0, totalOtPay, totalGrant, totalDebt, totalAdvance, totalNet, totalPaid, totalRemaining];
       totals.forEach((val, ci) => {
         trackWidth(ci, val);
         const cell = tRow.getCell(ci + 1);
         cell.value = val;
         cell.font = { bold: true };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
-        cell.border = allBorders as any;
+        setBorder(cell);
         cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-        if (ci >= 3) cell.numFmt = numFmt;
+        const fmt = colFmt[ci];
+        if (fmt) cell.numFmt = fmt;
       });
 
       // Apply auto-fit column widths (char count + padding, capped at 40)
