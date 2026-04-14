@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Wallet, Search } from "lucide-react";
+import { Loader2, Plus, Trash2, Wallet, Search, User } from "lucide-react";
 
 type Employee = { id: string; name: string; employeeCode: string; isActive: boolean; workshopId?: string };
 type Workshop = { id: string; name: string };
@@ -28,6 +28,7 @@ export default function Advances() {
   const [filterMonth, setFilterMonth] = useState(String(now.getMonth() + 1));
   const [filterYear, setFilterYear] = useState(String(now.getFullYear()));
   const [searchQuery, setSearchQuery] = useState("");
+  const [empSearch, setEmpSearch] = useState("");
 
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
@@ -45,6 +46,7 @@ export default function Advances() {
       toast({ title: "تم تسجيل التسبيقة" });
       setOpen(false);
       setForm({ employeeId: "", amount: "", advanceDate: "", notes: "" });
+      setEmpSearch("");
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
   });
@@ -212,16 +214,59 @@ export default function Advances() {
       )}
 
       {/* Add Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) { setForm({ employeeId: "", amount: "", advanceDate: "", notes: "" }); setEmpSearch(""); } }}>
         <DialogContent dir="rtl" className="max-w-md">
           <DialogHeader><DialogTitle>تسجيل تسبيقة جديدة</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div>
               <Label>الموظف</Label>
-              <Select value={form.employeeId} onValueChange={v => setForm(f => ({ ...f, employeeId: v }))}>
-                <SelectTrigger data-testid="select-advance-employee"><SelectValue placeholder="اختر موظف" /></SelectTrigger>
-                <SelectContent>{active.map(e => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}</SelectContent>
-              </Select>
+              {form.employeeId ? (
+                <div className="flex items-center gap-2 p-2 rounded-md border border-primary bg-primary/5 mt-1">
+                  <User className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-sm font-medium flex-1">
+                    {active.find(e => e.id === form.employeeId)?.name}
+                    {" — "}
+                    {active.find(e => e.id === form.employeeId)?.employeeCode}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-6 px-2 text-xs"
+                    onClick={() => { setForm(f => ({ ...f, employeeId: "" })); setEmpSearch(""); }}>
+                    تغيير
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    placeholder="ابحث بالاسم أو الرقم..."
+                    value={empSearch}
+                    onChange={e => setEmpSearch(e.target.value)}
+                    data-testid="input-advance-employee-search"
+                    className="mt-1"
+                  />
+                  {empSearch.trim() && (
+                    <div className="max-h-48 overflow-y-auto rounded-md border divide-y mt-1">
+                      {active.filter(e =>
+                        e.name.toLowerCase().includes(empSearch.toLowerCase()) ||
+                        e.employeeCode.toLowerCase().includes(empSearch.toLowerCase())
+                      ).slice(0, 30).map(emp => (
+                        <button key={emp.id} type="button"
+                          onClick={() => { setForm(f => ({ ...f, employeeId: emp.id })); setEmpSearch(""); }}
+                          className="w-full flex items-center gap-3 px-3 py-2 hover:bg-accent text-right transition-colors"
+                          data-testid={`button-select-advance-employee-${emp.id}`}>
+                          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-sm">{emp.name}</span>
+                          <span className="text-xs text-muted-foreground">{emp.employeeCode}</span>
+                        </button>
+                      ))}
+                      {active.filter(e =>
+                        e.name.toLowerCase().includes(empSearch.toLowerCase()) ||
+                        e.employeeCode.toLowerCase().includes(empSearch.toLowerCase())
+                      ).length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">لا توجد نتائج</p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             <div>
               <Label>المبلغ (دج)</Label>
