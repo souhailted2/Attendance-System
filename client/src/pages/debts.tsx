@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle, Search, User } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle, Search, User, FileSpreadsheet } from "lucide-react";
 
 type Employee = { id: string; name: string; employeeCode: string; isActive: boolean };
 type Debt = {
@@ -74,6 +74,18 @@ export default function Debts() {
     editMut.mutate({ id: editDebt.id, data: { monthlyDeduction: editDebt.monthlyDeduction, remainingAmount: editDebt.remainingAmount, isActive: editDebt.isActive } });
   }
 
+  async function exportToExcel() {
+    const params = new URLSearchParams();
+    if (searchQuery.trim()) params.set("search", searchQuery.trim());
+    const url = `/api/debts/export${params.toString() ? `?${params}` : ""}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto" dir="rtl">
       <div className="flex items-center justify-between mb-6">
@@ -105,6 +117,15 @@ export default function Debts() {
           />
         </div>
         <Badge variant="secondary">{filtered.length} دين</Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={exportToExcel}
+          className="text-green-700 border-green-400 hover:bg-green-50 hover:text-green-800"
+          data-testid="button-export-excel"
+        >
+          <FileSpreadsheet className="h-4 w-4 ml-1" /> تصدير Excel
+        </Button>
       </div>
 
       {isLoading ? (

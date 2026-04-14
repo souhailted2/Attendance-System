@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { storage } from "./storage";
+import ExcelJS from "exceljs";
 
 // تمديد نوع الجلسة ليشمل معرّف المستخدم واسم المستخدم
 declare module "express-session" {
@@ -3891,6 +3892,84 @@ export async function registerRoutes(
         createdAt: new Date().toISOString(),
       });
       return res.status(201).json(debt);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // GET /api/debts/export — تصدير الديون كملف Excel
+  app.get("/api/debts/export", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const employeeId = req.query.employeeId as string | undefined;
+      const search = (req.query.search as string | undefined)?.toLowerCase().trim();
+      const [allDebts, allEmployees] = await Promise.all([
+        storage.getEmployeeDebts(employeeId),
+        storage.getEmployees(),
+      ]);
+
+      const empMap = new Map(allEmployees.map(e => [e.id, e]));
+
+      const filtered = allDebts.filter(d => {
+        if (!search) return true;
+        const emp = empMap.get(d.employeeId);
+        const name = emp?.name?.toLowerCase() ?? "";
+        const code = emp?.employeeCode?.toLowerCase() ?? "";
+        return name.includes(search) || code.includes(search);
+      });
+
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet("الديون", { views: [{ rightToLeft: true }] });
+
+      sheet.columns = [
+        { key: "empName", width: 28 },
+        { key: "empCode", width: 16 },
+        { key: "description", width: 30 },
+        { key: "totalAmount", width: 22 },
+        { key: "monthlyDeduction", width: 22 },
+        { key: "remainingAmount", width: 22 },
+        { key: "status", width: 14 },
+      ];
+
+      const headerRow = sheet.addRow(["الموظف", "رقم الموظف", "الوصف", "المبلغ الإجمالي (دج)", "القسط الشهري (دج)", "المتبقي (دج)", "الحالة"]);
+      headerRow.eachCell(cell => {
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } };
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+        cell.alignment = { horizontal: "right", vertical: "middle" };
+        cell.border = { bottom: { style: "thin", color: { argb: "FF334E7D" } } };
+      });
+      headerRow.height = 24;
+
+      for (const debt of filtered) {
+        const emp = empMap.get(debt.employeeId);
+        const isActive = debt.isActive;
+        const row = sheet.addRow({
+          empName: emp?.name ?? "—",
+          empCode: emp?.employeeCode ?? "",
+          description: debt.description,
+          totalAmount: parseFloat(debt.totalAmount ?? "0"),
+          monthlyDeduction: parseFloat(debt.monthlyDeduction ?? "0"),
+          remainingAmount: parseFloat(debt.remainingAmount ?? "0"),
+          status: isActive ? "نشط" : "مسدد",
+        });
+
+        const bgColor = isActive ? "FFFFF3CD" : "FFD4EDDA";
+        row.eachCell(cell => {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
+          cell.alignment = { horizontal: "right", vertical: "middle" };
+        });
+
+        [4, 5, 6].forEach(colIndex => {
+          row.getCell(colIndex).numFmt = "#,##0.00";
+        });
+
+        row.height = 20;
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = encodeURIComponent(`ديون_${today}.xlsx`);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${filename}`);
+      await workbook.xlsx.write(res);
+      res.end();
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
