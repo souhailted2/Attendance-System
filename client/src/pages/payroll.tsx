@@ -167,9 +167,9 @@ export default function Payroll() {
           عرض الكشف
         </Button>
         {data && (
-          <Button variant="outline" onClick={exportToExcel} data-testid="button-export-payroll-excel" className="gap-2">
-            <FileSpreadsheet className="h-4 w-4" />
-            تصدير Excel
+          <Button variant="outline" onClick={exportToExcel} data-testid="button-export-payroll-excel" className="gap-2 border-green-600/40 hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950/20">
+            <FileSpreadsheet className="h-4 w-4 text-green-600" />
+            <span className="text-green-700 dark:text-green-500">تصدير Excel</span>
           </Button>
         )}
       </div>

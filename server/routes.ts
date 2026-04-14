@@ -4526,36 +4526,38 @@ export async function registerRoutes(
       const workshops = await storage.getWorkshops();
       const workshopMap = new Map(workshops.map((w: any) => [w.id, w.name]));
 
+      // Sort: workshop name ASC → employee name ASC
+      const sortedRows = [...rows].sort((a: any, b: any) => {
+        const wa = workshopMap.get(a.workshopId ?? "") ?? "";
+        const wb = workshopMap.get(b.workshopId ?? "") ?? "";
+        const wCmp = wa.localeCompare(wb, "ar");
+        if (wCmp !== 0) return wCmp;
+        return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+      });
+
       const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
       const sheetTitle = `كشف رواتب ${MONTHS_AR[month - 1]} ${year}`;
+      const monthStr = String(month).padStart(2, "0");
+      const filename = `رواتب_${year}-${monthStr}.xlsx`;
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "Attendance System";
       const ws = workbook.addWorksheet(sheetTitle, { views: [{ rightToLeft: true }] });
 
-      ws.columns = [
-        { key: "code",      width: 10 },
-        { key: "name",      width: 26 },
-        { key: "workshop",  width: 16 },
-        { key: "base",      width: 14 },
-        { key: "score",     width: 12 },
-        { key: "deduction", width: 14 },
-        { key: "otHours",   width: 12 },
-        { key: "otPay",     width: 14 },
-        { key: "grant",     width: 14 },
-        { key: "debt",      width: 14 },
-        { key: "advance",   width: 14 },
-        { key: "net",       width: 16 },
-        { key: "paid",      width: 14 },
-        { key: "remaining", width: 14 },
-      ];
-
+      const NCOLS = 14;
       const numFmt = "#,##0.00";
       const borderThin = { style: "thin" as const };
       const allBorders = { top: borderThin, bottom: borderThin, left: borderThin, right: borderThin };
 
+      // Column width tracker (for auto-fit)
+      const colWidths: number[] = new Array(NCOLS).fill(6);
+      function trackWidth(ci: number, val: any) {
+        const len = String(val ?? "").length;
+        if (len > colWidths[ci]) colWidths[ci] = len;
+      }
+
       // Title row (merged)
-      ws.mergeCells(1, 1, 1, 14);
+      ws.mergeCells(1, 1, 1, NCOLS);
       const titleCell = ws.getCell("A1");
       titleCell.value = sheetTitle;
       titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
@@ -4564,7 +4566,8 @@ export async function registerRoutes(
       ws.getRow(1).height = 36;
 
       // Header row
-      const headers = ["رمز","الاسم","الورشة","الراتب الأساسي","نقطة الحضور","خصم الغياب","ساعات إضافية","أجر إضافي","المنحة","خصم الدين","خصم التسبيقة","صافي الراتب","المبلغ المدفوع","الباقي"];
+      const headers = ["الاسم","رمز الموظف","الورشة","الراتب الأساسي","نقطة الحضور","خصم الغياب","ساعات إضافية","أجر إضافي","المنحة","خصم الدين","خصم التسبيقة","صافي الراتب","المبلغ المدفوع","الباقي"];
+      headers.forEach((h, i) => trackWidth(i, h));
       const hRow = ws.getRow(2);
       headers.forEach((h, i) => {
         const cell = hRow.getCell(i + 1);
@@ -4581,13 +4584,13 @@ export async function registerRoutes(
       let totalBase = 0, totalDeduction = 0, totalOtPay = 0, totalGrant = 0;
       let totalDebt = 0, totalAdvance = 0, totalNet = 0, totalPaid = 0, totalRemaining = 0;
 
-      rows.forEach((row: any, idx: number) => {
+      sortedRows.forEach((row: any, idx: number) => {
         const r = ws.getRow(idx + 3);
         const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
 
         const cells = [
-          row.employeeCode ?? "",
           row.employeeName,
+          row.employeeCode ?? "",
           workshopMap.get(row.workshopId ?? "") ?? "",
           row.baseSalary,
           row.attendanceScore,
@@ -4603,10 +4606,11 @@ export async function registerRoutes(
         ];
 
         cells.forEach((val, ci) => {
+          trackWidth(ci, val);
           const cell = r.getCell(ci + 1);
           cell.value = val;
           cell.border = allBorders as any;
-          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: ci <= 2 ? "center" : "right" };
+          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: ci <= 2 ? "right" : "right" };
           if (ci >= 3) cell.numFmt = numFmt;
           // Special column background colors
           if (ci === 11) {
@@ -4641,22 +4645,29 @@ export async function registerRoutes(
       });
 
       // Totals row
-      const tRowIdx = rows.length + 3;
+      const tRowIdx = sortedRows.length + 3;
       const tRow = ws.getRow(tRowIdx);
       tRow.height = 28;
       const totals = ["الإجمالي", "", "", totalBase, "", totalDeduction, "", totalOtPay, totalGrant, totalDebt, totalAdvance, totalNet, totalPaid, totalRemaining];
       totals.forEach((val, ci) => {
+        trackWidth(ci, val);
         const cell = tRow.getCell(ci + 1);
         cell.value = val;
         cell.font = { bold: true };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
         cell.border = allBorders as any;
-        cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: ci <= 2 ? "center" : "right" };
+        cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
         if (ci >= 3) cell.numFmt = numFmt;
       });
 
+      // Apply auto-fit column widths (char count + padding, capped at 40)
+      ws.columns.forEach((col, ci) => {
+        col.width = Math.min(40, Math.max(colWidths[ci] + 3, 10));
+      });
+
+      const encFilename = encodeURIComponent(filename);
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="payroll-${year}-${String(month).padStart(2, "0")}.xlsx"`);
+      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encFilename}; filename="${filename}"`);
       await workbook.xlsx.write(res);
       res.end();
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
