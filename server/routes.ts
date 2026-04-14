@@ -4717,11 +4717,15 @@ export async function registerRoutes(
       });
 
       const encFilename = encodeURIComponent(filename);
+      const asciiFilename = `payroll_${year}-${monthStr}.xlsx`;
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encFilename}; filename="${filename}"`);
+      res.setHeader("Content-Disposition", `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encFilename}`);
       await workbook.xlsx.write(res);
       res.end();
-    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+    } catch (e: any) {
+      console.error("[payroll-export-error]", e?.message, e?.stack);
+      return res.status(500).json({ message: e.message });
+    }
   });
 
   // POST /api/payroll/payment — حفظ المبلغ المدفوع وباقي الصرف لموظف في شهر معين
