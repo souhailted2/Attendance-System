@@ -127,7 +127,7 @@ export default function Employees() {
   function openEdit(emp: Employee) {
     setEditingEmployee(emp);
     setName(emp.name);
-    setFrenchName((emp as any).frenchName || "");
+    setFrenchName(emp.frenchName || "");
     setEmployeeCode(emp.employeeCode);
     setCardNumber(emp.cardNumber || "");
     setPositionId(emp.positionId || "");
@@ -166,7 +166,7 @@ export default function Employees() {
 
   const filtered = (employees || [])
     .filter((e) => {
-      const matchSearch = e.name.includes(search) || e.employeeCode.includes(search) || (e.cardNumber || "").includes(search) || ((e as any).frenchName || "").toLowerCase().includes(search.toLowerCase());
+      const matchSearch = e.name.includes(search) || e.employeeCode.includes(search) || (e.cardNumber || "").includes(search) || (e.frenchName || "").toLowerCase().includes(search.toLowerCase());
       const matchWorkshop = filterWorkshop === "all" || e.workshopId === filterWorkshop;
       const matchCompany = filterCompany === "all" || e.companyId === filterCompany;
       const matchActive = filterActive === "all" || (filterActive === "active" ? e.isActive : !e.isActive);
@@ -393,8 +393,8 @@ export default function Employees() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm" data-testid={`text-name-${emp.id}`}>{emp.name}</p>
-                          {(emp as any).frenchName && (
-                            <span className="text-xs text-muted-foreground" dir="ltr" data-testid={`text-french-name-${emp.id}`}>{(emp as any).frenchName}</span>
+                          {emp.frenchName && (
+                            <span className="text-xs text-muted-foreground" dir="ltr" data-testid={`text-french-name-${emp.id}`}>{emp.frenchName}</span>
                           )}
                           {emp.isActive
                             ? <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" data-testid={`badge-status-${emp.id}`}>نشط</Badge>
