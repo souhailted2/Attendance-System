@@ -4075,14 +4075,8 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
-  // GET /api/payroll/monthly?year=&month= — كشف الرواتب الشهري
-  app.get("/api/payroll/monthly", async (req, res) => {
-    if (!requireCaisseOrOwner(req, res)) return;
-    try {
-      const year = parseInt(req.query.year as string);
-      const month = parseInt(req.query.month as string);
-      if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
-
+  // ---- دالة مشتركة لحساب صفوف الرواتب (تُستخدم من /monthly و /export) ----
+  async function computePayrollRows(year: number, month: number) {
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
       const lastDay = new Date(year, month, 0).getDate();
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
@@ -4111,25 +4105,17 @@ export async function registerRoutes(
       const activeEmployees = employees.filter(e => e.isActive);
       const workRulesMap = new Map(workRules.map(r => [r.id, r]));
       const defaultRule = workRules.find(r => r.isDefault) ?? workRules[0];
-
-      // أيام العطلة الأسبوعية
       const weeklyOffDays: number[] = offDaySetting ? JSON.parse(offDaySetting.value) : [];
-
-      // تطبيع الشهر (فيفري=+1/2، 31يوم=قاعدة اليوم31)
       const daysInMonth = lastDay;
       let isFullMonth31 = false;
       let monthBonus = 0;
       if (daysInMonth === 28 || daysInMonth === 29) monthBonus = 30 - daysInMonth;
       else if (daysInMonth === 31) { isFullMonth31 = true; monthBonus = 0; }
 
-      // قائمة كل أيام الشهر
       const allDatesInMonth: string[] = [];
       for (let d = 1; d <= daysInMonth; d++)
         allDatesInMonth.push(`${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
 
-      // (holidayDateSet مزالة — أيام الراحة تُحسب per-employee باستخدام getEffectiveWeeklyOffDays)
-
-      // الجداول الخاصة النشطة في هذا الشهر
       const activeOverrides = allOverrides.filter(ov => ov.dateFrom <= endDate && ov.dateTo >= startDate);
 
       function payTimeToMin(t: string | null): number | null {
@@ -4137,7 +4123,6 @@ export async function registerRoutes(
         const [h, m] = t.split(":").map(Number);
         return h * 60 + m;
       }
-
       function payLeaveApplies(lv: any, emp: any): boolean {
         return (
           lv.targetType === "all" ||
@@ -4146,21 +4131,21 @@ export async function registerRoutes(
           (lv.targetType === "employee" && emp.id === lv.employeeId)
         );
       }
+      function payGetWeekStart(dateStr: string): string {
+        const d = new Date(dateStr + "T00:00:00");
+        d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+        return d.toISOString().slice(0, 10);
+      }
 
-      // بناء Map للسجلات بحسب الموظف
       const recordsByEmployee = new Map<string, typeof attendanceRecords>();
       for (const rec of attendanceRecords) {
         const list = recordsByEmployee.get(rec.employeeId);
         if (list) list.push(rec);
         else recordsByEmployee.set(rec.employeeId, [rec]);
       }
-
-      // بناء Map لمدفوعات الشهر الحالي والسابق
       const currentPaymentsMap = new Map(currentPayments.map(p => [p.employeeId, parseFloat(p.amountPaid as any) || 0]));
-      // باقي الشهر السابق (يُضاف أو يُخصم من الصافي الحالي)
       const prevRemainingMap = new Map(prevPayments.map(p => [p.employeeId, parseFloat(p.remainingBalance as any) || 0]));
 
-      // ---- حساب المنح لكل موظف ----
       const WEEKDAY_TO_DOW_PAY: Record<string, number> = {
         "الأحد": 0, "الاثنين": 1, "الثلاثاء": 2, "الأربعاء": 3,
         "الخميس": 4, "الجمعة": 5, "السبت": 6,
@@ -4318,12 +4303,6 @@ export async function registerRoutes(
         }
 
         // خصم نقطة العطلة الأسبوعية عند الغياب (بدون أيام الإجازة غير المدفوعة)
-        function payGetWeekStart(dateStr: string): string {
-          const d = new Date(dateStr + "T00:00:00");
-          d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
-          return d.toISOString().slice(0, 10);
-        }
-
         const empUnpaidLeaveDates = new Set<string>();
         for (const lv of allLeaves) {
           if (lv.isPaid || !payLeaveApplies(lv, emp)) continue;
@@ -4520,7 +4499,166 @@ export async function registerRoutes(
         };
       });
 
+      return rows;
+  }
+
+  // GET /api/payroll/monthly?year=&month= — كشف الرواتب الشهري
+  app.get("/api/payroll/monthly", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const year = parseInt(req.query.year as string);
+      const month = parseInt(req.query.month as string);
+      if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
+      const rows = await computePayrollRows(year, month);
       return res.json({ year, month, rows });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // GET /api/payroll/export?year=&month= — تصدير كشف الرواتب إلى Excel
+  app.get("/api/payroll/export", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const year = parseInt(req.query.year as string);
+      const month = parseInt(req.query.month as string);
+      if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
+
+      const rows = await computePayrollRows(year, month);
+      const workshops = await storage.getWorkshops();
+      const workshopMap = new Map(workshops.map((w: any) => [w.id, w.name]));
+
+      const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+      const sheetTitle = `كشف رواتب ${MONTHS_AR[month - 1]} ${year}`;
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Attendance System";
+      const ws = workbook.addWorksheet(sheetTitle, { views: [{ rightToLeft: true }] });
+
+      ws.columns = [
+        { key: "code",      width: 10 },
+        { key: "name",      width: 26 },
+        { key: "workshop",  width: 16 },
+        { key: "base",      width: 14 },
+        { key: "score",     width: 12 },
+        { key: "deduction", width: 14 },
+        { key: "otHours",   width: 12 },
+        { key: "otPay",     width: 14 },
+        { key: "grant",     width: 14 },
+        { key: "debt",      width: 14 },
+        { key: "advance",   width: 14 },
+        { key: "net",       width: 16 },
+        { key: "paid",      width: 14 },
+        { key: "remaining", width: 14 },
+      ];
+
+      const numFmt = "#,##0.00";
+      const borderThin = { style: "thin" as const };
+      const allBorders = { top: borderThin, bottom: borderThin, left: borderThin, right: borderThin };
+
+      // Title row (merged)
+      ws.mergeCells(1, 1, 1, 14);
+      const titleCell = ws.getCell("A1");
+      titleCell.value = sheetTitle;
+      titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
+      titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } };
+      ws.getRow(1).height = 36;
+
+      // Header row
+      const headers = ["رمز","الاسم","الورشة","الراتب الأساسي","نقطة الحضور","خصم الغياب","ساعات إضافية","أجر إضافي","المنحة","خصم الدين","خصم التسبيقة","صافي الراتب","المبلغ المدفوع","الباقي"];
+      const hRow = ws.getRow(2);
+      headers.forEach((h, i) => {
+        const cell = hRow.getCell(i + 1);
+        cell.value = h;
+        cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+        cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
+        cell.border = allBorders as any;
+      });
+      hRow.height = 28;
+      ws.views = [{ state: "frozen", ySplit: 2, rightToLeft: true }];
+
+      // Accumulate totals
+      let totalBase = 0, totalDeduction = 0, totalOtPay = 0, totalGrant = 0;
+      let totalDebt = 0, totalAdvance = 0, totalNet = 0, totalPaid = 0, totalRemaining = 0;
+
+      rows.forEach((row: any, idx: number) => {
+        const r = ws.getRow(idx + 3);
+        const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+
+        const cells = [
+          row.employeeCode ?? "",
+          row.employeeName,
+          workshopMap.get(row.workshopId ?? "") ?? "",
+          row.baseSalary,
+          row.attendanceScore,
+          row.attendanceDeduction,
+          row.overtimeHours,
+          row.overtimePay,
+          row.grantAmount,
+          row.debtDeduction,
+          row.advanceDeduction,
+          row.netSalary,
+          row.amountPaid,
+          row.remainingBalance,
+        ];
+
+        cells.forEach((val, ci) => {
+          const cell = r.getCell(ci + 1);
+          cell.value = val;
+          cell.border = allBorders as any;
+          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: ci <= 2 ? "center" : "right" };
+          if (ci >= 3) cell.numFmt = numFmt;
+          // Special column background colors
+          if (ci === 11) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
+          } else if (ci === 12) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
+          } else if (ci === 13) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE5CC" } };
+          } else {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+          }
+          // Deduction columns (خصم الغياب، خصم الدين، خصم التسبيقة) — red text
+          if (ci === 5 || ci === 9 || ci === 10) {
+            cell.font = { color: { argb: "FFCC0000" } };
+          }
+          // Addition columns (أجر إضافي، المنحة) — blue text
+          if (ci === 7 || ci === 8) {
+            cell.font = { color: { argb: "FF0055CC" } };
+          }
+        });
+
+        totalBase      += row.baseSalary      ?? 0;
+        totalDeduction += row.attendanceDeduction ?? 0;
+        totalOtPay     += row.overtimePay      ?? 0;
+        totalGrant     += row.grantAmount      ?? 0;
+        totalDebt      += row.debtDeduction    ?? 0;
+        totalAdvance   += row.advanceDeduction ?? 0;
+        totalNet       += row.netSalary        ?? 0;
+        totalPaid      += row.amountPaid       ?? 0;
+        totalRemaining += row.remainingBalance ?? 0;
+        r.height = 22;
+      });
+
+      // Totals row
+      const tRowIdx = rows.length + 3;
+      const tRow = ws.getRow(tRowIdx);
+      tRow.height = 28;
+      const totals = ["الإجمالي", "", "", totalBase, "", totalDeduction, "", totalOtPay, totalGrant, totalDebt, totalAdvance, totalNet, totalPaid, totalRemaining];
+      totals.forEach((val, ci) => {
+        const cell = tRow.getCell(ci + 1);
+        cell.value = val;
+        cell.font = { bold: true };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
+        cell.border = allBorders as any;
+        cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: ci <= 2 ? "center" : "right" };
+        if (ci >= 3) cell.numFmt = numFmt;
+      });
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="payroll-${year}-${String(month).padStart(2, "0")}.xlsx"`);
+      await workbook.xlsx.write(res);
+      res.end();
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 

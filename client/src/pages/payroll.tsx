@@ -124,6 +124,16 @@ export default function Payroll() {
   const totalGrants = data?.rows.reduce((s, r) => s + r.grantAmount, 0) ?? 0;
   const totalDeductions = data?.rows.reduce((s, r) => s + r.attendanceDeduction + r.debtDeduction + r.advanceDeduction, 0) ?? 0;
 
+  function exportToExcel() {
+    const url = `/api/payroll/export?year=${year}&month=${month}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payroll-${year}-${String(month).padStart(2, "0")}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto" dir="rtl">
       <div className="flex items-center gap-3 mb-6">
@@ -156,6 +166,12 @@ export default function Payroll() {
           {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
           عرض الكشف
         </Button>
+        {data && (
+          <Button variant="outline" onClick={exportToExcel} data-testid="button-export-payroll-excel" className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            تصدير Excel
+          </Button>
+        )}
       </div>
 
       {isError && (
