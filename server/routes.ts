@@ -989,7 +989,29 @@ export async function registerRoutes(
     const date = req.query.date as string;
     if (!date) return res.status(400).json({ message: "Date required" });
     const data = await storage.getAttendanceByDate(date);
-    res.json(data);
+
+    // إعادة حساب middle_absence_minutes من raw_punches عند كل استعلام
+    // يمنع أي قيم قديمة مخزّنة من الظهور (خاصة بعد تعديلات مباشرة على البيانات)
+    const [allEmployees, allWorkRules] = await Promise.all([
+      storage.getEmployees(),
+      storage.getWorkRules(),
+    ]);
+    const empMap = new Map(allEmployees.map((e: any) => [e.id, e]));
+    const ruleMap = new Map(allWorkRules.map((r: any) => [r.id, r]));
+    const defaultRule = allWorkRules.find((r: any) => r.isDefault) ?? null;
+
+    const fixed = (data as any[]).map((rec: any) => {
+      let punches: string[] = [];
+      try { if (rec.rawPunches) punches = JSON.parse(rec.rawPunches); } catch {}
+      if (punches.length <= 2) return { ...rec, middleAbsenceMinutes: 0 };
+      const emp = empMap.get(rec.employeeId) as any;
+      const rule: any = (emp?.workRuleId ? ruleMap.get(emp.workRuleId) : null) ?? defaultRule;
+      const shiftStartMin = rule?.workStartTime ? timeToMinGlobal(rule.workStartTime) : null;
+      const recomputed = calculateMiddleAbsenceMinutes(punches, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMin);
+      return { ...rec, middleAbsenceMinutes: recomputed };
+    });
+
+    res.json(fixed);
   });
 
   // دالة مساعدة: هل الشهر مجمّد لهذا الموظف؟
