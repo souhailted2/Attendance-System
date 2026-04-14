@@ -338,6 +338,9 @@ export default function EmployeeAttendancePage() {
               <h1 className="text-xl font-bold truncate" data-testid="text-employee-name">
                 {employee.name}
               </h1>
+              {employee.frenchName && (
+                <p className="text-sm text-muted-foreground" dir="ltr" data-testid="text-employee-french-name">{employee.frenchName}</p>
+              )}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <User className="h-3.5 w-3.5" />#{employee.employeeCode}

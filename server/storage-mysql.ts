@@ -215,6 +215,11 @@ export class MysqlStorage implements IStorage {
 
   async deleteEmployee(id: string): Promise<void> {
     await mysqlDb.delete(schema.attendanceRecords).where(eq(schema.attendanceRecords.employeeId, id));
+    await mysqlDb.delete(schema.advances).where(eq(schema.advances.employeeId, id));
+    await mysqlDb.delete(schema.employeeDebts).where(eq(schema.employeeDebts.employeeId, id));
+    try {
+      await mysqlDb.delete(schema.leaves).where(eq(schema.leaves.employeeId, id));
+    } catch { /* collation mismatch on some MySQL setups — non-fatal */ }
     await mysqlDb.delete(schema.employees).where(eq(schema.employees.id, id));
   }
 
