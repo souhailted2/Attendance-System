@@ -480,4 +480,8 @@ export class PgStorage implements IStorage {
   async getDebtSkips(_month: string): Promise<string[]> { return []; }
   async addDebtSkip(_employeeId: string, _month: string): Promise<void> { /* no-op: MySQL only */ }
   async removeDebtSkip(_employeeId: string, _month: string): Promise<void> { /* no-op: MySQL only */ }
+  async getAttendanceScoreOverride(_employeeId: string, _month: string): Promise<number | null> { return null; }
+  async getAttendanceScoreOverrides(_month: string): Promise<Record<string, number>> { return {}; }
+  async setAttendanceScoreOverride(_employeeId: string, _month: string, _score: number): Promise<void> { /* no-op: MySQL only */ }
+  async deleteAttendanceScoreOverride(_employeeId: string, _month: string): Promise<void> { /* no-op: MySQL only */ }
 }

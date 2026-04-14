@@ -663,6 +663,47 @@ export class MysqlStorage implements IStorage {
     );
   }
 
+  async getAttendanceScoreOverride(employeeId: string, month: string): Promise<number | null> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    const [rows] = await rawPool.query(
+      `SELECT score FROM attendance_score_overrides WHERE employee_id = ? AND month = ?`,
+      [employeeId, month]
+    ) as [any[], any];
+    if (!Array.isArray(rows) || rows.length === 0) return null;
+    return parseFloat(rows[0].score);
+  }
+
+  async getAttendanceScoreOverrides(month: string): Promise<Record<string, number>> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    const [rows] = await rawPool.query(
+      `SELECT employee_id, score FROM attendance_score_overrides WHERE month = ?`,
+      [month]
+    ) as [any[], any];
+    const result: Record<string, number> = {};
+    if (Array.isArray(rows)) {
+      for (const r of rows) result[r.employee_id] = parseFloat(r.score);
+    }
+    return result;
+  }
+
+  async setAttendanceScoreOverride(employeeId: string, month: string, score: number): Promise<void> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    await rawPool.query(
+      `INSERT INTO attendance_score_overrides (id, employee_id, month, score, created_at)
+       VALUES (UUID(), ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE score = VALUES(score)`,
+      [employeeId, month, score, new Date().toISOString()]
+    );
+  }
+
+  async deleteAttendanceScoreOverride(employeeId: string, month: string): Promise<void> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    await rawPool.query(
+      `DELETE FROM attendance_score_overrides WHERE employee_id = ? AND month = ?`,
+      [employeeId, month]
+    );
+  }
+
   async initPayrollTables(): Promise<void> {
     const rawPool = pool as import("mysql2/promise").Pool;
     // MySQL < 8.0 doesn't support ADD COLUMN IF NOT EXISTS; use information_schema check instead
@@ -729,6 +770,14 @@ export class MysqlStorage implements IStorage {
       month VARCHAR(7) NOT NULL,
       created_at VARCHAR(50) NOT NULL,
       UNIQUE KEY debt_skips_emp_month_idx (employee_id, month)
+    )`);
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS attendance_score_overrides (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      month CHAR(7) NOT NULL,
+      score DECIMAL(8,2) NOT NULL,
+      created_at VARCHAR(50) NOT NULL,
+      UNIQUE KEY uq_aso_emp_month (employee_id, month)
     )`);
     // إضافة عمود remaining_balance إن لم يكن موجوداً (للجداول القديمة)
     const [spCols] = await rawPool.query(

@@ -125,6 +125,11 @@ export interface IStorage {
   addDebtSkip(employeeId: string, month: string): Promise<void>;
   removeDebtSkip(employeeId: string, month: string): Promise<void>;
 
+  getAttendanceScoreOverride(employeeId: string, month: string): Promise<number | null>;
+  getAttendanceScoreOverrides(month: string): Promise<Record<string, number>>;
+  setAttendanceScoreOverride(employeeId: string, month: string, score: number): Promise<void>;
+  deleteAttendanceScoreOverride(employeeId: string, month: string): Promise<void>;
+
   initPayrollTables(): Promise<void>;
 }
 
@@ -251,6 +256,11 @@ class LazyStorage implements IStorage {
   getDebtSkips(month: string) { return this.impl().then(s => s.getDebtSkips(month)); }
   addDebtSkip(employeeId: string, month: string) { return this.impl().then(s => s.addDebtSkip(employeeId, month)); }
   removeDebtSkip(employeeId: string, month: string) { return this.impl().then(s => s.removeDebtSkip(employeeId, month)); }
+
+  getAttendanceScoreOverride(empId: string, month: string) { return this.impl().then(s => s.getAttendanceScoreOverride(empId, month)); }
+  getAttendanceScoreOverrides(month: string) { return this.impl().then(s => s.getAttendanceScoreOverrides(month)); }
+  setAttendanceScoreOverride(empId: string, month: string, score: number) { return this.impl().then(s => s.setAttendanceScoreOverride(empId, month, score)); }
+  deleteAttendanceScoreOverride(empId: string, month: string) { return this.impl().then(s => s.deleteAttendanceScoreOverride(empId, month)); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
 }

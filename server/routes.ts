@@ -4108,6 +4108,41 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // GET /api/attendance-score-override?employeeId=&month=YYYY-MM
+  app.get("/api/attendance-score-override", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const { employeeId, month } = req.query as { employeeId: string; month: string };
+      if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });
+      const score = await storage.getAttendanceScoreOverride(employeeId, month);
+      return res.json({ score });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/attendance-score-override — حفظ override
+  app.post("/api/attendance-score-override", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const { employeeId, month, score } = req.body;
+      if (!employeeId || !month || score === undefined) return res.status(400).json({ message: "employeeId و month و score مطلوبة" });
+      const scoreNum = parseFloat(score);
+      if (isNaN(scoreNum)) return res.status(400).json({ message: "score يجب أن يكون رقماً" });
+      await storage.setAttendanceScoreOverride(employeeId, month, scoreNum);
+      return res.json({ ok: true });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/attendance-score-override — حذف override
+  app.delete("/api/attendance-score-override", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const { employeeId, month } = req.body;
+      if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });
+      await storage.deleteAttendanceScoreOverride(employeeId, month);
+      return res.json({ ok: true });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // ---- دالة مشتركة لحساب صفوف الرواتب (تُستخدم من /monthly و /export) ----
   async function computePayrollRows(year: number, month: number) {
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -4120,7 +4155,7 @@ export async function registerRoutes(
       const prevYear = month === 1 ? year - 1 : year;
       const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
 
-      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments, debtSkipsList] =
+      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments, debtSkipsList, scoreOverridesMap] =
         await Promise.all([
           storage.getEmployees(),
           storage.getAdvances(undefined, month, year),
@@ -4134,6 +4169,7 @@ export async function registerRoutes(
           storage.getSalaryPayments(currentMonthStr),
           storage.getSalaryPayments(prevMonthStr),
           storage.getDebtSkips(currentMonthStr),
+          storage.getAttendanceScoreOverrides(currentMonthStr),
         ]);
       const debtSkipsSet = new Set<string>(debtSkipsList);
 
@@ -4385,6 +4421,10 @@ export async function registerRoutes(
         let attendanceScore = dailyRecords.reduce((s, r) => s + r.dailyScore, 0);
         attendanceScore += monthBonus;
         attendanceScore = Math.round(attendanceScore * 100) / 100;
+        // تطبيق override إن وُجد (يحل محل القيمة المحسوبة)
+        if (scoreOverridesMap[emp.id] !== undefined) {
+          attendanceScore = scoreOverridesMap[emp.id];
+        }
 
         // راتب الحضور = (النقطة × الأساسي) ÷ 30
         const attendanceSalary = Math.round((attendanceScore * baseSalary / 30) * 100) / 100;
