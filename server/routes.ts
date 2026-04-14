@@ -4444,10 +4444,11 @@ export async function registerRoutes(
         const attendanceDeduction = Math.max(0, Math.round((baseSalary - attendanceSalary) * 100) / 100);
 
         // ---- حساب الساعات الإضافية ----
+        // نُقرِّب كل يوم على حدة (0.1 ساعة) ثم نجمع — مطابقاً لمنطق صفحة التقارير
         const empRecs = recordsByEmployee.get(emp.id) ?? [];
         const earlyArrivalGrace = workRule?.earlyArrivalGraceMinutes ?? 0;
         const lateLeaveGraceOT = workRule?.lateLeaveGraceMinutes ?? 0;
-        let totalOvertimeMinutes = 0;
+        let totalOvertimeHours = 0;
         for (const rec of empRecs) {
           if (!rec.checkIn && !rec.checkOut) continue;
           const isHol = !workRule?.is24hShift && isEmpHolidayPay(rec.date);
@@ -4455,7 +4456,9 @@ export async function registerRoutes(
             // يوم عطلة: كل دقيقة عمل = إضافي
             const ciMin = payTimeToMin(rec.checkIn);
             const coMin = payTimeToMin(rec.checkOut);
-            if (ciMin !== null && coMin !== null && coMin > ciMin) totalOvertimeMinutes += coMin - ciMin;
+            if (ciMin !== null && coMin !== null && coMin > ciMin) {
+              totalOvertimeHours += Math.round((coMin - ciMin) / 60 * 10) / 10;
+            }
           } else {
             const dayOvr = activeOverrides.find(ov =>
               rec.date >= ov.dateFrom && rec.date <= ov.dateTo &&
@@ -4467,10 +4470,10 @@ export async function registerRoutes(
             const coMin = payTimeToMin(rec.checkOut);
             const earlyOT = (ciMin !== null && ciMin < (effStart - earlyArrivalGrace)) ? (effStart - ciMin) : 0;
             const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
-            totalOvertimeMinutes += earlyOT + lateOT;
+            totalOvertimeHours += Math.round((earlyOT + lateOT) / 60 * 10) / 10;
           }
         }
-        const overtimeHours = Math.round(totalOvertimeMinutes / 60 * 10) / 10;
+        const overtimeHours = Math.round(totalOvertimeHours * 10) / 10;
         const overtimePay   = Math.round(hourlyRate * overtimeHours * 100) / 100;
 
         // ---- حساب المنحة الشهرية ----
