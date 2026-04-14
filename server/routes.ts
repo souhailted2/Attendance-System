@@ -3841,6 +3841,14 @@ export async function registerRoutes(
 
   // ===== CAISSE / PAYROLL (الصندوق والرواتب) =====
 
+  function requireOwner(req: Request, res: Response): boolean {
+    if (req.session.username !== "owner") {
+      res.status(403).json({ message: "غير مصرح — هذه الميزة للمالك فقط" });
+      return false;
+    }
+    return true;
+  }
+
   function requireCaisseOrOwner(req: Request, res: Response): boolean {
     if (!["owner", "caisse"].includes(req.session.username ?? "")) {
       res.status(403).json({ message: "غير مصرح — هذه الميزة لحساب الصندوق فقط" });
@@ -4110,7 +4118,7 @@ export async function registerRoutes(
 
   // GET /api/attendance-score-override?employeeId=&month=YYYY-MM
   app.get("/api/attendance-score-override", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireOwner(req, res)) return;
     try {
       const { employeeId, month } = req.query as { employeeId: string; month: string };
       if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });
@@ -4119,9 +4127,9 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
-  // POST /api/attendance-score-override — حفظ override
+  // POST /api/attendance-score-override — حفظ override (للمالك فقط)
   app.post("/api/attendance-score-override", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireOwner(req, res)) return;
     try {
       const { employeeId, month, score } = req.body;
       if (!employeeId || !month || score === undefined) return res.status(400).json({ message: "employeeId و month و score مطلوبة" });
@@ -4132,9 +4140,9 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
-  // DELETE /api/attendance-score-override — حذف override
+  // DELETE /api/attendance-score-override — حذف override (للمالك فقط)
   app.delete("/api/attendance-score-override", async (req, res) => {
-    if (!requireOwnerOrAttendence(req, res)) return;
+    if (!requireOwner(req, res)) return;
     try {
       const { employeeId, month } = req.body;
       if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });

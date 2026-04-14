@@ -96,7 +96,8 @@ export default function Favorites() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const isOwnerOrAttendence = user?.username === "owner" || user?.username === "attendence";
+  const isOwner = user?.username === "owner";
+  const isOwnerOrAttendence = isOwner || user?.username === "attendence";
 
   const now = new Date();
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(null);
@@ -132,7 +133,7 @@ export default function Favorites() {
 
   const { data: overrideData } = useQuery<{ score: number | null }>({
     queryKey: ["/api/attendance-score-override", selectedEmpId, monthStr],
-    enabled: !!selectedEmpId,
+    enabled: !!selectedEmpId && isOwner,
     queryFn: async () => {
       const res = await fetch(`/api/attendance-score-override?employeeId=${selectedEmpId}&month=${monthStr}`);
       if (!res.ok) throw new Error("فشل جلب الإجمالي");
@@ -358,7 +359,7 @@ export default function Favorites() {
                               ✓ معدَّل
                             </Badge>
                           )}
-                          {isOwnerOrAttendence && !editingScore && (
+                          {isOwner && !editingScore && (
                             <Button
                               size="icon"
                               variant="ghost"
@@ -370,7 +371,7 @@ export default function Favorites() {
                               <Pencil className="h-3 w-3" />
                             </Button>
                           )}
-                          {isOwnerOrAttendence && overrideScore !== null && !editingScore && (
+                          {isOwner && overrideScore !== null && !editingScore && (
                             <Button
                               size="icon"
                               variant="ghost"
