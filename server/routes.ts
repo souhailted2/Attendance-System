@@ -4205,6 +4205,18 @@ export async function registerRoutes(
             dailyRecords.push({ date, status: "absent", dailyScore: 0.00 });
         }
 
+        // حقن الإجازات المدفوعة: فقط الأيام "absent" تُحوَّل إلى "leave" بنقطة 1.00
+        for (const lv of allLeaves) {
+          if (!lv.isPaid || !payLeaveApplies(lv, emp)) continue;
+          if (lv.startDate > endDate || lv.endDate < startDate) continue;
+          for (const dr of dailyRecords) {
+            if (dr.date >= lv.startDate && dr.date <= lv.endDate && dr.status === "absent") {
+              dr.status = "leave";
+              dr.dailyScore = 1.00;
+            }
+          }
+        }
+
         // قاعدة اليوم 31
         if (isFullMonth31) {
           const day31Str = `${year}-${String(month).padStart(2, "0")}-31`;
@@ -4250,14 +4262,14 @@ export async function registerRoutes(
           }
         }
 
-        // تطبيق الإجازات الجماعية (آخر مرحلة — تتجاوز الخصومات)
+        // تطبيق الإجازات غير المدفوعة فقط (آخر مرحلة)
         for (const lv of allLeaves) {
-          if (!payLeaveApplies(lv, emp)) continue;
+          if (lv.isPaid || !payLeaveApplies(lv, emp)) continue;
           if (lv.startDate > endDate || lv.endDate < startDate) continue;
           for (const dr of dailyRecords) {
             if (dr.date >= lv.startDate && dr.date <= lv.endDate) {
-              dr.status = lv.isPaid ? "leave" : "absent";
-              dr.dailyScore = lv.isPaid ? 1.00 : 0.00;
+              dr.status = "absent";
+              dr.dailyScore = 0.00;
             }
           }
         }
