@@ -688,9 +688,17 @@ export class MysqlStorage implements IStorage {
       employee_id VARCHAR(36) NOT NULL,
       month VARCHAR(7) NOT NULL,
       amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
+      remaining_balance DECIMAL(12,2) NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       UNIQUE KEY salary_payments_emp_month_idx (employee_id, month)
     )`);
+    // إضافة عمود remaining_balance إن لم يكن موجوداً (للجداول القديمة)
+    const [spCols] = await rawPool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='salary_payments' AND COLUMN_NAME='remaining_balance'`
+    ) as [any[], any];
+    if (!Array.isArray(spCols) || spCols.length === 0) {
+      await rawPool.query(`ALTER TABLE salary_payments ADD COLUMN remaining_balance DECIMAL(12,2) NOT NULL DEFAULT 0`);
+    }
   }
 
   async getEmployeeDebts(employeeId?: string): Promise<EmployeeDebt[]> {
@@ -793,18 +801,18 @@ export class MysqlStorage implements IStorage {
     return rows as SalaryPayment[];
   }
 
-  async upsertSalaryPayment(employeeId: string, month: string, amountPaid: string): Promise<SalaryPayment> {
+  async upsertSalaryPayment(employeeId: string, month: string, amountPaid: string, remainingBalance: string = "0"): Promise<SalaryPayment> {
     const existing = await mysqlDb.select().from(schema.salaryPayments)
       .where(and(eq(schema.salaryPayments.employeeId, employeeId), eq(schema.salaryPayments.month, month)));
     if (existing.length > 0) {
       await mysqlDb.update(schema.salaryPayments)
-        .set({ amountPaid })
+        .set({ amountPaid, remainingBalance })
         .where(eq(schema.salaryPayments.id, existing[0].id));
-      return { ...existing[0], amountPaid } as SalaryPayment;
+      return { ...existing[0], amountPaid, remainingBalance } as SalaryPayment;
     }
     const id = randomUUID();
     const createdAt = new Date().toISOString();
-    await mysqlDb.insert(schema.salaryPayments).values({ id, employeeId, month, amountPaid, createdAt });
-    return { id, employeeId, month, amountPaid, createdAt } as SalaryPayment;
+    await mysqlDb.insert(schema.salaryPayments).values({ id, employeeId, month, amountPaid, remainingBalance, createdAt });
+    return { id, employeeId, month, amountPaid, remainingBalance, createdAt } as SalaryPayment;
   }
 }

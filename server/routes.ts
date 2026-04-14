@@ -4078,7 +4078,8 @@ export async function registerRoutes(
 
       // بناء Map لمدفوعات الشهر الحالي والسابق
       const currentPaymentsMap = new Map(currentPayments.map(p => [p.employeeId, parseFloat(p.amountPaid as any) || 0]));
-      const prevPaymentsMap = new Map(prevPayments.map(p => [p.employeeId, parseFloat(p.amountPaid as any) || 0]));
+      // باقي الشهر السابق (يُضاف أو يُخصم من الصافي الحالي)
+      const prevRemainingMap = new Map(prevPayments.map(p => [p.employeeId, parseFloat(p.remainingBalance as any) || 0]));
 
       // ---- حساب المنح لكل موظف ----
       const WEEKDAY_TO_DOW_PAY: Record<string, number> = {
@@ -4266,17 +4267,127 @@ export async function registerRoutes(
         attendanceScore += monthBonus;
         attendanceScore = Math.round(attendanceScore * 100) / 100;
 
-        // الصيغة الجديدة: الراتب الصافي = (مجموع النقطة × الراتب الأساسي) ÷ 30
+        // راتب الحضور = (النقطة × الأساسي) ÷ 30
         const attendanceSalary = Math.round((attendanceScore * baseSalary / 30) * 100) / 100;
         const attendanceDeduction = Math.max(0, Math.round((baseSalary - attendanceSalary) * 100) / 100);
 
-        // الديون والتسبيقات
+        // ---- حساب الساعات الإضافية ----
+        const empRecs = recordsByEmployee.get(emp.id) ?? [];
+        const earlyArrivalGrace = workRule?.earlyArrivalGraceMinutes ?? 0;
+        const lateLeaveGraceOT = workRule?.lateLeaveGraceMinutes ?? 0;
+        let totalOvertimeMinutes = 0;
+        for (const rec of empRecs) {
+          if (!rec.checkIn && !rec.checkOut) continue;
+          const isHol = !workRule?.is24hShift && isEmpHolidayPay(rec.date);
+          if (isHol) {
+            // يوم عطلة: كل دقيقة عمل = إضافي
+            const ciMin = payTimeToMin(rec.checkIn);
+            const coMin = payTimeToMin(rec.checkOut);
+            if (ciMin !== null && coMin !== null && coMin > ciMin) totalOvertimeMinutes += coMin - ciMin;
+          } else {
+            const dayOvr = activeOverrides.find(ov =>
+              rec.date >= ov.dateFrom && rec.date <= ov.dateTo &&
+              (!ov.workRuleId || ov.workRuleId === emp.workRuleId)
+            );
+            const effStart = dayOvr ? (payTimeToMin(dayOvr.workStartTime) ?? 0) : (workRule ? payTimeToMin(workRule.workStartTime)! : 480);
+            const effEnd   = dayOvr ? (payTimeToMin(dayOvr.workEndTime)   ?? 960) : (workRule ? payTimeToMin(workRule.workEndTime)!   : 960);
+            const ciMin = payTimeToMin(rec.checkIn);
+            const coMin = payTimeToMin(rec.checkOut);
+            const earlyOT = (ciMin !== null && ciMin < (effStart - earlyArrivalGrace)) ? (effStart - ciMin) : 0;
+            const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
+            totalOvertimeMinutes += earlyOT + lateOT;
+          }
+        }
+        const overtimeHours = Math.round(totalOvertimeMinutes / 60 * 10) / 10;
+        const overtimePay   = Math.round(hourlyRate * overtimeHours * 100) / 100;
+
+        // ---- حساب المنحة الشهرية ----
+        let grantAmount = 0;
+        const empLeaveDates = buildPayLeaveDates(emp);
+        const empRecsByDate = new Map((recordsByEmployee.get(emp.id) ?? []).map(r => [r.date, r]));
+        for (const grant of allGrantsRaw) {
+          if (grant.type !== "grant") continue;
+          let applies = false;
+          if (grant.targetType === "all") applies = true;
+          else if (grant.targetType === "shift") applies = (emp.shift || "morning") === grant.shiftValue;
+          else if (grant.targetType === "workshop") applies = emp.workshopId === grant.workshopId;
+          else if (grant.targetType === "employee") {
+            let ids: string[] = []; try { ids = JSON.parse(grant.employeeIds ?? "[]"); } catch { ids = []; }
+            applies = ids.includes(emp.id);
+          }
+          if (!applies) continue;
+
+          const baseGrant = parseFloat(grant.amount) || 0;
+          const conds = grant.conditions;
+          let gFinal = baseGrant;
+          let gCancelled = false;
+
+          let absDays = 0, lateDays = 0, totalLateMin = 0, totalEarlyLeaveMin = 0;
+          const wdAbs: Record<number, number> = {};
+          const is24h = workRule?.is24hShift ?? false;
+          for (const date of allDatesInMonth) {
+            if (date > todayStr) continue;
+            const dow = new Date(date + "T00:00:00").getDay();
+            if (!is24h && isEmpHolidayPay(date)) continue;
+            if (empLeaveDates.has(date)) continue;
+            const rec = empRecsByDate.get(date);
+            if (!rec || rec.status === "absent") { absDays++; wdAbs[dow] = (wdAbs[dow] || 0) + 1; }
+            else if (rec.status === "present" || rec.status === "late") {
+              const ciMin = payTimeToMin(rec.checkIn);
+              if (ciMin !== null) {
+                const effLate = Math.max(0, ciMin - (workRule ? payTimeToMin(workRule.workStartTime)! : 480) - (workRule?.lateGraceMinutes ?? 0));
+                if (effLate > 0) { lateDays++; totalLateMin += effLate; }
+              }
+              const coMin = payTimeToMin(rec.checkOut ?? null);
+              if (coMin !== null) {
+                const effEarly = Math.max(0, (workRule ? payTimeToMin(workRule.workEndTime)! : 960) - coMin - (workRule?.earlyLeaveGraceMinutes ?? 0));
+                if (effEarly > 0) totalEarlyLeaveMin += effEarly;
+              }
+            }
+          }
+
+          for (const cond of conds) {
+            if (cond.conditionType === "violations_exceed") {
+              if ((absDays + lateDays) > (cond.violationsThreshold ?? 0)) { gCancelled = true; gFinal = 0; break; }
+            }
+          }
+          if (!gCancelled) {
+            for (const cond of conds) {
+              if (gCancelled || cond.conditionType === "violations_exceed") continue;
+              const effAmt = parseFloat(cond.effectAmount ?? "0") || 0;
+              let triggered = false;
+              if (cond.conditionType === "absence") {
+                if (cond.absenceMode === "count") triggered = absenceThresholdMetPay(absDays, cond.daysThreshold ?? null);
+                else if (cond.absenceMode === "weekday") {
+                  let wds: string[] = []; try { wds = JSON.parse(cond.weekdays ?? "[]"); } catch { wds = []; }
+                  triggered = wds.some(wd => { const dow = WEEKDAY_TO_DOW_PAY[String(wd)] ?? -1; return dow >= 0 && (wdAbs[dow] ?? 0) > 0; });
+                }
+              } else if (cond.conditionType === "late") triggered = totalLateMin >= (cond.minutesThreshold ?? 0);
+              else if (cond.conditionType === "early_leave") triggered = totalEarlyLeaveMin >= (cond.minutesThreshold ?? 0);
+              else if (cond.conditionType === "attendance") triggered = absDays > 0;
+              if (triggered) {
+                if (cond.effectType === "cancel") { gCancelled = true; gFinal = 0; break; }
+                else if (cond.effectType === "deduct") gFinal = Math.max(0, gFinal - effAmt);
+                else if (cond.effectType === "add") gFinal += effAmt;
+              }
+            }
+          }
+          grantAmount += gCancelled ? 0 : Math.max(0, Math.round(gFinal * 100) / 100);
+        }
+        grantAmount = Math.round(grantAmount * 100) / 100;
+
+        // ---- الديون والتسبيقات ----
         const empDebts = allDebts.filter(d => d.employeeId === emp.id && d.isActive);
         const debtDeduction = empDebts.reduce((sum, d) => sum + (parseFloat(d.monthlyDeduction ?? "0") || 0), 0);
         const empAdvances = advances.filter(a => a.employeeId === emp.id);
         const advanceDeduction = empAdvances.reduce((sum, a) => sum + (parseFloat(a.amount ?? "0") || 0), 0);
 
-        const netSalary = Math.max(0, attendanceSalary - debtDeduction - advanceDeduction);
+        // ---- الصافي الجديد ----
+        // الصافي = راتب الحضور + أجر الساعات الإضافية + المنحة − الديون − التسبيقات + باقي الشهر السابق
+        const amountPaid = currentPaymentsMap.get(emp.id) ?? 0;
+        const prevRemaining = prevRemainingMap.get(emp.id) ?? 0; // باقي الشهر السابق (موجب=مستحق، سالب=زائد)
+        const netSalary = Math.round((attendanceSalary + overtimePay + grantAmount - debtDeduction - advanceDeduction + prevRemaining) * 100) / 100;
+        const remainingBalance = Math.round((netSalary - amountPaid) * 100) / 100;
 
         return {
           employeeId: emp.id,
@@ -4286,15 +4397,34 @@ export async function registerRoutes(
           baseSalary,
           attendanceScore,
           attendanceDeduction: Math.round(attendanceDeduction * 100) / 100,
+          overtimeHours,
+          overtimePay,
+          grantAmount,
           debtDeduction: Math.round(debtDeduction * 100) / 100,
           advanceDeduction: Math.round(advanceDeduction * 100) / 100,
-          netSalary: Math.round(netSalary * 100) / 100,
+          netSalary,
+          amountPaid,
+          remainingBalance,
           debts: empDebts,
           advances: empAdvances,
         };
       });
 
       return res.json({ year, month, rows });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/payroll/payment — حفظ المبلغ المدفوع وباقي الصرف لموظف في شهر معين
+  app.post("/api/payroll/payment", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { employeeId, month, amountPaid, remainingBalance } = req.body;
+      if (!employeeId || !month || amountPaid === undefined)
+        return res.status(400).json({ message: "employeeId و month و amountPaid مطلوبة" });
+      const result = await storage.upsertSalaryPayment(
+        employeeId, month, String(amountPaid), String(remainingBalance ?? 0)
+      );
+      return res.json(result);
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 

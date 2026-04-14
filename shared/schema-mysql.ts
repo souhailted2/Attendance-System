@@ -319,13 +319,14 @@ export const salaryPayments = mysqlTable("salary_payments", {
   employeeId: varchar("employee_id", { length: 36 }).notNull(),
   month: varchar("month", { length: 7 }).notNull(),
   amountPaid: decimal("amount_paid", { precision: 12, scale: 2 }).notNull().default("0"),
+  remainingBalance: decimal("remaining_balance", { precision: 12, scale: 2 }).notNull().default("0"),
   createdAt: text("created_at").notNull(),
 }, (table) => [
   uniqueIndex("salary_payments_emp_month_idx").on(table.employeeId, table.month),
 ]);
 
 export const insertSalaryPaymentSchema = createInsertSchema(salaryPayments).pick({
-  employeeId: true, month: true, amountPaid: true, createdAt: true,
+  employeeId: true, month: true, amountPaid: true, remainingBalance: true, createdAt: true,
 });
 export type InsertSalaryPayment = z.infer<typeof insertSalaryPaymentSchema>;
 export type SalaryPayment = typeof salaryPayments.$inferSelect;
