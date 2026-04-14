@@ -227,7 +227,12 @@ export default function Favorites() {
     deleteAttendanceMutation.mutate(editCell.attendanceId);
   }
 
+  const minDate = new Date(now.getFullYear(), now.getMonth() - 23, 1);
+  const isOldestMonth = viewYear < minDate.getFullYear() ||
+    (viewYear === minDate.getFullYear() && viewMonth <= minDate.getMonth() + 1);
+
   function prevMonth() {
+    if (isOldestMonth) return;
     if (viewMonth === 1) { setViewYear(y => y - 1); setViewMonth(12); }
     else setViewMonth(m => m - 1);
   }
@@ -280,7 +285,7 @@ export default function Favorites() {
           <span className="text-lg font-semibold min-w-[140px] text-center" data-testid="text-month-label">
             {MONTHS_AR[viewMonth - 1]} {viewYear}
           </span>
-          <Button variant="outline" size="icon" onClick={prevMonth} data-testid="button-prev-month">
+          <Button variant="outline" size="icon" onClick={prevMonth} disabled={isOldestMonth} data-testid="button-prev-month">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
