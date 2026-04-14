@@ -314,6 +314,22 @@ export type GrantCondition = typeof grantConditions.$inferSelect;
 
 export type GrantWithConditions = Grant & { conditions: GrantCondition[] };
 
+export const salaryPayments = mysqlTable("salary_payments", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  employeeId: varchar("employee_id", { length: 36 }).notNull(),
+  month: varchar("month", { length: 7 }).notNull(),
+  amountPaid: decimal("amount_paid", { precision: 12, scale: 2 }).notNull().default("0"),
+  createdAt: text("created_at").notNull(),
+}, (table) => [
+  uniqueIndex("salary_payments_emp_month_idx").on(table.employeeId, table.month),
+]);
+
+export const insertSalaryPaymentSchema = createInsertSchema(salaryPayments).pick({
+  employeeId: true, month: true, amountPaid: true, createdAt: true,
+});
+export type InsertSalaryPayment = z.infer<typeof insertSalaryPaymentSchema>;
+export type SalaryPayment = typeof salaryPayments.$inferSelect;
+
 export const insertEmployeeDebtSchema = createInsertSchema(employeeDebts).pick({
   employeeId: true, description: true, totalAmount: true, monthlyDeduction: true, remainingAmount: true, isActive: true, createdAt: true,
 });

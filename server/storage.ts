@@ -18,6 +18,7 @@ import type {
   InsertWorkScheduleOverride, WorkScheduleOverride,
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
+  SalaryPayment,
 } from "@shared/schema";
 
 export interface IStorage {
@@ -116,6 +117,9 @@ export interface IStorage {
   createAdvance(data: InsertAdvance): Promise<Advance>;
   updateAdvance(id: string, data: Partial<InsertAdvance>): Promise<Advance | undefined>;
   deleteAdvance(id: string): Promise<void>;
+
+  getSalaryPayments(month: string): Promise<SalaryPayment[]>;
+  upsertSalaryPayment(employeeId: string, month: string, amountPaid: string): Promise<SalaryPayment>;
 
   initPayrollTables(): Promise<void>;
 }
@@ -236,6 +240,9 @@ class LazyStorage implements IStorage {
   createAdvance(d: InsertAdvance) { return this.impl().then(s => s.createAdvance(d)); }
   updateAdvance(id: string, data: Partial<InsertAdvance>) { return this.impl().then(s => s.updateAdvance(id, data)); }
   deleteAdvance(id: string) { return this.impl().then(s => s.deleteAdvance(id)); }
+
+  getSalaryPayments(month: string) { return this.impl().then(s => s.getSalaryPayments(month)); }
+  upsertSalaryPayment(empId: string, month: string, amount: string) { return this.impl().then(s => s.upsertSalaryPayment(empId, month, amount)); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
 }

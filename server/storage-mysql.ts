@@ -21,6 +21,7 @@ import type {
   InsertWorkScheduleOverride, WorkScheduleOverride,
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
+  SalaryPayment,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -682,6 +683,14 @@ export class MysqlStorage implements IStorage {
     if (Array.isArray(advCols) && advCols.length > 0) {
       await rawPool.query(`ALTER TABLE advances MODIFY COLUMN amount DECIMAL(12,2) NOT NULL DEFAULT 0`);
     }
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS salary_payments (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      month VARCHAR(7) NOT NULL,
+      amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      UNIQUE KEY salary_payments_emp_month_idx (employee_id, month)
+    )`);
   }
 
   async getEmployeeDebts(employeeId?: string): Promise<EmployeeDebt[]> {
@@ -777,5 +786,25 @@ export class MysqlStorage implements IStorage {
 
   async deleteAdvance(id: string): Promise<void> {
     await mysqlDb.delete(schema.advances).where(eq(schema.advances.id, id));
+  }
+
+  async getSalaryPayments(month: string): Promise<SalaryPayment[]> {
+    const rows = await mysqlDb.select().from(schema.salaryPayments).where(eq(schema.salaryPayments.month, month));
+    return rows as SalaryPayment[];
+  }
+
+  async upsertSalaryPayment(employeeId: string, month: string, amountPaid: string): Promise<SalaryPayment> {
+    const existing = await mysqlDb.select().from(schema.salaryPayments)
+      .where(and(eq(schema.salaryPayments.employeeId, employeeId), eq(schema.salaryPayments.month, month)));
+    if (existing.length > 0) {
+      await mysqlDb.update(schema.salaryPayments)
+        .set({ amountPaid })
+        .where(eq(schema.salaryPayments.id, existing[0].id));
+      return { ...existing[0], amountPaid } as SalaryPayment;
+    }
+    const id = randomUUID();
+    const createdAt = new Date().toISOString();
+    await mysqlDb.insert(schema.salaryPayments).values({ id, employeeId, month, amountPaid, createdAt });
+    return { id, employeeId, month, amountPaid, createdAt } as SalaryPayment;
   }
 }

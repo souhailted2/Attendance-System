@@ -4008,9 +4008,13 @@ export async function registerRoutes(
       const lastDay = new Date(year, month, 0).getDate();
       const endDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
       const todayStr = new Date().toISOString().slice(0, 10);
+      const currentMonthStr = `${year}-${String(month).padStart(2, "0")}`;
 
-      // جلب كل البيانات بالتوازي
-      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves] =
+      const prevMonth = month === 1 ? 12 : month - 1;
+      const prevYear = month === 1 ? year - 1 : year;
+      const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
+
+      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments] =
         await Promise.all([
           storage.getEmployees(),
           storage.getAdvances(undefined, month, year),
@@ -4020,6 +4024,9 @@ export async function registerRoutes(
           storage.getAppSetting("weeklyOffDays"),
           storage.getScheduleOverrides(),
           storage.getLeaves(),
+          storage.getGrants(),
+          storage.getSalaryPayments(currentMonthStr),
+          storage.getSalaryPayments(prevMonthStr),
         ]);
 
       const activeEmployees = employees.filter(e => e.isActive);
@@ -4069,8 +4076,41 @@ export async function registerRoutes(
         else recordsByEmployee.set(rec.employeeId, [rec]);
       }
 
+      // بناء Map لمدفوعات الشهر الحالي والسابق
+      const currentPaymentsMap = new Map(currentPayments.map(p => [p.employeeId, parseFloat(p.amountPaid as any) || 0]));
+      const prevPaymentsMap = new Map(prevPayments.map(p => [p.employeeId, parseFloat(p.amountPaid as any) || 0]));
+
+      // ---- حساب المنح لكل موظف ----
+      const WEEKDAY_TO_DOW_PAY: Record<string, number> = {
+        "الأحد": 0, "الاثنين": 1, "الثلاثاء": 2, "الأربعاء": 3,
+        "الخميس": 4, "الجمعة": 5, "السبت": 6,
+      };
+      function absenceThresholdMetPay(absent: number, thresh: string | null): boolean {
+        if (!thresh) return false;
+        if (thresh === "1") return absent >= 1;
+        if (thresh === "2") return absent >= 2;
+        if (thresh === "more") return absent > 2;
+        const n = parseFloat(thresh);
+        return !isNaN(n) && absent >= n;
+      }
+      function buildPayLeaveDates(emp: any): Set<string> {
+        const s = new Set<string>();
+        for (const lv of allLeaves) {
+          const applies = lv.targetType === "all" ||
+            (lv.targetType === "shift" && (emp.shift || "morning") === lv.shiftValue) ||
+            (lv.targetType === "workshop" && emp.workshopId === lv.workshopId) ||
+            (lv.targetType === "employee" && emp.id === lv.employeeId);
+          if (!applies || lv.startDate > endDate || lv.endDate < startDate) continue;
+          let d = new Date((lv.startDate > startDate ? lv.startDate : startDate) + "T00:00:00");
+          const dEnd = new Date((lv.endDate < endDate ? lv.endDate : endDate) + "T00:00:00");
+          while (d <= dEnd) { s.add(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+        }
+        return s;
+      }
+
       const rows = activeEmployees.map(emp => {
         const baseSalary = parseFloat(emp.baseSalary ?? "0") || 0;
+        const hourlyRate = parseFloat(emp.hourlyRate ?? "0") || 0;
         const workRule = workRulesMap.get(emp.workRuleId ?? "") ?? defaultRule;
         const isEmpHolidayPay = (date: string): boolean => {
           const dow = new Date(date + "T00:00:00").getDay();
