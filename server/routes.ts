@@ -4170,7 +4170,13 @@ export async function registerRoutes(
             const rawEarlyLeave = coMin !== null ? Math.max(0, effEndMin - coMin)  : 0;
             const effLate  = Math.max(0, rawLate      - lateArrivalGrace);
             const effEarly = Math.max(0, rawEarlyLeave - earlyLeaveGrace);
-            const midAbs   = rec.middleAbsenceMinutes ?? 0;
+            let midAbs = rec.middleAbsenceMinutes ?? 0;
+            if ((rec as any).rawPunches) {
+              try {
+                const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
+                midAbs = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, effStartMin);
+              } catch { /* keep stored value */ }
+            }
 
             if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
             else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / effDayMin);
@@ -4178,7 +4184,14 @@ export async function registerRoutes(
             // بدون جدول خاص: نستخدم القيم المخزنة (المحسوبة وقت التسجيل بالجدول الصحيح)
             const effLate  = Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
             const effEarly = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
-            const midAbs   = rec.middleAbsenceMinutes ?? 0;
+            const baseShiftStartMin = payTimeToMin(workRule?.workStartTime ?? "08:00") ?? 480;
+            let midAbs = rec.middleAbsenceMinutes ?? 0;
+            if ((rec as any).rawPunches) {
+              try {
+                const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
+                midAbs = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, baseShiftStartMin);
+              } catch { /* keep stored value */ }
+            }
 
             if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
             else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / totalWorkDayMinutes);
