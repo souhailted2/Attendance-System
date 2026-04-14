@@ -46,12 +46,17 @@ interface DailyRecord {
   date: string;
   checkIn: string | null;
   checkOut: string | null;
+  normalizedCheckIn: string | null;
+  normalizedCheckOut: string | null;
   status: string;
   lateMinutes: number;
   earlyLeaveMinutes: number;
   effectiveLateMinutes: number;
+  effectiveEarlyLeaveMinutes: number;
   totalHours: string | null;
   dailyScore: number;
+  pending?: boolean;
+  overtimeHours: number;
 }
 interface EmployeeReport {
   employeeId: string;
@@ -75,12 +80,24 @@ function statusLabel(status: string) {
   };
   return m[status] ?? status;
 }
-function statusRowClass(status: string) {
-  if (status === "absent") return "bg-red-50 dark:bg-red-950/20";
-  if (status === "late") return "bg-amber-50 dark:bg-amber-950/20";
-  if (status === "leave") return "bg-purple-50 dark:bg-purple-950/20";
-  if (status === "rest") return "bg-slate-50 dark:bg-slate-800/20";
-  return "";
+function getCellBg(status: string): string {
+  if (status === "absent") return "bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50";
+  if (status === "holiday") return "bg-blue-50 dark:bg-blue-950/30 hover:bg-blue-100 dark:hover:bg-blue-950/50";
+  if (status === "leave") return "bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-950/50";
+  if (status === "late") return "bg-amber-50 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-950/50";
+  if (status === "rest") return "bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50";
+  return "bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50";
+}
+
+function getCellScoreColor(status: string, score: number): string {
+  if (status === "absent") return "text-red-600 dark:text-red-400";
+  if (status === "holiday") return "text-blue-600 dark:text-blue-400";
+  if (status === "leave") return "text-purple-600 dark:text-purple-400";
+  if (status === "rest") return "text-slate-500 dark:text-slate-400";
+  if (score >= 1.95) return "text-orange-600 dark:text-orange-400";
+  if (score >= 0.95) return "text-green-700 dark:text-green-400";
+  if (score >= 0.80) return "text-amber-700 dark:text-amber-400";
+  return "text-red-700 dark:text-red-400";
 }
 
 const STATUS_OPTIONS = [
@@ -146,6 +163,21 @@ export default function Favorites() {
     () => (empReport?.dailyRecords ?? []).slice().sort((a, b) => a.date.localeCompare(b.date)),
     [empReport]
   );
+
+  const allDates = useMemo(() => {
+    const dates: string[] = [];
+    const last = new Date(viewYear, viewMonth, 0).getDate();
+    for (let d = 1; d <= last; d++) {
+      dates.push(`${viewYear}-${pad(viewMonth)}-${pad(d)}`);
+    }
+    return dates;
+  }, [viewYear, viewMonth]);
+
+  const dayMap = useMemo(() => {
+    const m = new Map<string, DailyRecord>();
+    for (const rec of records) m.set(rec.date, rec);
+    return m;
+  }, [records]);
 
   const overrideScore = overrideData?.score ?? null;
   const displayScore = overrideScore !== null ? overrideScore : (empReport?.attendanceScore ?? 0);
@@ -314,125 +346,203 @@ export default function Favorites() {
               </CardContent></Card>
             </div>
 
-            {/* Attendance Table */}
+            {/* Attendance Cross-Table */}
             <Card>
-              <CardContent className="p-0 overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-right">التاريخ</TableHead>
-                      <TableHead className="text-right">اليوم</TableHead>
-                      <TableHead className="text-right">الحالة</TableHead>
-                      <TableHead className="text-right">الدخول</TableHead>
-                      <TableHead className="text-right">الخروج</TableHead>
-                      <TableHead className="text-right">الساعات</TableHead>
-                      <TableHead className="text-right">الدرجة</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {records.map((rec) => (
-                      <TableRow
-                        key={rec.date}
-                        className={`${statusRowClass(rec.status)} ${isOwnerOrAttendence ? "cursor-pointer hover:opacity-80" : ""}`}
-                        onClick={() => isOwnerOrAttendence && openEdit(rec)}
-                        data-testid={`row-attendance-${rec.date}`}
-                      >
-                        <TableCell className="font-mono text-sm">{rec.date}</TableCell>
-                        <TableCell className="text-sm">{getArabicDay(rec.date)}</TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={rec.status === "present" ? "default" : rec.status === "absent" ? "destructive" : "outline"}
-                            className="text-xs"
-                          >
-                            {statusLabel(rec.status)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{rec.checkIn ?? "—"}</TableCell>
-                        <TableCell className="font-mono text-sm">{rec.checkOut ?? "—"}</TableCell>
-                        <TableCell className="text-sm">{rec.totalHours ?? "—"}</TableCell>
-                        <TableCell className="font-mono text-sm">{rec.dailyScore.toFixed(2)}</TableCell>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b-2 bg-muted/30">
+                        <TableHead className="text-right sticky right-0 bg-muted/30 z-10 min-w-[130px] font-bold">
+                          {selectedEmp?.name}
+                        </TableHead>
+                        {allDates.map((d) => {
+                          const day = new Date(d + "T00:00:00").getDay();
+                          const isWeekend = day === 5 || day === 6;
+                          return (
+                            <TableHead key={d} className={`text-center min-w-[72px] px-0.5 py-1 ${isWeekend ? "bg-blue-50/80 dark:bg-blue-950/20" : ""}`}>
+                              <div className="text-[10px] text-muted-foreground leading-tight">{getArabicDay(d)}</div>
+                              <div className="text-xs font-mono font-medium leading-tight">{d.slice(5).replace("-", "/")}</div>
+                            </TableHead>
+                          );
+                        })}
+                        <TableHead className={`text-center min-w-[100px] font-bold sticky left-0 z-10 border-r ${overrideScore !== null ? "bg-yellow-50 dark:bg-yellow-950/20" : "bg-muted/30"}`}>
+                          الإجمالي
+                        </TableHead>
                       </TableRow>
-                    ))}
-
-                    {/* Total Row */}
-                    <TableRow className={overrideScore !== null ? "bg-yellow-50 dark:bg-yellow-950/20 font-bold" : "font-bold bg-muted/40"}>
-                      <TableCell colSpan={6} className="text-right">
-                        <div className="flex items-center gap-2 justify-end flex-wrap">
-                          <span>الإجمالي</span>
-                          {overrideScore !== null && (
-                            <Badge variant="outline" className="text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300">
-                              ✓ معدَّل
-                            </Badge>
+                    </TableHeader>
+                    <TableBody>
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell className="font-medium sticky right-0 bg-background z-10 border-l text-sm">
+                          {selectedEmp?.employeeCode && (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Hash className="h-3 w-3" />{selectedEmp.employeeCode}
+                            </span>
                           )}
-                          {isOwner && !editingScore && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={(e) => { e.stopPropagation(); setScoreInput(String(displayScore)); setEditingScore(true); }}
-                              data-testid="button-edit-score"
-                              title="تعديل الإجمالي"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </Button>
-                          )}
-                          {isOwner && overrideScore !== null && !editingScore && (
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                              onClick={(e) => { e.stopPropagation(); deleteOverrideMutation.mutate(); }}
-                              data-testid="button-delete-score-override"
-                              title="إلغاء التعديل"
-                              disabled={deleteOverrideMutation.isPending}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                          {editingScore && (
-                            <div className="flex items-center gap-1">
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={scoreInput}
-                                onChange={(e) => setScoreInput(e.target.value)}
-                                className="h-7 w-24 text-sm"
-                                data-testid="input-score-override"
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-green-600"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const v = parseFloat(scoreInput);
-                                  if (!isNaN(v)) setOverrideMutation.mutate(v);
-                                }}
-                                disabled={setOverrideMutation.isPending}
-                                data-testid="button-save-score"
+                        </TableCell>
+                        {allDates.map((d) => {
+                          const rec = dayMap.get(d);
+                          if (!rec) {
+                            const syntheticRec: DailyRecord = {
+                              attendanceId: null, date: d,
+                              checkIn: null, checkOut: null,
+                              normalizedCheckIn: null, normalizedCheckOut: null,
+                              status: "absent", lateMinutes: 0, earlyLeaveMinutes: 0,
+                              effectiveLateMinutes: 0, effectiveEarlyLeaveMinutes: 0,
+                              totalHours: null, dailyScore: 0, pending: false, overtimeHours: 0,
+                            };
+                            return (
+                              <TableCell key={d} className="p-0">
+                                <button
+                                  className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOwnerOrAttendence ? "cursor-pointer hover:bg-muted/40" : "cursor-default"}`}
+                                  onClick={() => isOwnerOrAttendence && openEdit(syntheticRec)}
+                                  data-testid={`button-cell-${d}`}
+                                >
+                                  —
+                                </button>
+                              </TableCell>
+                            );
+                          }
+                          const bgClass = getCellBg(rec.status);
+                          const scoreColorClass = getCellScoreColor(rec.status, rec.dailyScore);
+                          return (
+                            <TableCell key={d} className="p-0" data-testid={`cell-${d}`}>
+                              <button
+                                className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${isOwnerOrAttendence ? "cursor-pointer" : "cursor-default"}`}
+                                onClick={() => isOwnerOrAttendence && openEdit(rec)}
+                                title={`${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
+                                data-testid={`button-cell-${d}`}
                               >
-                                <Check className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-7 w-7 text-muted-foreground"
-                                onClick={(e) => { e.stopPropagation(); setEditingScore(false); }}
-                                data-testid="button-cancel-score"
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono" data-testid="text-total-score">
-                        {displayScore.toFixed(2)} / {empReport?.totalDays ?? 0}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                                {rec.status === "absent" ? (
+                                  <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                ) : rec.status === "rest" ? (
+                                  <>
+                                    <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-none">راحة</span>
+                                  </>
+                                ) : rec.status === "leave" ? (
+                                  <span className={`text-xs font-bold ${scoreColorClass}`}>إجازة</span>
+                                ) : rec.status === "holiday" ? (
+                                  <>
+                                    <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                    {rec.checkIn && (
+                                      <span className="text-[10px] text-blue-500 dark:text-blue-400 font-mono leading-none">
+                                        <span className="text-green-600 dark:text-green-400 font-bold">د:</span>{rec.checkIn}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : rec.pending ? (
+                                  <>
+                                    <span className="text-base font-bold text-amber-500 dark:text-amber-400">؟</span>
+                                    <span className="text-[10px] font-mono text-muted-foreground leading-none">
+                                      <span className="text-green-600 dark:text-green-400 font-bold">د:</span>{rec.checkIn}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className={`text-xs font-bold ${scoreColorClass}`}>{rec.dailyScore.toFixed(2)}</span>
+                                    {rec.checkIn && (
+                                      <span className="text-[10px] font-mono text-muted-foreground leading-none">
+                                        <span className="text-green-600 dark:text-green-400 font-bold">د:</span>{rec.checkIn}
+                                      </span>
+                                    )}
+                                    {rec.checkOut && (
+                                      <span className="text-[10px] font-mono text-muted-foreground leading-none">
+                                        <span className="text-red-500 dark:text-red-400 font-bold">خ:</span>{rec.checkOut}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </button>
+                            </TableCell>
+                          );
+                        })}
+                        {/* Total cell */}
+                        <TableCell className={`text-center font-bold sticky left-0 z-10 border-r p-2 ${overrideScore !== null ? "bg-yellow-50 dark:bg-yellow-950/20" : "bg-muted/10"}`}>
+                          <div className="flex flex-col items-center gap-1">
+                            {overrideScore !== null && !editingScore && (
+                              <Badge variant="outline" className="text-[10px] bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 px-1 py-0">
+                                ✓ معدَّل
+                              </Badge>
+                            )}
+                            {editingScore ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={scoreInput}
+                                  onChange={(e) => setScoreInput(e.target.value)}
+                                  className="h-7 w-20 text-sm text-center px-1"
+                                  data-testid="input-score-override"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-green-600"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const v = parseFloat(scoreInput);
+                                      if (!isNaN(v)) setOverrideMutation.mutate(v);
+                                    }}
+                                    disabled={setOverrideMutation.isPending}
+                                    data-testid="button-save-score"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-6 w-6 text-muted-foreground"
+                                    onClick={(e) => { e.stopPropagation(); setEditingScore(false); }}
+                                    data-testid="button-cancel-score"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="text-sm font-bold" data-testid="text-total-score">
+                                  {displayScore.toFixed(2)}
+                                </span>
+                                <span className="text-xs text-muted-foreground">/{empReport?.totalDays ?? 0}</span>
+                                {isOwner && (
+                                  <div className="flex gap-0.5 mt-0.5">
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="h-5 w-5"
+                                      onClick={(e) => { e.stopPropagation(); setScoreInput(String(displayScore)); setEditingScore(true); }}
+                                      data-testid="button-edit-score"
+                                      title="تعديل الإجمالي"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                    {overrideScore !== null && (
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-5 w-5 text-destructive hover:text-destructive"
+                                        onClick={(e) => { e.stopPropagation(); deleteOverrideMutation.mutate(); }}
+                                        data-testid="button-delete-score-override"
+                                        title="إلغاء التعديل"
+                                        disabled={deleteOverrideMutation.isPending}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </>
