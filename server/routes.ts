@@ -4120,10 +4120,15 @@ export async function registerRoutes(
   app.get("/api/attendance-score-override", async (req, res) => {
     if (!requireOwner(req, res)) return;
     try {
-      const { employeeId, month } = req.query as { employeeId: string; month: string };
-      if (!employeeId || !month) return res.status(400).json({ message: "employeeId و month مطلوبان" });
-      const score = await storage.getAttendanceScoreOverride(employeeId, month);
-      return res.json({ score });
+      const { employeeId, month } = req.query as { employeeId?: string; month: string };
+      if (!month) return res.status(400).json({ message: "month مطلوب" });
+      if (employeeId) {
+        const score = await storage.getAttendanceScoreOverride(employeeId, month);
+        return res.json({ score });
+      }
+      // جلب جميع overrides للشهر
+      const overrides = await storage.getAttendanceScoreOverrides(month);
+      return res.json(overrides);
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 

@@ -28,7 +28,7 @@ import {
 import type { WorkRule, Workshop, Employee, FrozenArchive, Company, GrantWithConditions } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 
-type DateMode = "day" | "week" | "month" | "year";
+const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
 interface DailyRecord {
   attendanceId: string | null;
@@ -153,9 +153,16 @@ export default function Reports() {
   const isOwner = user?.username === "owner";
   const now = new Date();
 
-  const [dateMode, setDateMode] = useState<DateMode>("month");
-  const [dateFrom, setDateFrom] = useState(firstDayOfMonth());
-  const [dateTo, setDateTo] = useState(lastDayOfMonth());
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [editingScoreEmpId, setEditingScoreEmpId] = useState<string | null>(null);
+  const [scoreInput, setScoreInput] = useState("");
+
+  const [year, monthNum] = selectedMonth.split("-").map(Number);
+  const dateFrom = `${selectedMonth}-01`;
+  const dateTo = `${selectedMonth}-${new Date(year, monthNum, 0).getDate().toString().padStart(2, "0")}`;
 
   const [selectedRule, setSelectedRule] = useState<WorkRule | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
@@ -201,17 +208,13 @@ export default function Reports() {
   // قائمة الأشهر المتاحة (24 شهرًا ماضيًا)
   const availableMonths = useMemo(() => {
     const months: { value: string; label: string }[] = [];
-    const ARABIC_MONTH_NAMES = [
-      "جانفي", "فيفري", "مارس", "أفريل", "ماي", "جوان",
-      "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر",
-    ];
     const today = new Date();
     for (let i = 0; i < 24; i++) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const y = d.getFullYear();
       const m = d.getMonth();
       const value = `${y}-${String(m + 1).padStart(2, "0")}`;
-      const label = `${ARABIC_MONTH_NAMES[m]} ${y}`;
+      const label = `${MONTHS_AR[m]} ${y}`;
       months.push({ value, label });
     }
     return months;
@@ -283,6 +286,38 @@ export default function Reports() {
       if (!res.ok) throw new Error("فشل تحميل تقرير الساعات الإضافية");
       return res.json();
     },
+  });
+
+  const { data: scoreOverridesRaw = {} } = useQuery<Record<string, number>>({
+    queryKey: ["/api/attendance-score-override", selectedMonth],
+    enabled: isOwner,
+    queryFn: async () => {
+      const res = await fetch(`/api/attendance-score-override?month=${selectedMonth}`);
+      if (!res.ok) return {};
+      return res.json();
+    },
+  });
+  const scoreOverrides: Record<string, number> = scoreOverridesRaw;
+
+  const setScoreOverrideMutation = useMutation({
+    mutationFn: ({ employeeId, score }: { employeeId: string; score: number }) =>
+      apiRequest("POST", `/api/attendance-score-override`, { employeeId, month: selectedMonth, score }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-score-override"] });
+      toast({ title: "تم حفظ الإجمالي المعدَّل" });
+      setEditingScoreEmpId(null);
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteScoreOverrideMutation = useMutation({
+    mutationFn: (employeeId: string) =>
+      apiRequest("DELETE", `/api/attendance-score-override`, { employeeId, month: selectedMonth }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance-score-override"] });
+      toast({ title: "تم إلغاء التعديل" });
+    },
+    onError: (err: Error) => toast({ title: "خطأ", description: err.message, variant: "destructive" }),
   });
 
   const updateRuleMutation = useMutation({
@@ -392,29 +427,6 @@ export default function Reports() {
     if (!editCell?.record.attendanceId) return;
     if (!confirm("هل أنت متأكد من حذف هذا السجل؟")) return;
     deleteAttendanceMutation.mutate(editCell.record.attendanceId);
-  }
-
-  function handleDateMode(mode: DateMode) {
-    setDateMode(mode);
-    const d = new Date();
-    if (mode === "day") {
-      setDateFrom(todayStr());
-      setDateTo(todayStr());
-    } else if (mode === "week") {
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-      const mon = new Date(d.setDate(diff));
-      const sun = new Date(mon);
-      sun.setDate(mon.getDate() + 6);
-      setDateFrom(mon.toISOString().slice(0, 10));
-      setDateTo(sun.toISOString().slice(0, 10));
-    } else if (mode === "month") {
-      setDateFrom(firstDayOfMonth());
-      setDateTo(lastDayOfMonth());
-    } else {
-      setDateFrom(`${now.getFullYear()}-01-01`);
-      setDateTo(`${now.getFullYear()}-12-31`);
-    }
   }
 
   function startEditGrace(rule: WorkRule) {
@@ -909,23 +921,16 @@ export default function Reports() {
         subtitle={!breadcrumb ? "اختر فترة عمل لعرض التقرير" : undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-md border overflow-hidden text-xs">
-              {(["day", "week", "month", "year"] as DateMode[]).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => handleDateMode(m)}
-                  className={`px-3 py-1.5 transition-colors ${dateMode === m ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
-                  data-testid={`button-mode-${m}`}
-                >
-                  {m === "day" ? "يوم" : m === "week" ? "أسبوع" : m === "month" ? "شهر" : "سنة"}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1">
-              <Input type="date" className="h-8 w-36 text-xs" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} data-testid="input-date-from" />
-              <span className="text-xs text-muted-foreground">إلى</span>
-              <Input type="date" className="h-8 w-36 text-xs" value={dateTo} onChange={(e) => setDateTo(e.target.value)} data-testid="input-date-to" />
-            </div>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="h-8 w-44 text-xs" data-testid="select-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {availableMonths.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {selectedRule && reportData.length > 0 && (
               <Button
                 size="sm"
@@ -1722,18 +1727,78 @@ export default function Reports() {
                                 </TableCell>
                               );
                             })}
-                            <TableCell className="text-center font-bold bg-muted/10 sticky left-0 z-10 border-r">
+                            <TableCell className={`text-center font-bold sticky left-0 z-10 border-r ${scoreOverrides[r.employeeId] !== undefined ? "bg-yellow-50 dark:bg-yellow-950/20" : "bg-muted/10"}`}>
                               {(() => {
                                 const bonus = r.monthBonus ?? 0;
-                                const displayScore = r.attendanceScore + bonus;
+                                const computedScore = r.attendanceScore + bonus;
+                                const overrideVal = scoreOverrides[r.employeeId];
+                                const displayScore = overrideVal !== undefined ? overrideVal : computedScore;
                                 const denominator = r.normalizedTotalDays ?? r.totalDays;
+                                const isEditing = editingScoreEmpId === r.employeeId;
                                 return (
-                                  <>
-                                    <span className={`text-sm ${scoreColor(displayScore, denominator)}`} data-testid={`score-${r.employeeId}`}>
-                                      {Number.isInteger(displayScore) ? displayScore.toFixed(0) : displayScore.toFixed(2)}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground mr-1">/{denominator}</span>
-                                  </>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    {isEditing ? (
+                                      <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                        <Input
+                                          type="number"
+                                          step="0.01"
+                                          value={scoreInput}
+                                          onChange={(e) => setScoreInput(e.target.value)}
+                                          className="h-6 w-20 text-xs px-1"
+                                          autoFocus
+                                          data-testid={`input-score-${r.employeeId}`}
+                                        />
+                                        <button
+                                          className="text-green-600 hover:text-green-700"
+                                          onClick={() => {
+                                            const v = parseFloat(scoreInput);
+                                            if (!isNaN(v)) setScoreOverrideMutation.mutate({ employeeId: r.employeeId, score: v });
+                                          }}
+                                          disabled={setScoreOverrideMutation.isPending}
+                                          data-testid={`button-save-score-${r.employeeId}`}
+                                        >
+                                          <Check className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          className="text-muted-foreground hover:text-foreground"
+                                          onClick={() => setEditingScoreEmpId(null)}
+                                          data-testid={`button-cancel-score-${r.employeeId}`}
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center gap-1">
+                                        <span className={`text-sm ${scoreColor(displayScore, denominator)}`} data-testid={`score-${r.employeeId}`}>
+                                          {Number.isInteger(displayScore) ? displayScore.toFixed(0) : displayScore.toFixed(2)}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">/{denominator}</span>
+                                        {isOwner && overrideVal !== undefined && (
+                                          <button
+                                            className="text-destructive hover:text-destructive/80 mr-0.5"
+                                            onClick={(e) => { e.stopPropagation(); deleteScoreOverrideMutation.mutate(r.employeeId); }}
+                                            title="إلغاء التعديل"
+                                            data-testid={`button-delete-score-${r.employeeId}`}
+                                          >
+                                            <X className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                        {isOwner && (
+                                          <button
+                                            className="text-muted-foreground hover:text-foreground"
+                                            onClick={(e) => { e.stopPropagation(); setScoreInput(displayScore.toFixed(2)); setEditingScoreEmpId(r.employeeId); }}
+                                            title="تعديل الإجمالي"
+                                            data-testid={`button-edit-score-${r.employeeId}`}
+                                          >
+                                            <Pencil className="h-3 w-3" />
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                    {overrideVal !== undefined && !isEditing && (
+                                      <span className="text-[10px] text-yellow-700 dark:text-yellow-400 font-normal">⚡ معدَّل</span>
+                                    )}
+                                  </div>
                                 );
                               })()}
                             </TableCell>
