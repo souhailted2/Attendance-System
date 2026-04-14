@@ -210,26 +210,18 @@ export function AppSidebar() {
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   )}
-                  {/* Caisse section visible to owner */}
+                  {/* Administration link visible to owner only */}
                   {user?.username === "owner" && (
-                    <>
-                      {caisseItems.map((item) => {
-                        const active = location === item.url;
-                        return (
-                          <SidebarMenuItem key={item.url}>
-                            <SidebarMenuButton asChild isActive={active}
-                              data-testid={`link-nav-${item.url.replace("/", "")}`}>
-                              <Link href={item.url}>
-                                <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
-                                  <item.icon className="h-3.5 w-3.5" />
-                                </span>
-                                <span>{item.title}</span>
-                              </Link>
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        );
-                      })}
-                    </>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/administration"} data-testid="link-nav-administration">
+                        <Link href="/administration">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/administration" ? "bg-primary/20" : ""}`}>
+                            <LayoutDashboard className="h-3.5 w-3.5" />
+                          </span>
+                          <span>الإدارة</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   )}
                 </SidebarMenu>
               </SidebarGroupContent>

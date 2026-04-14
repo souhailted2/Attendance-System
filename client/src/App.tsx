@@ -32,6 +32,7 @@ import Salaries from "@/pages/salaries";
 import Debts from "@/pages/debts";
 import Advances from "@/pages/advances";
 import Payroll from "@/pages/payroll";
+import Administration from "@/pages/administration";
 import { Building2, Briefcase, ChevronLeft } from "lucide-react";
 
 const routeLabels: Record<string, string> = {
@@ -51,6 +52,7 @@ const routeLabels: Record<string, string> = {
   "/leaves-grants": "العطل والمنح",
   "/schedule-overrides": "جداول خاصة",
   "/favorites": "المفضلة",
+  "/administration": "الإدارة",
   "/salaries": "رواتب الموظفين",
   "/debts": "إدارة الديون",
   "/advances": "التسبيقات",
@@ -242,17 +244,20 @@ function Router() {
       <Route path="/employees/:id/attendance">
         <ProtectedRoute component={EmployeeAttendance} allowedUsers={["owner", "attendence"]} />
       </Route>
+      <Route path="/administration">
+        <ProtectedRoute component={Administration} allowedUsers={["owner"]} />
+      </Route>
       <Route path="/salaries">
-        <ProtectedRoute component={Salaries} allowedUsers={["owner", "caisse"]} />
+        <ProtectedRoute component={Salaries} allowedUsers={["caisse"]} />
       </Route>
       <Route path="/debts">
-        <ProtectedRoute component={Debts} allowedUsers={["owner", "caisse"]} />
+        <ProtectedRoute component={Debts} allowedUsers={["caisse"]} />
       </Route>
       <Route path="/advances">
-        <ProtectedRoute component={Advances} allowedUsers={["owner", "caisse"]} />
+        <ProtectedRoute component={Advances} allowedUsers={["caisse"]} />
       </Route>
       <Route path="/payroll">
-        <ProtectedRoute component={Payroll} allowedUsers={["owner", "caisse"]} />
+        <ProtectedRoute component={Payroll} allowedUsers={["caisse"]} />
       </Route>
       <Route component={NotFound} />
     </Switch>
