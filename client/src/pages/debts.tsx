@@ -85,6 +85,24 @@ export default function Debts() {
     createMut.mutate(form);
   }
 
+  function handleMergeDebt() {
+    if (!existingActiveDebt) return;
+    const newTotal = parseFloat(existingActiveDebt.totalAmount) + parseFloat(form.totalAmount || "0");
+    const newRemaining = parseFloat(existingActiveDebt.remainingAmount) + parseFloat(form.totalAmount || "0");
+    const newMonthly = form.monthlyDeduction;
+    editMut.mutate(
+      { id: existingActiveDebt.id, data: { totalAmount: String(newTotal), remainingAmount: String(newRemaining), monthlyDeduction: newMonthly } },
+      {
+        onSuccess: () => {
+          setConfirmOpen(false);
+          setExistingActiveDebt(null);
+          setOpen(false);
+          setForm(emptyForm);
+        },
+      }
+    );
+  }
+
   function handleEditSave() {
     if (!editDebt) return;
     editMut.mutate({ id: editDebt.id, data: { monthlyDeduction: editDebt.monthlyDeduction, remainingAmount: editDebt.remainingAmount, isActive: editDebt.isActive } });
@@ -306,13 +324,22 @@ export default function Debts() {
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="flex-row-reverse gap-2">
+          <AlertDialogFooter className="flex-row-reverse gap-2 flex-wrap">
             <AlertDialogAction
               onClick={handleConfirmAdd}
               className="bg-amber-600 hover:bg-amber-700 text-white"
               data-testid="button-confirm-add-debt"
             >
               تأكيد الإضافة
+            </AlertDialogAction>
+            <AlertDialogAction
+              onClick={handleMergeDebt}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              data-testid="button-merge-debt"
+              disabled={editMut.isPending}
+            >
+              {editMut.isPending && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+              دمج الدينين
             </AlertDialogAction>
             <AlertDialogCancel data-testid="button-cancel-confirm-debt">
               إلغاء
