@@ -23,6 +23,7 @@ import type {
   InsertWorkScheduleOverride, WorkScheduleOverride,
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
+  InsertDeduction, Deduction,
   SalaryPayment,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
@@ -484,4 +485,7 @@ export class PgStorage implements IStorage {
   async getAttendanceScoreOverrides(_month: string): Promise<Record<string, number>> { return {}; }
   async setAttendanceScoreOverride(_employeeId: string, _month: string, _score: number): Promise<void> { /* no-op: MySQL only */ }
   async deleteAttendanceScoreOverride(_employeeId: string, _month: string): Promise<void> { /* no-op: MySQL only */ }
+  async getDeductions(_employeeId?: string, _month?: number, _year?: number): Promise<Deduction[]> { return []; }
+  async createDeduction(_data: InsertDeduction): Promise<Deduction> { throw new Error("Not implemented for Postgres"); }
+  async deleteDeduction(_id: string): Promise<void> { /* no-op: MySQL only */ }
 }

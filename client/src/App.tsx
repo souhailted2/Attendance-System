@@ -259,7 +259,7 @@ function Router() {
         <ProtectedRoute component={Advances} allowedUsers={["caisse"]} />
       </Route>
       <Route path="/deductions">
-        <ProtectedRoute component={Deductions} allowedUsers={["caisse"]} />
+        <ProtectedRoute component={Deductions} allowedUsers={["caisse", "owner"]} />
       </Route>
       <Route path="/payroll">
         <ProtectedRoute component={Payroll} allowedUsers={["caisse"]} />
