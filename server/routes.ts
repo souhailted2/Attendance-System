@@ -4705,7 +4705,7 @@ export async function registerRoutes(
           row.grantAmount,                            // ci=6 المنحة → blue
           row.debtDeduction,                          // ci=7 خصم الدين → red
           row.advanceDeduction,                       // ci=8 التسبيقات → red
-          (row as any).prevRemainingBalance ?? 0,     // ci=9 باقي الصرف القديم → amber
+          row.prevRemainingBalance ?? 0,              // ci=9 باقي الصرف القديم → amber
           row.netSalary,                              // ci=10 الصافي → green bg
           row.amountPaid,                             // ci=11 المبلغ المدفوع → yellow bg
           row.remainingBalance,                       // ci=12 باقي الصرف الجديد → orange bg
@@ -4750,7 +4750,7 @@ export async function registerRoutes(
         totalGrant             += row.grantAmount     ?? 0;
         totalDebt              += row.debtDeduction   ?? 0;
         totalAdvance           += row.advanceDeduction ?? 0;
-        totalPrevRemaining     += (row as any).prevRemainingBalance ?? 0;
+        totalPrevRemaining     += row.prevRemainingBalance ?? 0;
         totalNet               += row.netSalary       ?? 0;
         totalPaid              += row.amountPaid      ?? 0;
         totalRemaining         += row.remainingBalance ?? 0;
