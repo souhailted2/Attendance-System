@@ -24,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users, User, X, TrendingUp, TrendingDown, Ban } from "lucide-react";
+import { fmtDZD } from "@/lib/utils";
 import type { Workshop, Employee } from "@shared/schema";
 
 interface Leave {
@@ -976,7 +977,7 @@ function GrantCard({ grant, workshops, employees, onDelete }: {
               {isGrant ? "منحة" : "عقوبة"}
             </Badge>
             <Badge variant="outline" className="text-xs font-bold">
-              {parseFloat(grant.amount).toLocaleString("ar-DZ", { minimumFractionDigits: 2 })} دج
+              {fmtDZD(grant.amount)}
             </Badge>
           </div>
           <AlertDialog>

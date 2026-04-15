@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle, Search, User, FileSpreadsheet } from "lucide-react";
+import { fmtDZD } from "@/lib/utils";
 
 type Employee = { id: string; name: string; employeeCode: string; isActive: boolean };
 type Debt = {
@@ -153,9 +154,9 @@ export default function Debts() {
                     <p className="text-xs text-muted-foreground font-mono">{getEmpCode(debt.employeeId)}</p>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{debt.description}</td>
-                  <td className="px-4 py-3 font-mono">{parseFloat(debt.totalAmount).toLocaleString("ar-DZ")} دج</td>
-                  <td className="px-4 py-3 font-mono">{parseFloat(debt.monthlyDeduction).toLocaleString("ar-DZ")} دج</td>
-                  <td className="px-4 py-3 font-mono">{parseFloat(debt.remainingAmount).toLocaleString("ar-DZ")} دج</td>
+                  <td className="px-4 py-3 font-mono">{fmtDZD(debt.totalAmount)}</td>
+                  <td className="px-4 py-3 font-mono">{fmtDZD(debt.monthlyDeduction)}</td>
+                  <td className="px-4 py-3 font-mono">{fmtDZD(debt.remainingAmount)}</td>
                   <td className="px-4 py-3">
                     {debt.isActive
                       ? <Badge variant="outline" className="text-amber-600 border-amber-400">نشط</Badge>

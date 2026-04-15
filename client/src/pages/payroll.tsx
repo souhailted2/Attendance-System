@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, FileSpreadsheet, TrendingDown, Search, ChevronRight, ChevronLeft, Save, Pause, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { fmtDZD } from "@/lib/utils";
 
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const now = new Date();
@@ -117,7 +118,7 @@ export default function Payroll() {
     try {
       await saveMutation.mutateAsync({ employeeId: row.employeeId, month: monthStr, amountPaid, remainingBalance });
       setPendingPayments(p => { const n = { ...p }; delete n[row.employeeId]; return n; });
-      toast({ title: "تم الحفظ", description: `تم حفظ مبلغ ${amountPaid.toLocaleString("ar-DZ")} دج لـ ${row.employeeName}` });
+      toast({ title: "تم الحفظ", description: `تم حفظ مبلغ ${fmtDZD(amountPaid)} لـ ${row.employeeName}` });
     } catch {
       toast({ title: "خطأ", description: "فشل حفظ المبلغ", variant: "destructive" });
     } finally {
@@ -215,26 +216,26 @@ export default function Payroll() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
             <div className="rounded-xl border p-3 bg-card">
               <p className="text-xs text-muted-foreground mb-1">إجمالي الأساسي</p>
-              <p className="text-lg font-bold">{totalBase.toLocaleString("ar-DZ")} <span className="text-xs font-normal text-muted-foreground">دج</span></p>
+              <p className="text-lg font-bold">{fmtDZD(totalBase)}</p>
             </div>
             <div className="rounded-xl border p-3 bg-card">
               <p className="text-xs text-muted-foreground mb-1">إجمالي الخصومات</p>
               <p className="text-lg font-bold text-red-600 dark:text-red-400">
                 <TrendingDown className="inline h-3 w-3 ml-1" />
-                {totalDeductions.toLocaleString("ar-DZ")} <span className="text-xs font-normal">دج</span>
+                {fmtDZD(totalDeductions)}
               </p>
             </div>
             <div className="rounded-xl border p-3 bg-card">
               <p className="text-xs text-muted-foreground mb-1">إجمالي الساعات الإضافية</p>
-              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{totalOvertime.toLocaleString("ar-DZ")} <span className="text-xs font-normal">دج</span></p>
+              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{fmtDZD(totalOvertime)}</p>
             </div>
             <div className="rounded-xl border p-3 bg-card">
               <p className="text-xs text-muted-foreground mb-1">إجمالي المنح</p>
-              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{totalGrants.toLocaleString("ar-DZ")} <span className="text-xs font-normal">دج</span></p>
+              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fmtDZD(totalGrants)}</p>
             </div>
             <div className="rounded-xl border p-3 bg-card">
               <p className="text-xs text-muted-foreground mb-1">إجمالي الصافي</p>
-              <p className="text-lg font-bold text-green-600 dark:text-green-400">{totalNet.toLocaleString("ar-DZ")} <span className="text-xs font-normal">دج</span></p>
+              <p className="text-lg font-bold text-green-600 dark:text-green-400">{fmtDZD(totalNet)}</p>
             </div>
           </div>
 
@@ -271,7 +272,7 @@ export default function Payroll() {
                       <div className="flex items-center gap-2 text-xs flex-wrap justify-end">
                         <Badge variant="secondary">{rows.length} موظف</Badge>
                         <span className="text-muted-foreground">صافي:</span>
-                        <span className="font-bold text-green-600 dark:text-green-400">{wsNet.toLocaleString("ar-DZ")} دج</span>
+                        <span className="font-bold text-green-600 dark:text-green-400">{fmtDZD(wsNet)}</span>
                       </div>
                     </div>
                     <table className="w-full text-sm min-w-[1100px]">
@@ -303,7 +304,7 @@ export default function Payroll() {
                                 <p className="font-medium text-xs">{row.employeeName}</p>
                                 <p className="text-xs text-muted-foreground font-mono">{row.employeeCode}</p>
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs">{row.baseSalary.toLocaleString("ar-DZ")} دج</td>
+                              <td className="px-3 py-2 font-mono text-xs">{fmtDZD(row.baseSalary)}</td>
                               <td className="px-3 py-2 font-mono text-center text-xs" data-testid={`score-payroll-${row.employeeId}`}>
                                 <span className={`font-bold ${row.attendanceScore >= 28 ? "text-green-600 dark:text-green-400" : row.attendanceScore >= 24 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
                                   {row.attendanceScore.toFixed(2)}
@@ -312,20 +313,20 @@ export default function Payroll() {
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
                                 {row.attendanceDeduction > 0
-                                  ? <span className="text-red-600 dark:text-red-400">- {row.attendanceDeduction.toLocaleString("ar-DZ")} دج</span>
+                                  ? <span className="text-red-600 dark:text-red-400">- {fmtDZD(row.attendanceDeduction)}</span>
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
                                 {row.overtimePay > 0 ? (
                                   <span className="text-purple-600 dark:text-purple-400">
-                                    + {row.overtimePay.toLocaleString("ar-DZ")} دج
+                                    + {fmtDZD(row.overtimePay)}
                                     <span className="text-muted-foreground text-xs mr-1">({row.overtimeHours}س)</span>
                                   </span>
                                 ) : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
                                 {row.grantAmount > 0
-                                  ? <span className="text-blue-600 dark:text-blue-400">+ {row.grantAmount.toLocaleString("ar-DZ")} دج</span>
+                                  ? <span className="text-blue-600 dark:text-blue-400">+ {fmtDZD(row.grantAmount)}</span>
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
@@ -358,7 +359,7 @@ export default function Payroll() {
                                   return (
                                     <div className="flex items-center gap-1">
                                       <span className="text-amber-600 dark:text-amber-400">
-                                        - {row.debtDeduction.toLocaleString("ar-DZ")} دج
+                                        - {fmtDZD(row.debtDeduction)}
                                       </span>
                                       <Button
                                         size="sm"
@@ -377,11 +378,11 @@ export default function Payroll() {
                               </td>
                               <td className="px-3 py-2 font-mono text-xs">
                                 {row.advanceDeduction > 0
-                                  ? <span className="text-blue-600 dark:text-blue-400">- {row.advanceDeduction.toLocaleString("ar-DZ")} دج</span>
+                                  ? <span className="text-blue-600 dark:text-blue-400">- {fmtDZD(row.advanceDeduction)}</span>
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
                               <td className="px-3 py-2 font-mono font-bold text-xs bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400">
-                                {row.netSalary.toLocaleString("ar-DZ")} دج
+                                {fmtDZD(row.netSalary)}
                               </td>
                               <td className="px-3 py-2 bg-amber-50 dark:bg-amber-950/20">
                                 <div className="flex items-center gap-1">
@@ -409,7 +410,7 @@ export default function Payroll() {
                               <td className="px-3 py-2 font-mono font-bold text-xs bg-orange-50 dark:bg-orange-950/20">
                                 <span className={effectiveRemaining > 0 ? "text-orange-600 dark:text-orange-400" : effectiveRemaining < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
                                   {effectiveRemaining !== 0 ? (
-                                    <>{effectiveRemaining > 0 ? "+" : ""}{effectiveRemaining.toLocaleString("ar-DZ")} دج</>
+                                    <>{effectiveRemaining > 0 ? "+" : ""}{fmtDZD(effectiveRemaining)}</>
                                   ) : "—"}
                                 </span>
                               </td>
@@ -420,33 +421,33 @@ export default function Payroll() {
                       <tfoot>
                         <tr className="border-t bg-muted/50 font-bold text-xs">
                           <td className="px-3 py-2">مجموع الورشة</td>
-                          <td className="px-3 py-2 font-mono">{wsBase.toLocaleString("ar-DZ")} دج</td>
+                          <td className="px-3 py-2 font-mono">{fmtDZD(wsBase)}</td>
                           <td className="px-3 py-2 font-mono text-center text-muted-foreground">
                             {(rows.reduce((s, r) => s + r.attendanceScore, 0) / rows.length).toFixed(2)} متوسط
                           </td>
                           <td className="px-3 py-2 font-mono text-red-600 dark:text-red-400">
-                            {rows.reduce((s, r) => s + r.attendanceDeduction, 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + r.attendanceDeduction, 0))}
                           </td>
                           <td className="px-3 py-2 font-mono text-purple-600 dark:text-purple-400">
-                            {rows.reduce((s, r) => s + r.overtimePay, 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + r.overtimePay, 0))}
                           </td>
                           <td className="px-3 py-2 font-mono text-blue-600 dark:text-blue-400">
-                            {rows.reduce((s, r) => s + r.grantAmount, 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + r.grantAmount, 0))}
                           </td>
                           <td className="px-3 py-2 font-mono text-amber-600 dark:text-amber-400">
-                            {rows.reduce((s, r) => s + r.debtDeduction, 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + r.debtDeduction, 0))}
                           </td>
                           <td className="px-3 py-2 font-mono text-blue-600 dark:text-blue-400">
-                            {rows.reduce((s, r) => s + r.advanceDeduction, 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + r.advanceDeduction, 0))}
                           </td>
                           <td className="px-3 py-2 font-mono text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
-                            {wsNet.toLocaleString("ar-DZ")} دج
+                            {fmtDZD(wsNet)}
                           </td>
                           <td className="px-3 py-2 font-mono bg-amber-50 dark:bg-amber-950/20">
-                            {rows.reduce((s, r) => s + getEffectiveAmountPaid(r), 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + getEffectiveAmountPaid(r), 0))}
                           </td>
                           <td className="px-3 py-2 font-mono bg-orange-50 dark:bg-orange-950/20">
-                            {rows.reduce((s, r) => s + getEffectiveRemaining(r), 0).toLocaleString("ar-DZ")} دج
+                            {fmtDZD(rows.reduce((s, r) => s + getEffectiveRemaining(r), 0))}
                           </td>
                         </tr>
                       </tfoot>

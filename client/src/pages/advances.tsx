@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Loader2, Plus, Trash2, Wallet, Search, User } from "lucide-react";
+import { fmtDZD } from "@/lib/utils";
 
 type Employee = { id: string; name: string; employeeCode: string; isActive: boolean; workshopId?: string };
 type Workshop = { id: string; name: string };
@@ -140,7 +141,7 @@ export default function Advances() {
         <Badge variant="secondary">{filteredAdvances.length} تسبيقة</Badge>
         {filteredAdvances.length > 0 && (
           <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-0">
-            الإجمالي: {filteredAdvances.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0).toLocaleString("ar-DZ")} دج
+            الإجمالي: {fmtDZD(filteredAdvances.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0))}
           </Badge>
         )}
       </div>
@@ -169,7 +170,7 @@ export default function Advances() {
                   <div className="flex items-center gap-2">
                     <Badge variant="secondary">{rows.length} تسبيقة</Badge>
                     <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-0 text-xs">
-                      {wsTotal.toLocaleString("ar-DZ")} دج
+                      {fmtDZD(wsTotal)}
                     </Badge>
                   </div>
                 </div>
@@ -192,7 +193,7 @@ export default function Advances() {
                           <p className="text-xs text-muted-foreground font-mono">{getEmpCode(adv.employeeId)}</p>
                         </td>
                         <td className="px-4 py-2.5 font-mono font-bold text-blue-600 dark:text-blue-400">
-                          {parseFloat(adv.amount).toLocaleString("ar-DZ")} دج
+                          {fmtDZD(adv.amount)}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">{adv.advanceDate}</td>
                         <td className="px-4 py-2.5 text-muted-foreground">{adv.notes || "—"}</td>
