@@ -4653,6 +4653,8 @@ export async function registerRoutes(
           employeeName: emp.name,
           employeeCode: emp.employeeCode,
           workshopId: emp.workshopId ?? null,
+          shift: emp.shift ?? "morning",
+          is24hShift: workRule?.is24hShift ?? false,
           baseSalary,
           attendanceScore,
           attendanceDeduction: Math.round(attendanceDeduction * 100) / 100,
@@ -4701,164 +4703,230 @@ export async function registerRoutes(
       const allWorkshops = await storage.getWorkshops();
       const workshopMap = new Map(allWorkshops.map(w => [w.id as string, w.name as string]));
 
-      // Sort: workshop name ASC → employee name ASC
-      const sortedRows = [...rows].sort((a: PayrollRow, b: PayrollRow) => {
-        const wa = workshopMap.get(a.workshopId ?? "") ?? "";
-        const wb = workshopMap.get(b.workshopId ?? "") ?? "";
-        const wCmp = wa.localeCompare(wb, "ar");
-        if (wCmp !== 0) return wCmp;
-        return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
-      });
-
       const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-      const sheetTitle = `كشف رواتب — شهر ${MONTHS_AR[month - 1]} سنة ${year}`;
       const monthStr = String(month).padStart(2, "0");
       const filename = `رواتب_${year}-${monthStr}.xlsx`;
-
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = "Attendance System";
-      const ws = workbook.addWorksheet(sheetTitle, { views: [{ rightToLeft: true }] });
 
       const NCOLS = 14;
       const moneyFmt = "#,##0.00";
       const scoreFmt = "0.00";
+      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
+      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","الساعات الإضافية","المنحة","الخصم","خصم الدين","التسبيقات","باقي الصرف القديم","الصافي","المبلغ المدفوع","باقي الصرف الجديد"];
 
-      // Helper: apply thin borders to a cell (no type cast needed)
-      function setBorder(cell: ExcelJS.Cell) {
+      // ─── تعريفات الفترات ───
+      const SHIFT_DEFS = [
+        { key: "morning", label: "الفترة الصباحية", color: "FF1B3A5C" },
+        { key: "evening", label: "الفترة المسائية", color: "FF3A1B5C" },
+        { key: "guard",   label: "فترة الحراس",     color: "FF1B5C3A" },
+      ];
+
+      // تصنيف كل صف حسب الفترة
+      function getShiftKey(row: PayrollRow): string {
+        if (row.is24hShift) return "guard";
+        if ((row.shift ?? "morning") === "evening") return "evening";
+        return "morning";
+      }
+
+      // تجميع الصفوف حسب الفترة
+      const byShift = new Map<string, PayrollRow[]>();
+      for (const row of rows) {
+        const sk = getShiftKey(row);
+        if (!byShift.has(sk)) byShift.set(sk, []);
+        byShift.get(sk)!.push(row);
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Attendance System";
+
+      function setBorderEx(cell: ExcelJS.Cell) {
         const s = { style: "thin" as const };
         cell.border = { top: s, bottom: s, left: s, right: s };
       }
 
-      // Column width tracker (for auto-fit)
-      const colWidths: number[] = new Array(NCOLS).fill(6);
-      function trackWidth(ci: number, val: string | number | null | undefined) {
-        const len = String(val ?? "").length;
-        if (len > colWidths[ci]) colWidths[ci] = len;
-      }
+      // ─── بناء ورقة لكل فترة فيها بيانات ───
+      for (const sd of SHIFT_DEFS) {
+        const shiftRows = byShift.get(sd.key);
+        if (!shiftRows || shiftRows.length === 0) continue;
 
-      // Title row (merged)
-      ws.mergeCells(1, 1, 1, NCOLS);
-      const titleCell = ws.getCell("A1");
-      titleCell.value = sheetTitle;
-      titleCell.font = { bold: true, size: 16, color: { argb: "FFFFFFFF" } };
-      titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-      titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } };
-      ws.getRow(1).height = 36;
+        // ترتيب: الورشة أ→ي ثم الاسم أ→ي، بدون ورشة في الآخر
+        const sortedShiftRows = [...shiftRows].sort((a, b) => {
+          const wa = a.workshopId ? (workshopMap.get(a.workshopId) ?? "") : null;
+          const wb = b.workshopId ? (workshopMap.get(b.workshopId) ?? "") : null;
+          if (wa === null && wb !== null) return 1;
+          if (wa !== null && wb === null) return -1;
+          if (wa === null && wb === null) return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+          const wCmp = (wa as string).localeCompare(wb as string, "ar");
+          if (wCmp !== 0) return wCmp;
+          return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+        });
 
-      // Header row — 14 columns
-      // ci: 0=الاسم 1=رقم الموظف 2=الورشة 3=الراتب الأساسي 4=نقطة الحضور
-      //     5=الساعات الإضافية 6=المنحة 7=الخصم 8=خصم الدين 9=التسبيقات
-      //     10=باقي الصرف القديم 11=الصافي 12=المبلغ المدفوع 13=باقي الصرف الجديد
-      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","الساعات الإضافية","المنحة","الخصم","خصم الدين","التسبيقات","باقي الصرف القديم","الصافي","المبلغ المدفوع","باقي الصرف الجديد"];
-      headers.forEach((h, i) => trackWidth(i, h));
-      const hRow = ws.getRow(2);
-      headers.forEach((h, i) => {
-        const cell = hRow.getCell(i + 1);
-        cell.value = h;
-        cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
-        cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
-        setBorder(cell);
-      });
-      hRow.height = 28;
-      ws.views = [{ state: "frozen", ySplit: 2, rightToLeft: true }];
+        const sheetTitle = `${sd.label} — ${MONTHS_AR[month - 1]} ${year}`;
+        const ws = workbook.addWorksheet(sd.label, { views: [{ rightToLeft: true }] });
+        const colWidths: number[] = new Array(NCOLS).fill(6);
+        function trackW(ci: number, val: string | number | null | undefined) {
+          const len = String(val ?? "").length;
+          if (len > colWidths[ci]) colWidths[ci] = len;
+        }
 
-      // Accumulate totals
-      let totalBase = 0, totalOtPay = 0, totalGrant = 0, totalDeduction = 0;
-      let totalDebt = 0, totalAdvance = 0, totalPrevRemaining = 0, totalNet = 0, totalPaid = 0, totalRemaining = 0;
+        // ─── صف العنوان ───
+        ws.mergeCells(1, 1, 1, NCOLS);
+        const titleCell = ws.getCell("A1");
+        titleCell.value = sheetTitle;
+        titleCell.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
+        ws.getRow(1).height = 34;
 
-      // Column number formats (14 cols): score uses 0.00, monetary cols use #,##0.00
-      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
+        // ─── صف الأعمدة ───
+        const hRow = ws.getRow(2);
+        headers.forEach((h, i) => {
+          trackW(i, h);
+          const cell = hRow.getCell(i + 1);
+          cell.value = h;
+          cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+          cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
+          setBorderEx(cell);
+        });
+        hRow.height = 26;
+        ws.views = [{ state: "frozen", ySplit: 2, rightToLeft: true }];
 
-      sortedRows.forEach((row: PayrollRow, idx: number) => {
-        const r = ws.getRow(idx + 3);
-        const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+        // إجماليات الفترة
+        let gBase=0, gOt=0, gGrant=0, gDeduct=0, gDebt=0, gAdv=0, gPrev=0, gNet=0, gPaid=0, gRemain=0;
+        let currentRow = 3;
 
-        const cells: (string | number)[] = [
-          row.employeeName,                           // ci=0 الاسم
-          row.employeeCode ?? "",                     // ci=1 رقم الموظف
-          workshopMap.get(row.workshopId ?? "") ?? "", // ci=2 الورشة
-          row.baseSalary,                             // ci=3 الراتب الأساسي
-          row.attendanceScore,                        // ci=4 نقطة الحضور
-          row.overtimePay,                            // ci=5 الساعات الإضافية → blue
-          row.grantAmount,                            // ci=6 المنحة → blue
-          row.deductionAmount ?? 0,                   // ci=7 الخصم → red
-          row.debtDeduction,                          // ci=8 خصم الدين → red
-          row.advanceDeduction,                       // ci=9 التسبيقات → red
-          row.prevRemainingBalance ?? 0,              // ci=10 باقي الصرف القديم → amber
-          row.netSalary,                              // ci=11 الصافي → green bg
-          row.amountPaid,                             // ci=12 المبلغ المدفوع → yellow bg
-          row.remainingBalance,                       // ci=13 باقي الصرف الجديد → orange bg
-        ];
+        // تجميع حسب الورشة (null = بدون ورشة)
+        const workshopGroups: Array<{ workshopId: string | null; rows: PayrollRow[] }> = [];
+        const seenWorkshops = new Set<string | null>();
+        for (const row of sortedShiftRows) {
+          const wid = row.workshopId ?? null;
+          if (!seenWorkshops.has(wid)) {
+            seenWorkshops.add(wid);
+            workshopGroups.push({ workshopId: wid, rows: [] });
+          }
+          workshopGroups.find(g => g.workshopId === wid)!.rows.push(row);
+        }
 
-        cells.forEach((val, ci) => {
-          trackWidth(ci, val);
-          const cell = r.getCell(ci + 1);
+        for (const group of workshopGroups) {
+          const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
+          const wHeaderBg  = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
+          const wLabelColor = group.workshopId ? "FF1B3A5C" : "FFB45309";
+
+          // ─── عنوان الورشة ───
+          ws.mergeCells(currentRow, 1, currentRow, NCOLS);
+          const wHCell = ws.getCell(currentRow, 1);
+          wHCell.value = `◆  ${wName}`;
+          wHCell.font = { bold: true, size: 11, color: { argb: wLabelColor } };
+          wHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
+          wHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: wHeaderBg } };
+          setBorderEx(wHCell);
+          ws.getRow(currentRow).height = 24;
+          currentRow++;
+
+          let wBase=0, wOt=0, wGrant=0, wDeduct=0, wDebt=0, wAdv=0, wPrev=0, wNet=0, wPaid=0, wRemain=0;
+
+          // ─── صفوف الموظفين ───
+          group.rows.forEach((row, idx) => {
+            const r = ws.getRow(currentRow);
+            const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+            const cells: (string | number)[] = [
+              row.employeeName,
+              row.employeeCode ?? "",
+              workshopMap.get(row.workshopId ?? "") ?? "",
+              row.baseSalary,
+              row.attendanceScore,
+              row.overtimePay,
+              row.grantAmount,
+              row.deductionAmount ?? 0,
+              row.debtDeduction,
+              row.advanceDeduction,
+              row.prevRemainingBalance ?? 0,
+              row.netSalary,
+              row.amountPaid,
+              row.remainingBalance,
+            ];
+            cells.forEach((val, ci) => {
+              trackW(ci, val);
+              const cell = r.getCell(ci + 1);
+              cell.value = val;
+              setBorderEx(cell);
+              cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+              const fmt = colFmt[ci];
+              if (fmt) cell.numFmt = fmt;
+              if (ci === 10) {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8E1" } };
+                cell.font = { color: { argb: "FFB45309" } };
+              } else if (ci === 11) {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
+              } else if (ci === 12) {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } };
+              } else if (ci === 13) {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE5CC" } };
+              } else {
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
+                if (ci === 7 || ci === 8 || ci === 9) cell.font = { color: { argb: "FFCC0000" } };
+                else if (ci === 5 || ci === 6) cell.font = { color: { argb: "FF0055CC" } };
+              }
+            });
+            r.height = 21;
+            wBase   += row.baseSalary      ?? 0;
+            wOt     += row.overtimePay     ?? 0;
+            wGrant  += row.grantAmount     ?? 0;
+            wDeduct += row.deductionAmount ?? 0;
+            wDebt   += row.debtDeduction   ?? 0;
+            wAdv    += row.advanceDeduction ?? 0;
+            wPrev   += row.prevRemainingBalance ?? 0;
+            wNet    += row.netSalary       ?? 0;
+            wPaid   += row.amountPaid      ?? 0;
+            wRemain += row.remainingBalance ?? 0;
+            currentRow++;
+          });
+
+          // ─── إجمالي الورشة ───
+          const wTotals: (string | number)[] = [`إجمالي ${wName}`, "", "", wBase, 0, wOt, wGrant, wDeduct, wDebt, wAdv, wPrev, wNet, wPaid, wRemain];
+          const wTRow = ws.getRow(currentRow);
+          wTRow.height = 22;
+          wTotals.forEach((val, ci) => {
+            trackW(ci, val);
+            const cell = wTRow.getCell(ci + 1);
+            cell.value = val;
+            cell.font = { bold: true, color: { argb: wLabelColor } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
+            setBorderEx(cell);
+            cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+            const fmt = colFmt[ci];
+            if (fmt) cell.numFmt = fmt;
+          });
+          currentRow++;
+          currentRow++; // صف فراغ فاصل
+
+          gBase   += wBase;   gOt    += wOt;    gGrant  += wGrant;
+          gDeduct += wDeduct; gDebt  += wDebt;  gAdv    += wAdv;
+          gPrev   += wPrev;   gNet   += wNet;   gPaid   += wPaid;
+          gRemain += wRemain;
+        }
+
+        // ─── إجمالي الفترة الكلي ───
+        const gTotals: (string | number)[] = [`إجمالي ${sd.label}`, "", "", gBase, 0, gOt, gGrant, gDeduct, gDebt, gAdv, gPrev, gNet, gPaid, gRemain];
+        const gTRow = ws.getRow(currentRow);
+        gTRow.height = 28;
+        gTotals.forEach((val, ci) => {
+          trackW(ci, val);
+          const cell = gTRow.getCell(ci + 1);
           cell.value = val;
-          setBorder(cell);
+          cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
+          setBorderEx(cell);
           cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
           const fmt = colFmt[ci];
           if (fmt) cell.numFmt = fmt;
-          // Special column background colors
-          if (ci === 10) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8E1" } };
-          } else if (ci === 11) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
-          } else if (ci === 12) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
-          } else if (ci === 13) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE5CC" } };
-          } else {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
-          }
-          // Deduction columns (الخصم، خصم الدين، التسبيقات) — red text
-          if (ci === 7 || ci === 8 || ci === 9) {
-            cell.font = { color: { argb: "FFCC0000" } };
-          }
-          // Addition columns (الساعات الإضافية، المنحة) — blue text
-          if (ci === 5 || ci === 6) {
-            cell.font = { color: { argb: "FF0055CC" } };
-          }
-          // باقي الصرف القديم — amber text
-          if (ci === 10) {
-            cell.font = { color: { argb: "FFB45309" } };
-          }
         });
 
-        totalBase              += row.baseSalary      ?? 0;
-        totalOtPay             += row.overtimePay     ?? 0;
-        totalGrant             += row.grantAmount     ?? 0;
-        totalDeduction         += row.deductionAmount ?? 0;
-        totalDebt              += row.debtDeduction   ?? 0;
-        totalAdvance           += row.advanceDeduction ?? 0;
-        totalPrevRemaining     += row.prevRemainingBalance ?? 0;
-        totalNet               += row.netSalary       ?? 0;
-        totalPaid              += row.amountPaid      ?? 0;
-        totalRemaining         += row.remainingBalance ?? 0;
-        r.height = 22;
-      });
-
-      // Totals row
-      const tRowIdx = sortedRows.length + 3;
-      const tRow = ws.getRow(tRowIdx);
-      tRow.height = 28;
-      const totals: (string | number)[] = ["الإجمالي", "", "", totalBase, 0, totalOtPay, totalGrant, totalDeduction, totalDebt, totalAdvance, totalPrevRemaining, totalNet, totalPaid, totalRemaining];
-      totals.forEach((val, ci) => {
-        trackWidth(ci, val);
-        const cell = tRow.getCell(ci + 1);
-        cell.value = val;
-        cell.font = { bold: true };
-        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
-        setBorder(cell);
-        cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-        const fmt = colFmt[ci];
-        if (fmt) cell.numFmt = fmt;
-      });
-
-      // Apply auto-fit column widths (char count + padding, capped at 40)
-      ws.columns.forEach((col, ci) => {
-        col.width = Math.min(40, Math.max(colWidths[ci] + 3, 10));
-      });
+        // ─── عرض الأعمدة ───
+        ws.columns.forEach((col, ci) => {
+          col.width = Math.min(40, Math.max(colWidths[ci] + 3, 10));
+        });
+      }
 
       const encFilename = encodeURIComponent(filename);
       const asciiFilename = `payroll_${year}-${monthStr}.xlsx`;
