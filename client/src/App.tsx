@@ -31,6 +31,7 @@ import Favorites from "@/pages/favorites";
 import Salaries from "@/pages/salaries";
 import Debts from "@/pages/debts";
 import Advances from "@/pages/advances";
+import Deductions from "@/pages/deductions";
 import Payroll from "@/pages/payroll";
 import Administration from "@/pages/administration";
 import { Building2, Briefcase, ChevronLeft } from "lucide-react";
@@ -56,6 +57,7 @@ const routeLabels: Record<string, string> = {
   "/salaries": "رواتب الموظفين",
   "/debts": "إدارة الديون",
   "/advances": "التسبيقات",
+  "/deductions": "الخصومات",
   "/payroll": "كشف الرواتب",
 };
 
@@ -255,6 +257,9 @@ function Router() {
       </Route>
       <Route path="/advances">
         <ProtectedRoute component={Advances} allowedUsers={["caisse"]} />
+      </Route>
+      <Route path="/deductions">
+        <ProtectedRoute component={Deductions} allowedUsers={["caisse"]} />
       </Route>
       <Route path="/payroll">
         <ProtectedRoute component={Payroll} allowedUsers={["caisse"]} />

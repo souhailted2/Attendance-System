@@ -21,6 +21,7 @@ import type {
   InsertWorkScheduleOverride, WorkScheduleOverride,
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
+  InsertDeduction, Deduction,
   SalaryPayment,
 } from "@shared/schema";
 import { pool } from "./db";
@@ -779,6 +780,16 @@ export class MysqlStorage implements IStorage {
       created_at VARCHAR(50) NOT NULL,
       UNIQUE KEY uq_aso_emp_month (employee_id, month)
     )`);
+    await rawPool.query(`CREATE TABLE IF NOT EXISTS deductions (
+      id VARCHAR(36) NOT NULL PRIMARY KEY,
+      employee_id VARCHAR(36) NOT NULL,
+      amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+      month INT NOT NULL,
+      year INT NOT NULL,
+      reason TEXT,
+      created_at TEXT NOT NULL,
+      created_by VARCHAR(191)
+    )`);
     // إضافة عمود remaining_balance إن لم يكن موجوداً (للجداول القديمة)
     const [spCols] = await rawPool.query(
       `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='salary_payments' AND COLUMN_NAME='remaining_balance'`
@@ -883,6 +894,38 @@ export class MysqlStorage implements IStorage {
 
   async deleteAdvance(id: string): Promise<void> {
     await mysqlDb.delete(schema.advances).where(eq(schema.advances.id, id));
+  }
+
+  async getDeductions(employeeId?: string, month?: number, year?: number): Promise<Deduction[]> {
+    const conditions: any[] = [];
+    if (employeeId) conditions.push(eq(schema.deductions.employeeId, employeeId));
+    if (month !== undefined) conditions.push(eq(schema.deductions.month, month));
+    if (year !== undefined) conditions.push(eq(schema.deductions.year, year));
+    if (conditions.length > 0) {
+      const rows = await mysqlDb.select().from(schema.deductions).where(and(...conditions));
+      return rows as Deduction[];
+    }
+    return mysqlDb.select().from(schema.deductions) as Promise<Deduction[]>;
+  }
+
+  async createDeduction(data: InsertDeduction): Promise<Deduction> {
+    const id = randomUUID();
+    await mysqlDb.insert(schema.deductions).values({
+      id,
+      employeeId: data.employeeId,
+      amount: data.amount,
+      month: data.month,
+      year: data.year,
+      reason: data.reason ?? null,
+      createdAt: data.createdAt,
+      createdBy: data.createdBy ?? null,
+    });
+    const [row] = await mysqlDb.select().from(schema.deductions).where(eq(schema.deductions.id, id));
+    return row as Deduction;
+  }
+
+  async deleteDeduction(id: string): Promise<void> {
+    await mysqlDb.delete(schema.deductions).where(eq(schema.deductions.id, id));
   }
 
   async getSalaryPayments(month: string): Promise<SalaryPayment[]> {

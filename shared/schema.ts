@@ -396,6 +396,27 @@ export type Advance = {
   createdAt: string;
 };
 
+export const insertDeductionSchema = z.object({
+  employeeId: z.string(),
+  amount: z.string(),
+  month: z.number(),
+  year: z.number(),
+  reason: z.string().nullable().optional(),
+  createdAt: z.string(),
+  createdBy: z.string().nullable().optional(),
+});
+export type InsertDeduction = z.infer<typeof insertDeductionSchema>;
+export type Deduction = {
+  id: string;
+  employeeId: string;
+  amount: string;
+  month: number;
+  year: number;
+  reason: string | null;
+  createdAt: string;
+  createdBy: string | null;
+};
+
 export type SalaryPayment = {
   id: string;
   employeeId: string;

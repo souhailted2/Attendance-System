@@ -18,6 +18,7 @@ import type {
   InsertWorkScheduleOverride, WorkScheduleOverride,
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
+  InsertDeduction, Deduction,
   SalaryPayment,
 } from "@shared/schema";
 
@@ -129,6 +130,10 @@ export interface IStorage {
   getAttendanceScoreOverrides(month: string): Promise<Record<string, number>>;
   setAttendanceScoreOverride(employeeId: string, month: string, score: number): Promise<void>;
   deleteAttendanceScoreOverride(employeeId: string, month: string): Promise<void>;
+
+  getDeductions(employeeId?: string, month?: number, year?: number): Promise<Deduction[]>;
+  createDeduction(data: InsertDeduction): Promise<Deduction>;
+  deleteDeduction(id: string): Promise<void>;
 
   initPayrollTables(): Promise<void>;
 }
@@ -261,6 +266,10 @@ class LazyStorage implements IStorage {
   getAttendanceScoreOverrides(month: string) { return this.impl().then(s => s.getAttendanceScoreOverrides(month)); }
   setAttendanceScoreOverride(empId: string, month: string, score: number) { return this.impl().then(s => s.setAttendanceScoreOverride(empId, month, score)); }
   deleteAttendanceScoreOverride(empId: string, month: string) { return this.impl().then(s => s.deleteAttendanceScoreOverride(empId, month)); }
+
+  getDeductions(employeeId?: string, month?: number, year?: number) { return this.impl().then(s => s.getDeductions(employeeId, month, year)); }
+  createDeduction(d: InsertDeduction) { return this.impl().then(s => s.createDeduction(d)); }
+  deleteDeduction(id: string) { return this.impl().then(s => s.deleteDeduction(id)); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
 }

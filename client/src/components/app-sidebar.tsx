@@ -21,6 +21,7 @@ import {
   Banknote,
   CreditCard,
   Wallet,
+  Minus,
   FileSpreadsheet,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
@@ -68,6 +69,7 @@ const caisseItems = [
   { title: "رواتب الموظفين", url: "/salaries", icon: Banknote },
   { title: "الديون", url: "/debts", icon: CreditCard },
   { title: "التسبيقات", url: "/advances", icon: Wallet },
+  { title: "الخصومات", url: "/deductions", icon: Minus },
   { title: "كشف الرواتب", url: "/payroll", icon: FileSpreadsheet },
 ];
 

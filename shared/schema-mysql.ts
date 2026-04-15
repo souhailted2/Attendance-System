@@ -89,6 +89,17 @@ export const advances = mysqlTable("advances", {
   createdAt: text("created_at").notNull(),
 });
 
+export const deductions = mysqlTable("deductions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  employeeId: varchar("employee_id", { length: 36 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  month: int("month").notNull(),
+  year: int("year").notNull(),
+  reason: text("reason"),
+  createdAt: text("created_at").notNull(),
+  createdBy: varchar("created_by", { length: 191 }),
+});
+
 export const attendanceRecords = mysqlTable("attendance_records", {
   id: varchar("id", { length: 36 }).primaryKey(),
   employeeId: varchar("employee_id", { length: 36 }).notNull(),
@@ -343,3 +354,9 @@ export const insertAdvanceSchema = createInsertSchema(advances).pick({
 });
 export type InsertAdvance = z.infer<typeof insertAdvanceSchema>;
 export type Advance = typeof advances.$inferSelect;
+
+export const insertDeductionSchema = createInsertSchema(deductions).pick({
+  employeeId: true, amount: true, month: true, year: true, reason: true, createdAt: true, createdBy: true,
+});
+export type InsertDeduction = z.infer<typeof insertDeductionSchema>;
+export type Deduction = typeof deductions.$inferSelect;

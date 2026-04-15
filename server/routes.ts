@@ -4156,6 +4156,46 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // GET /api/deductions?month=&year= — قائمة الخصومات
+  app.get("/api/deductions", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const month = req.query.month !== undefined ? parseInt(req.query.month as string) : undefined;
+      const year = req.query.year !== undefined ? parseInt(req.query.year as string) : undefined;
+      const employeeId = req.query.employeeId as string | undefined;
+      const deductions = await storage.getDeductions(employeeId, month, year);
+      return res.json(deductions);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/deductions — إضافة خصم جديد
+  app.post("/api/deductions", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { employeeId, amount, month, year, reason } = req.body;
+      if (!employeeId || !amount || !month || !year) return res.status(400).json({ message: "employeeId و amount و month و year مطلوبون" });
+      const deduction = await storage.createDeduction({
+        employeeId,
+        amount: String(parseFloat(amount)),
+        month: parseInt(month),
+        year: parseInt(year),
+        reason: reason ?? null,
+        createdAt: new Date().toISOString(),
+        createdBy: req.session.username ?? null,
+      });
+      return res.status(201).json(deduction);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/deductions/:id — حذف خصم
+  app.delete("/api/deductions/:id", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      await storage.deleteDeduction(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   // ---- دالة مشتركة لحساب صفوف الرواتب (تُستخدم من /monthly و /export) ----
   async function computePayrollRows(year: number, month: number) {
       const startDate = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -4168,7 +4208,7 @@ export async function registerRoutes(
       const prevYear = month === 1 ? year - 1 : year;
       const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
 
-      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments, debtSkipsList, scoreOverridesMap] =
+      const [employees, advances, allDebts, attendanceRecords, workRules, offDaySetting, allOverrides, allLeaves, allGrantsRaw, currentPayments, prevPayments, debtSkipsList, scoreOverridesMap, allDeductions] =
         await Promise.all([
           storage.getEmployees(),
           storage.getAdvances(undefined, month, year),
@@ -4183,6 +4223,7 @@ export async function registerRoutes(
           storage.getSalaryPayments(prevMonthStr),
           storage.getDebtSkips(currentMonthStr),
           storage.getAttendanceScoreOverrides(currentMonthStr),
+          storage.getDeductions(undefined, month, year),
         ]);
       const debtSkipsSet = new Set<string>(debtSkipsList);
 
@@ -4563,11 +4604,14 @@ export async function registerRoutes(
         const empAdvances = advances.filter(a => a.employeeId === emp.id);
         const advanceDeduction = empAdvances.reduce((sum, a) => sum + (parseFloat(a.amount ?? "0") || 0), 0);
 
+        const empDeductions = allDeductions.filter(d => d.employeeId === emp.id);
+        const deductionAmount = empDeductions.reduce((sum, d) => sum + (parseFloat(d.amount ?? "0") || 0), 0);
+
         // ---- الصافي الجديد ----
-        // الصافي = راتب الحضور + أجر الساعات الإضافية + المنحة − الديون − التسبيقات + باقي الشهر السابق
+        // الصافي = راتب الحضور + أجر الساعات الإضافية + المنحة − الخصم − الديون − التسبيقات + باقي الشهر السابق
         const amountPaid = currentPaymentsMap.get(emp.id) ?? 0;
         const prevRemaining = prevRemainingMap.get(emp.id) ?? 0; // باقي الشهر السابق (موجب=مستحق، سالب=زائد)
-        const netSalary = Math.round((attendanceSalary + overtimePay + grantAmount - debtDeduction - advanceDeduction + prevRemaining) * 100) / 100;
+        const netSalary = Math.round((attendanceSalary + overtimePay + grantAmount - deductionAmount - debtDeduction - advanceDeduction + prevRemaining) * 100) / 100;
         const remainingBalance = Math.round((netSalary - amountPaid) * 100) / 100;
 
         return {
@@ -4581,6 +4625,7 @@ export async function registerRoutes(
           overtimeHours,
           overtimePay,
           grantAmount,
+          deductionAmount: Math.round(deductionAmount * 100) / 100,
           debtDeduction: Math.round(debtDeduction * 100) / 100,
           debtSkipped: isDebtSkipped,
           advanceDeduction: Math.round(advanceDeduction * 100) / 100,
@@ -4640,7 +4685,7 @@ export async function registerRoutes(
       workbook.creator = "Attendance System";
       const ws = workbook.addWorksheet(sheetTitle, { views: [{ rightToLeft: true }] });
 
-      const NCOLS = 13;
+      const NCOLS = 14;
       const moneyFmt = "#,##0.00";
       const scoreFmt = "0.00";
 
@@ -4666,11 +4711,11 @@ export async function registerRoutes(
       titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } };
       ws.getRow(1).height = 36;
 
-      // Header row — 13 columns
+      // Header row — 14 columns
       // ci: 0=الاسم 1=رقم الموظف 2=الورشة 3=الراتب الأساسي 4=نقطة الحضور
-      //     5=الساعات الإضافية 6=المنحة 7=خصم الدين 8=التسبيقات
-      //     9=باقي الصرف القديم 10=الصافي 11=المبلغ المدفوع 12=باقي الصرف الجديد
-      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","الساعات الإضافية","المنحة","خصم الدين","التسبيقات","باقي الصرف القديم","الصافي","المبلغ المدفوع","باقي الصرف الجديد"];
+      //     5=الساعات الإضافية 6=المنحة 7=الخصم 8=خصم الدين 9=التسبيقات
+      //     10=باقي الصرف القديم 11=الصافي 12=المبلغ المدفوع 13=باقي الصرف الجديد
+      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","الساعات الإضافية","المنحة","الخصم","خصم الدين","التسبيقات","باقي الصرف القديم","الصافي","المبلغ المدفوع","باقي الصرف الجديد"];
       headers.forEach((h, i) => trackWidth(i, h));
       const hRow = ws.getRow(2);
       headers.forEach((h, i) => {
@@ -4685,11 +4730,11 @@ export async function registerRoutes(
       ws.views = [{ state: "frozen", ySplit: 2, rightToLeft: true }];
 
       // Accumulate totals
-      let totalBase = 0, totalOtPay = 0, totalGrant = 0;
+      let totalBase = 0, totalOtPay = 0, totalGrant = 0, totalDeduction = 0;
       let totalDebt = 0, totalAdvance = 0, totalPrevRemaining = 0, totalNet = 0, totalPaid = 0, totalRemaining = 0;
 
-      // Column number formats (13 cols): score uses 0.00, monetary cols use #,##0.00
-      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
+      // Column number formats (14 cols): score uses 0.00, monetary cols use #,##0.00
+      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
 
       sortedRows.forEach((row: PayrollRow, idx: number) => {
         const r = ws.getRow(idx + 3);
@@ -4703,12 +4748,13 @@ export async function registerRoutes(
           row.attendanceScore,                        // ci=4 نقطة الحضور
           row.overtimePay,                            // ci=5 الساعات الإضافية → blue
           row.grantAmount,                            // ci=6 المنحة → blue
-          row.debtDeduction,                          // ci=7 خصم الدين → red
-          row.advanceDeduction,                       // ci=8 التسبيقات → red
-          row.prevRemainingBalance ?? 0,              // ci=9 باقي الصرف القديم → amber
-          row.netSalary,                              // ci=10 الصافي → green bg
-          row.amountPaid,                             // ci=11 المبلغ المدفوع → yellow bg
-          row.remainingBalance,                       // ci=12 باقي الصرف الجديد → orange bg
+          row.deductionAmount ?? 0,                   // ci=7 الخصم → red
+          row.debtDeduction,                          // ci=8 خصم الدين → red
+          row.advanceDeduction,                       // ci=9 التسبيقات → red
+          row.prevRemainingBalance ?? 0,              // ci=10 باقي الصرف القديم → amber
+          row.netSalary,                              // ci=11 الصافي → green bg
+          row.amountPaid,                             // ci=12 المبلغ المدفوع → yellow bg
+          row.remainingBalance,                       // ci=13 باقي الصرف الجديد → orange bg
         ];
 
         cells.forEach((val, ci) => {
@@ -4720,19 +4766,19 @@ export async function registerRoutes(
           const fmt = colFmt[ci];
           if (fmt) cell.numFmt = fmt;
           // Special column background colors
-          if (ci === 9) {
+          if (ci === 10) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8E1" } };
-          } else if (ci === 10) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
           } else if (ci === 11) {
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
           } else if (ci === 12) {
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF3CD" } };
+          } else if (ci === 13) {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE5CC" } };
           } else {
             cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
           }
-          // Deduction columns (خصم الدين، التسبيقات) — red text
-          if (ci === 7 || ci === 8) {
+          // Deduction columns (الخصم، خصم الدين، التسبيقات) — red text
+          if (ci === 7 || ci === 8 || ci === 9) {
             cell.font = { color: { argb: "FFCC0000" } };
           }
           // Addition columns (الساعات الإضافية، المنحة) — blue text
@@ -4740,7 +4786,7 @@ export async function registerRoutes(
             cell.font = { color: { argb: "FF0055CC" } };
           }
           // باقي الصرف القديم — amber text
-          if (ci === 9) {
+          if (ci === 10) {
             cell.font = { color: { argb: "FFB45309" } };
           }
         });
@@ -4748,6 +4794,7 @@ export async function registerRoutes(
         totalBase              += row.baseSalary      ?? 0;
         totalOtPay             += row.overtimePay     ?? 0;
         totalGrant             += row.grantAmount     ?? 0;
+        totalDeduction         += row.deductionAmount ?? 0;
         totalDebt              += row.debtDeduction   ?? 0;
         totalAdvance           += row.advanceDeduction ?? 0;
         totalPrevRemaining     += row.prevRemainingBalance ?? 0;
@@ -4761,7 +4808,7 @@ export async function registerRoutes(
       const tRowIdx = sortedRows.length + 3;
       const tRow = ws.getRow(tRowIdx);
       tRow.height = 28;
-      const totals: (string | number)[] = ["الإجمالي", "", "", totalBase, 0, totalOtPay, totalGrant, totalDebt, totalAdvance, totalPrevRemaining, totalNet, totalPaid, totalRemaining];
+      const totals: (string | number)[] = ["الإجمالي", "", "", totalBase, 0, totalOtPay, totalGrant, totalDeduction, totalDebt, totalAdvance, totalPrevRemaining, totalNet, totalPaid, totalRemaining];
       totals.forEach((val, ci) => {
         trackWidth(ci, val);
         const cell = tRow.getCell(ci + 1);

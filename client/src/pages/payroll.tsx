@@ -24,6 +24,7 @@ type PayrollRow = {
   overtimeHours: number;
   overtimePay: number;
   grantAmount: number;
+  deductionAmount: number;
   debtDeduction: number;
   debtSkipped: boolean;
   advanceDeduction: number;
@@ -153,7 +154,7 @@ export default function Payroll() {
   const totalBase = data?.rows.reduce((s, r) => s + r.baseSalary, 0) ?? 0;
   const totalOvertime = data?.rows.reduce((s, r) => s + r.overtimePay, 0) ?? 0;
   const totalGrants = data?.rows.reduce((s, r) => s + r.grantAmount, 0) ?? 0;
-  const totalDeductions = data?.rows.reduce((s, r) => s + r.debtDeduction + r.advanceDeduction, 0) ?? 0;
+  const totalDeductions = data?.rows.reduce((s, r) => s + (r.deductionAmount ?? 0) + r.debtDeduction + r.advanceDeduction, 0) ?? 0;
 
   function exportToExcel() {
     const url = `/api/payroll/export?year=${year}&month=${month}`;
@@ -296,14 +297,16 @@ export default function Payroll() {
                           {/* 8 */}
                           <th className="px-2 py-2 text-right font-medium text-blue-600 dark:text-blue-400">المنحة</th>
                           {/* 9 */}
-                          <th className="px-2 py-2 text-right font-medium">خصم الدين</th>
+                          <th className="px-2 py-2 text-right font-medium text-red-600 dark:text-red-400">الخصم</th>
                           {/* 10 */}
-                          <th className="px-2 py-2 text-right font-medium">التسبيقات</th>
+                          <th className="px-2 py-2 text-right font-medium">خصم الدين</th>
                           {/* 11 */}
-                          <th className="px-2 py-2 text-right font-medium bg-yellow-50 dark:bg-yellow-950/20 text-amber-700 dark:text-amber-400">باقي الصرف القديم</th>
+                          <th className="px-2 py-2 text-right font-medium">التسبيقات</th>
                           {/* 12 */}
-                          <th className="px-2 py-2 text-right font-medium bg-green-50 dark:bg-green-950/20">الصافي</th>
+                          <th className="px-2 py-2 text-right font-medium bg-yellow-50 dark:bg-yellow-950/20 text-amber-700 dark:text-amber-400">باقي الصرف القديم</th>
                           {/* 13 */}
+                          <th className="px-2 py-2 text-right font-medium bg-green-50 dark:bg-green-950/20">الصافي</th>
+                          {/* 14 */}
                           <th className="px-2 py-2 text-right font-medium bg-orange-50 dark:bg-orange-950/20">باقي الصرف الجديد</th>
                         </tr>
                       </thead>
@@ -385,7 +388,14 @@ export default function Payroll() {
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
 
-                              {/* 9: خصم الدين */}
+                              {/* 9: الخصم */}
+                              <td className="px-2 py-2 font-mono text-xs">
+                                {(row.deductionAmount ?? 0) > 0
+                                  ? <span className="text-red-600 dark:text-red-400">- {fmtDZD(row.deductionAmount)}</span>
+                                  : <span className="text-muted-foreground">—</span>}
+                              </td>
+
+                              {/* 10: خصم الدين */}
                               <td className="px-2 py-2 font-mono text-xs">
                                 {(() => {
                                   const hasActiveDebts = (row.debts?.length ?? 0) > 0;
@@ -490,6 +500,10 @@ export default function Payroll() {
                           {/* المنحة */}
                           <td className="px-2 py-2 font-mono text-blue-600 dark:text-blue-400">
                             {fmtDZD(rows.reduce((s, r) => s + r.grantAmount, 0))}
+                          </td>
+                          {/* الخصم */}
+                          <td className="px-2 py-2 font-mono text-red-600 dark:text-red-400">
+                            {fmtDZD(rows.reduce((s, r) => s + (r.deductionAmount ?? 0), 0))}
                           </td>
                           {/* خصم الدين */}
                           <td className="px-2 py-2 font-mono text-amber-600 dark:text-amber-400">
