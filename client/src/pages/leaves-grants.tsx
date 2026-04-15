@@ -665,7 +665,7 @@ const PERIOD_LABELS: Record<string, string> = {
 
 function conditionSummary(c: GrantConditionFull): string {
   const eff = c.effectType === "cancel" ? "← إلغاء المنحة" :
-    c.effectType === "add" ? `← +${c.effectAmount} دج` : `← -${c.effectAmount} دج`;
+    c.effectType === "add" ? `← +${fmtDZD(c.effectAmount)}` : `← -${fmtDZD(c.effectAmount)}`;
   if (c.conditionType === "violations_exceed")
     return `تجاوز ${c.violationsThreshold} عقوبة ${eff}`;
   if (c.conditionType === "late")

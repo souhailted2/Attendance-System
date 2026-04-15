@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { fmtDZD } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -529,10 +530,6 @@ export default function Reports() {
     }
     return groups;
   }, [employeesWithOvertime]);
-
-  function formatDZD(value: number): string {
-    return value.toFixed(2) + " د.ج";
-  }
 
   const allOvertimeDates = useMemo(() => {
     if (!dateFrom || !dateTo) return [];
@@ -1284,15 +1281,15 @@ export default function Reports() {
                                     onClick={() => setEditingRate({ employeeId: r.employeeId, value: r.hourlyRate || "0" })}
                                     data-testid={`button-edit-rate-${r.employeeId}`}
                                   >
-                                    <span>{rate > 0 ? formatDZD(rate) : "—"}</span>
+                                    <span>{rate > 0 ? fmtDZD(rate) : "—"}</span>
                                     <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-60 transition-opacity" />
                                   </button>
                                 ) : (
-                                  <span className="text-muted-foreground">{rate > 0 ? formatDZD(rate) : "—"}</span>
+                                  <span className="text-muted-foreground">{rate > 0 ? fmtDZD(rate) : "—"}</span>
                                 )}
                               </TableCell>
                               <TableCell className="text-center text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                                {rate > 0 && totalOT > 0 ? formatDZD(totalPay) : "—"}
+                                {rate > 0 && totalOT > 0 ? fmtDZD(totalPay) : "—"}
                               </TableCell>
                             </TableRow>
                           );
@@ -1317,7 +1314,7 @@ export default function Reports() {
                           </TableCell>
                           <TableCell />
                           <TableCell className="text-center text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                            {wsPay > 0 ? formatDZD(wsPay) : "—"}
+                            {wsPay > 0 ? fmtDZD(wsPay) : "—"}
                           </TableCell>
                         </TableRow>,
                       ];
@@ -1343,7 +1340,7 @@ export default function Reports() {
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-center font-bold text-emerald-700 dark:text-emerald-400 text-xs">
-                        {formatDZD(employeesWithOvertime.reduce((s, r) => {
+                        {fmtDZD(employeesWithOvertime.reduce((s, r) => {
                           const rate = parseFloat(r.hourlyRate || "0");
                           const ot = r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0);
                           return s + rate * ot;
@@ -2023,9 +2020,9 @@ export default function Reports() {
                             {row.grantType === "grant" ? "منحة" : "عقوبة"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-center text-muted-foreground">{row.baseAmount.toFixed(2)} د.ج</TableCell>
+                        <TableCell className="text-center text-muted-foreground">{fmtDZD(row.baseAmount)}</TableCell>
                         <TableCell className="text-center font-bold">
-                          {row.cancelled ? "—" : `${row.finalAmount.toFixed(2)} د.ج`}
+                          {row.cancelled ? "—" : fmtDZD(row.finalAmount)}
                         </TableCell>
                         <TableCell className="text-center">
                           {row.cancelled ? (
@@ -2046,7 +2043,7 @@ export default function Reports() {
                         الإجمالي ({grantsReportData.filter(r => !r.cancelled).length} موظف مقبول)
                       </TableCell>
                       <TableCell className="text-center text-primary font-bold" data-testid="text-grants-total">
-                        {grantsReportData.reduce((s, r) => s + r.finalAmount, 0).toFixed(2)} د.ج
+                        {fmtDZD(grantsReportData.reduce((s, r) => s + r.finalAmount, 0))}
                       </TableCell>
                       <TableCell />
                     </TableRow>
