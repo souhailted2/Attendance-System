@@ -103,9 +103,20 @@ export default function Payroll() {
     setPendingPayments({});
   }
 
+  // اقتراح المبلغ المدفوع: أقرب 500 نزولاً من الصافي
+  function suggestAmount(netSalary: number): number {
+    if (netSalary <= 0) return 0;
+    return Math.floor(netSalary / 500) * 500;
+  }
+
   const getEffectiveAmountPaid = useCallback((row: PayrollRow) => {
     const pending = pendingPayments[row.employeeId];
-    return pending !== undefined ? parseFloat(pending) || 0 : row.amountPaid;
+    // إذا كان هناك قيمة مكتوبة (غير فارغة) تُقدَّم أولاً
+    if (pending !== undefined && pending !== "") return parseFloat(pending) || 0;
+    // إذا تم حفظ مبلغ مسبقاً نعود إليه
+    if (row.amountPaid > 0) return row.amountPaid;
+    // اقتراح تلقائي
+    return suggestAmount(row.netSalary);
   }, [pendingPayments]);
 
   const getEffectiveRemaining = useCallback((row: PayrollRow) => {
@@ -332,29 +343,60 @@ export default function Payroll() {
                               </td>
 
                               {/* 3: المبلغ المدفوع */}
-                              <td className="px-2 py-2 bg-amber-50 dark:bg-amber-950/20">
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="number"
-                                    className="h-7 w-24 text-xs font-mono px-2"
-                                    value={pendingPayments[row.employeeId] ?? String(row.amountPaid)}
-                                    onChange={e => setPendingPayments(p => ({ ...p, [row.employeeId]: e.target.value }))}
-                                    data-testid={`input-amount-paid-${row.employeeId}`}
-                                  />
-                                  {(isDirty || row.amountPaid > 0) && (
-                                    <Button
-                                      size="sm"
-                                      variant={isDirty ? "default" : "ghost"}
-                                      className="h-7 w-7 p-0"
-                                      onClick={() => handleSavePayment(row)}
-                                      disabled={isSaving}
-                                      data-testid={`button-save-payment-${row.employeeId}`}
-                                    >
-                                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
+                              {(() => {
+                                const suggested = row.amountPaid === 0 ? suggestAmount(row.netSalary) : 0;
+                                // هل الخانة تعرض الاقتراح حالياً (لم يكتب المستخدم شيئاً)
+                                const showingSuggestion = suggested > 0 && pendingPayments[row.employeeId] === undefined;
+                                // القيمة المعروضة في الخانة
+                                const inputValue = pendingPayments[row.employeeId] !== undefined
+                                  ? pendingPayments[row.employeeId]
+                                  : (row.amountPaid > 0 ? String(row.amountPaid) : (suggested > 0 ? String(suggested) : "0"));
+                                const showSaveBtn = isDirty || row.amountPaid > 0 || suggested > 0;
+                                return (
+                                  <td className="px-2 py-2 bg-amber-50 dark:bg-amber-950/20">
+                                    <div className="flex items-center gap-1">
+                                      <div className="relative">
+                                        {showingSuggestion && (
+                                          <span className="absolute -top-3.5 right-0 text-[10px] text-amber-600 dark:text-amber-400 font-medium whitespace-nowrap pointer-events-none">
+                                            مقترح ↓
+                                          </span>
+                                        )}
+                                        <Input
+                                          type="number"
+                                          className={`h-7 w-28 text-xs font-mono px-2 ${showingSuggestion ? "text-amber-600 dark:text-amber-400 italic border-amber-300 dark:border-amber-700 bg-amber-50/80 dark:bg-amber-950/30" : ""}`}
+                                          value={inputValue}
+                                          onFocus={() => {
+                                            // عند التركيز: إذا كان يعرض الاقتراح نُفرَّغ الخانة
+                                            if (showingSuggestion) {
+                                              setPendingPayments(p => ({ ...p, [row.employeeId]: "" }));
+                                            }
+                                          }}
+                                          onBlur={e => {
+                                            // عند مغادرة الخانة فارغة: نعيد الاقتراح
+                                            if (e.target.value === "") {
+                                              setPendingPayments(p => { const n = { ...p }; delete n[row.employeeId]; return n; });
+                                            }
+                                          }}
+                                          onChange={e => setPendingPayments(p => ({ ...p, [row.employeeId]: e.target.value }))}
+                                          data-testid={`input-amount-paid-${row.employeeId}`}
+                                        />
+                                      </div>
+                                      {showSaveBtn && (
+                                        <Button
+                                          size="sm"
+                                          variant={isDirty ? "default" : (showingSuggestion ? "outline" : "ghost")}
+                                          className={`h-7 w-7 p-0 ${showingSuggestion ? "border-amber-400 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30" : ""}`}
+                                          onClick={() => handleSavePayment(row)}
+                                          disabled={isSaving}
+                                          data-testid={`button-save-payment-${row.employeeId}`}
+                                        >
+                                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              })()}
 
                               {/* 4: الامضاء (فارغ للطباعة) */}
                               <td className="px-2 py-2 border-l border-dashed border-muted-foreground/20" style={{ minWidth: "80px" }}>
