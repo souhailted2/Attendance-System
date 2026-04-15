@@ -27,6 +27,7 @@ type PayrollRow = {
   debtDeduction: number;
   debtSkipped: boolean;
   advanceDeduction: number;
+  prevRemainingBalance: number;
   netSalary: number;
   amountPaid: number;
   remainingBalance: number;
@@ -152,7 +153,7 @@ export default function Payroll() {
   const totalBase = data?.rows.reduce((s, r) => s + r.baseSalary, 0) ?? 0;
   const totalOvertime = data?.rows.reduce((s, r) => s + r.overtimePay, 0) ?? 0;
   const totalGrants = data?.rows.reduce((s, r) => s + r.grantAmount, 0) ?? 0;
-  const totalDeductions = data?.rows.reduce((s, r) => s + r.attendanceDeduction + r.debtDeduction + r.advanceDeduction, 0) ?? 0;
+  const totalDeductions = data?.rows.reduce((s, r) => s + r.debtDeduction + r.advanceDeduction, 0) ?? 0;
 
   function exportToExcel() {
     const url = `/api/payroll/export?year=${year}&month=${month}`;
@@ -165,7 +166,7 @@ export default function Payroll() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto" dir="rtl">
+    <div className="p-6 max-w-full mx-auto" dir="rtl">
       <div className="flex items-center gap-3 mb-6">
         <div className="h-10 w-10 rounded-xl flex items-center justify-center"
           style={{ background: "linear-gradient(135deg,hsl(160 70% 38%),hsl(155 65% 48%))", boxShadow: "0 3px 12px hsl(160 70% 38%/0.35)" }}>
@@ -275,20 +276,35 @@ export default function Payroll() {
                         <span className="font-bold text-green-600 dark:text-green-400">{fmtDZD(wsNet)}</span>
                       </div>
                     </div>
-                    <table className="w-full text-sm min-w-[1100px]">
+                    <table className="w-full text-sm min-w-[1400px]">
                       <thead>
                         <tr className="bg-muted/30 text-muted-foreground border-b text-xs">
-                          <th className="px-3 py-2 text-right font-medium">الموظف</th>
-                          <th className="px-3 py-2 text-right font-medium">الأساسي</th>
-                          <th className="px-3 py-2 text-center font-medium">النقطة</th>
-                          <th className="px-3 py-2 text-right font-medium">خصم الحضور</th>
-                          <th className="px-3 py-2 text-right font-medium text-purple-600 dark:text-purple-400">أجر الساعات الإضافية</th>
-                          <th className="px-3 py-2 text-right font-medium text-blue-600 dark:text-blue-400">المنحة</th>
-                          <th className="px-3 py-2 text-right font-medium">قسط الدين</th>
-                          <th className="px-3 py-2 text-right font-medium">التسبيقات</th>
-                          <th className="px-3 py-2 text-right font-medium bg-green-50 dark:bg-green-950/20">الصافي</th>
-                          <th className="px-3 py-2 text-right font-medium bg-amber-50 dark:bg-amber-950/20">المبلغ المدفوع</th>
-                          <th className="px-3 py-2 text-right font-medium bg-orange-50 dark:bg-orange-950/20">باقي الصرف</th>
+                          {/* 1 */}
+                          <th className="px-2 py-2 text-right font-medium">الاسم</th>
+                          {/* 2 */}
+                          <th className="px-2 py-2 text-center font-medium">الرقم</th>
+                          {/* 3 */}
+                          <th className="px-2 py-2 text-right font-medium bg-amber-50 dark:bg-amber-950/20">المبلغ المدفوع</th>
+                          {/* 4 */}
+                          <th className="px-2 py-2 text-center font-medium">الامضاء</th>
+                          {/* 5 */}
+                          <th className="px-2 py-2 text-right font-medium">الراتب</th>
+                          {/* 6 */}
+                          <th className="px-2 py-2 text-center font-medium">نقاط الحضور</th>
+                          {/* 7 */}
+                          <th className="px-2 py-2 text-right font-medium text-purple-600 dark:text-purple-400">الساعات الإضافية</th>
+                          {/* 8 */}
+                          <th className="px-2 py-2 text-right font-medium text-blue-600 dark:text-blue-400">المنحة</th>
+                          {/* 9 */}
+                          <th className="px-2 py-2 text-right font-medium">خصم الدين</th>
+                          {/* 10 */}
+                          <th className="px-2 py-2 text-right font-medium">التسبيقات</th>
+                          {/* 11 */}
+                          <th className="px-2 py-2 text-right font-medium bg-yellow-50 dark:bg-yellow-950/20 text-amber-700 dark:text-amber-400">باقي الصرف القديم</th>
+                          {/* 12 */}
+                          <th className="px-2 py-2 text-right font-medium bg-green-50 dark:bg-green-950/20">الصافي</th>
+                          {/* 13 */}
+                          <th className="px-2 py-2 text-right font-medium bg-orange-50 dark:bg-orange-950/20">باقي الصرف الجديد</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -297,26 +313,63 @@ export default function Payroll() {
                           const effectiveRemaining = getEffectiveRemaining(row);
                           const isDirty = pendingPayments[row.employeeId] !== undefined;
                           const isSaving = savingIds.has(row.employeeId);
+                          const prevRem = row.prevRemainingBalance ?? 0;
                           return (
                             <tr key={row.employeeId} className={`border-b last:border-0 ${i % 2 === 0 ? "" : "bg-muted/20"}`}
                               data-testid={`row-payroll-${row.employeeId}`}>
-                              <td className="px-3 py-2">
+
+                              {/* 1: الاسم */}
+                              <td className="px-2 py-2">
                                 <p className="font-medium text-xs">{row.employeeName}</p>
+                              </td>
+
+                              {/* 2: الرقم */}
+                              <td className="px-2 py-2 text-center">
                                 <p className="text-xs text-muted-foreground font-mono">{row.employeeCode}</p>
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs">{fmtDZD(row.baseSalary)}</td>
-                              <td className="px-3 py-2 font-mono text-center text-xs" data-testid={`score-payroll-${row.employeeId}`}>
+
+                              {/* 3: المبلغ المدفوع */}
+                              <td className="px-2 py-2 bg-amber-50 dark:bg-amber-950/20">
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    type="number"
+                                    className="h-7 w-24 text-xs font-mono px-2"
+                                    value={pendingPayments[row.employeeId] ?? String(row.amountPaid)}
+                                    onChange={e => setPendingPayments(p => ({ ...p, [row.employeeId]: e.target.value }))}
+                                    data-testid={`input-amount-paid-${row.employeeId}`}
+                                  />
+                                  {(isDirty || row.amountPaid > 0) && (
+                                    <Button
+                                      size="sm"
+                                      variant={isDirty ? "default" : "ghost"}
+                                      className="h-7 w-7 p-0"
+                                      onClick={() => handleSavePayment(row)}
+                                      disabled={isSaving}
+                                      data-testid={`button-save-payment-${row.employeeId}`}
+                                    >
+                                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 4: الامضاء (فارغ للطباعة) */}
+                              <td className="px-2 py-2 border-l border-dashed border-muted-foreground/20" style={{ minWidth: "80px" }}>
+                              </td>
+
+                              {/* 5: الراتب الأساسي */}
+                              <td className="px-2 py-2 font-mono text-xs">{fmtDZD(row.baseSalary)}</td>
+
+                              {/* 6: نقاط الحضور */}
+                              <td className="px-2 py-2 font-mono text-center text-xs" data-testid={`score-payroll-${row.employeeId}`}>
                                 <span className={`font-bold ${row.attendanceScore >= 28 ? "text-green-600 dark:text-green-400" : row.attendanceScore >= 24 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"}`}>
                                   {row.attendanceScore.toFixed(2)}
                                 </span>
                                 <span className="text-xs text-muted-foreground"> /30</span>
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs">
-                                {row.attendanceDeduction > 0
-                                  ? <span className="text-red-600 dark:text-red-400">- {fmtDZD(row.attendanceDeduction)}</span>
-                                  : <span className="text-muted-foreground">—</span>}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-xs">
+
+                              {/* 7: الساعات الإضافية */}
+                              <td className="px-2 py-2 font-mono text-xs">
                                 {row.overtimePay > 0 ? (
                                   <span className="text-purple-600 dark:text-purple-400">
                                     + {fmtDZD(row.overtimePay)}
@@ -324,12 +377,16 @@ export default function Payroll() {
                                   </span>
                                 ) : <span className="text-muted-foreground">—</span>}
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs">
+
+                              {/* 8: المنحة */}
+                              <td className="px-2 py-2 font-mono text-xs">
                                 {row.grantAmount > 0
                                   ? <span className="text-blue-600 dark:text-blue-400">+ {fmtDZD(row.grantAmount)}</span>
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs">
+
+                              {/* 9: خصم الدين */}
+                              <td className="px-2 py-2 font-mono text-xs">
                                 {(() => {
                                   const hasActiveDebts = (row.debts?.length ?? 0) > 0;
                                   const isSkipping = skippingIds.has(row.employeeId);
@@ -376,38 +433,30 @@ export default function Payroll() {
                                   );
                                 })()}
                               </td>
-                              <td className="px-3 py-2 font-mono text-xs">
+
+                              {/* 10: التسبيقات */}
+                              <td className="px-2 py-2 font-mono text-xs">
                                 {row.advanceDeduction > 0
-                                  ? <span className="text-blue-600 dark:text-blue-400">- {fmtDZD(row.advanceDeduction)}</span>
+                                  ? <span className="text-red-600 dark:text-red-400">- {fmtDZD(row.advanceDeduction)}</span>
                                   : <span className="text-muted-foreground">—</span>}
                               </td>
-                              <td className="px-3 py-2 font-mono font-bold text-xs bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400">
+
+                              {/* 11: باقي الصرف القديم */}
+                              <td className="px-2 py-2 font-mono text-xs bg-yellow-50 dark:bg-yellow-950/20">
+                                {prevRem !== 0 ? (
+                                  <span className={prevRem > 0 ? "text-amber-700 dark:text-amber-400 font-bold" : "text-red-600 dark:text-red-400 font-bold"}>
+                                    {prevRem > 0 ? "+" : ""}{fmtDZD(prevRem)}
+                                  </span>
+                                ) : <span className="text-muted-foreground">—</span>}
+                              </td>
+
+                              {/* 12: الصافي */}
+                              <td className="px-2 py-2 font-mono font-bold text-xs bg-green-50 dark:bg-green-950/20 text-green-700 dark:text-green-400">
                                 {fmtDZD(row.netSalary)}
                               </td>
-                              <td className="px-3 py-2 bg-amber-50 dark:bg-amber-950/20">
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="number"
-                                    className="h-7 w-28 text-xs font-mono px-2"
-                                    value={pendingPayments[row.employeeId] ?? String(row.amountPaid)}
-                                    onChange={e => setPendingPayments(p => ({ ...p, [row.employeeId]: e.target.value }))}
-                                    data-testid={`input-amount-paid-${row.employeeId}`}
-                                  />
-                                  {(isDirty || row.amountPaid > 0) && (
-                                    <Button
-                                      size="sm"
-                                      variant={isDirty ? "default" : "ghost"}
-                                      className="h-7 w-7 p-0"
-                                      onClick={() => handleSavePayment(row)}
-                                      disabled={isSaving}
-                                      data-testid={`button-save-payment-${row.employeeId}`}
-                                    >
-                                      {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="px-3 py-2 font-mono font-bold text-xs bg-orange-50 dark:bg-orange-950/20">
+
+                              {/* 13: باقي الصرف الجديد */}
+                              <td className="px-2 py-2 font-mono font-bold text-xs bg-orange-50 dark:bg-orange-950/20">
                                 <span className={effectiveRemaining > 0 ? "text-orange-600 dark:text-orange-400" : effectiveRemaining < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}>
                                   {effectiveRemaining !== 0 ? (
                                     <>{effectiveRemaining > 0 ? "+" : ""}{fmtDZD(effectiveRemaining)}</>
@@ -420,33 +469,46 @@ export default function Payroll() {
                       </tbody>
                       <tfoot>
                         <tr className="border-t bg-muted/50 font-bold text-xs">
-                          <td className="px-3 py-2">مجموع الورشة</td>
-                          <td className="px-3 py-2 font-mono">{fmtDZD(wsBase)}</td>
-                          <td className="px-3 py-2 font-mono text-center text-muted-foreground">
-                            {(rows.reduce((s, r) => s + r.attendanceScore, 0) / rows.length).toFixed(2)} متوسط
-                          </td>
-                          <td className="px-3 py-2 font-mono text-red-600 dark:text-red-400">
-                            {fmtDZD(rows.reduce((s, r) => s + r.attendanceDeduction, 0))}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-purple-600 dark:text-purple-400">
-                            {fmtDZD(rows.reduce((s, r) => s + r.overtimePay, 0))}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-blue-600 dark:text-blue-400">
-                            {fmtDZD(rows.reduce((s, r) => s + r.grantAmount, 0))}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-amber-600 dark:text-amber-400">
-                            {fmtDZD(rows.reduce((s, r) => s + r.debtDeduction, 0))}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-blue-600 dark:text-blue-400">
-                            {fmtDZD(rows.reduce((s, r) => s + r.advanceDeduction, 0))}
-                          </td>
-                          <td className="px-3 py-2 font-mono text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
-                            {fmtDZD(wsNet)}
-                          </td>
-                          <td className="px-3 py-2 font-mono bg-amber-50 dark:bg-amber-950/20">
+                          <td className="px-2 py-2">مجموع الورشة</td>
+                          <td className="px-2 py-2"></td>
+                          {/* المبلغ المدفوع */}
+                          <td className="px-2 py-2 font-mono bg-amber-50 dark:bg-amber-950/20">
                             {fmtDZD(rows.reduce((s, r) => s + getEffectiveAmountPaid(r), 0))}
                           </td>
-                          <td className="px-3 py-2 font-mono bg-orange-50 dark:bg-orange-950/20">
+                          {/* الامضاء */}
+                          <td className="px-2 py-2"></td>
+                          {/* الراتب */}
+                          <td className="px-2 py-2 font-mono">{fmtDZD(wsBase)}</td>
+                          {/* نقاط الحضور */}
+                          <td className="px-2 py-2 font-mono text-center text-muted-foreground">
+                            {(rows.reduce((s, r) => s + r.attendanceScore, 0) / rows.length).toFixed(2)} متوسط
+                          </td>
+                          {/* الساعات الإضافية */}
+                          <td className="px-2 py-2 font-mono text-purple-600 dark:text-purple-400">
+                            {fmtDZD(rows.reduce((s, r) => s + r.overtimePay, 0))}
+                          </td>
+                          {/* المنحة */}
+                          <td className="px-2 py-2 font-mono text-blue-600 dark:text-blue-400">
+                            {fmtDZD(rows.reduce((s, r) => s + r.grantAmount, 0))}
+                          </td>
+                          {/* خصم الدين */}
+                          <td className="px-2 py-2 font-mono text-amber-600 dark:text-amber-400">
+                            {fmtDZD(rows.reduce((s, r) => s + r.debtDeduction, 0))}
+                          </td>
+                          {/* التسبيقات */}
+                          <td className="px-2 py-2 font-mono text-red-600 dark:text-red-400">
+                            {fmtDZD(rows.reduce((s, r) => s + r.advanceDeduction, 0))}
+                          </td>
+                          {/* باقي الصرف القديم */}
+                          <td className="px-2 py-2 font-mono text-amber-700 dark:text-amber-400 bg-yellow-50 dark:bg-yellow-950/20">
+                            {fmtDZD(rows.reduce((s, r) => s + (r.prevRemainingBalance ?? 0), 0))}
+                          </td>
+                          {/* الصافي */}
+                          <td className="px-2 py-2 font-mono text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20">
+                            {fmtDZD(wsNet)}
+                          </td>
+                          {/* باقي الصرف الجديد */}
+                          <td className="px-2 py-2 font-mono bg-orange-50 dark:bg-orange-950/20">
                             {fmtDZD(rows.reduce((s, r) => s + getEffectiveRemaining(r), 0))}
                           </td>
                         </tr>
