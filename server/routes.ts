@@ -4707,11 +4707,17 @@ export async function registerRoutes(
       const monthStr = String(month).padStart(2, "0");
       const filename = `رواتب_${year}-${monthStr}.xlsx`;
 
-      const NCOLS = 14;
+      const NCOLS = 16;
       const moneyFmt = "#,##0.00";
       const scoreFmt = "0.00";
-      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt];
-      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","الساعات الإضافية","المنحة","الخصم","خصم الدين","التسبيقات","باقي الصرف القديم","الصافي","المبلغ المدفوع","باقي الصرف الجديد"];
+      const colFmt: (string | null)[] = [null, null, null, moneyFmt, scoreFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, moneyFmt, null, null, moneyFmt];
+      const headers = ["الاسم","رقم الموظف","الورشة","الراتب الأساسي","نقطة الحضور","الساعات الإضافية","المنحة","الخصم","خصم الدين","التسبيقات","باقي الصرف القديم","الصافي","المبلغ المدفوع","الامضاء","المبلغ المأخوذ الفعلي","باقي الصرف الجديد"];
+      // دالة حساب المبلغ المقترح (أقرب 500 نزولاً من الصافي)
+      function calcSuggest(net: number, paid: number): number {
+        if (paid > 0) return paid;
+        if (net <= 0) return 0;
+        return Math.floor(net / 500) * 500;
+      }
 
       // ─── تعريفات الفترات ───
       const SHIFT_DEFS = [
@@ -4829,21 +4835,24 @@ export async function registerRoutes(
           group.rows.forEach((row, idx) => {
             const r = ws.getRow(currentRow);
             const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+            const suggestedPaid = calcSuggest(row.netSalary, row.amountPaid ?? 0);
             const cells: (string | number)[] = [
-              row.employeeName,
-              row.employeeCode ?? "",
-              workshopMap.get(row.workshopId ?? "") ?? "",
-              row.baseSalary,
-              row.attendanceScore,
-              row.overtimePay,
-              row.grantAmount,
-              row.deductionAmount ?? 0,
-              row.debtDeduction,
-              row.advanceDeduction,
-              row.prevRemainingBalance ?? 0,
-              row.netSalary,
-              row.amountPaid,
-              row.remainingBalance,
+              row.employeeName,           // ci=0  الاسم
+              row.employeeCode ?? "",     // ci=1  رقم الموظف
+              workshopMap.get(row.workshopId ?? "") ?? "", // ci=2 الورشة
+              row.baseSalary,             // ci=3  الراتب الأساسي
+              row.attendanceScore,        // ci=4  نقطة الحضور
+              row.overtimePay,            // ci=5  الساعات الإضافية
+              row.grantAmount,            // ci=6  المنحة
+              row.deductionAmount ?? 0,   // ci=7  الخصم
+              row.debtDeduction,          // ci=8  خصم الدين
+              row.advanceDeduction,       // ci=9  التسبيقات
+              row.prevRemainingBalance ?? 0, // ci=10 باقي الصرف القديم
+              row.netSalary,              // ci=11 الصافي
+              suggestedPaid,              // ci=12 المبلغ المدفوع (مقترح)
+              "",                         // ci=13 الامضاء (فارغ)
+              "",                         // ci=14 المبلغ المأخوذ الفعلي (فارغ)
+              row.remainingBalance,       // ci=15 باقي الصرف الجديد
             ];
             cells.forEach((val, ci) => {
               trackW(ci, val);
@@ -4859,8 +4868,17 @@ export async function registerRoutes(
               } else if (ci === 11) {
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } };
               } else if (ci === 12) {
+                // المبلغ المدفوع (مقترح) — برتقالي فاتح
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } };
+                cell.font = { color: { argb: "FF974700" } };
               } else if (ci === 13) {
+                // الامضاء — رمادي فاتح (فارغ للتوقيع)
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF2F2F2" } };
+              } else if (ci === 14) {
+                // المبلغ المأخوذ الفعلي — أصفر فاتح (للكتابة اليدوية)
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF9C4" } };
+              } else if (ci === 15) {
+                // باقي الصرف الجديد — برتقالي
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE5CC" } };
               } else {
                 cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } };
@@ -4883,7 +4901,7 @@ export async function registerRoutes(
           });
 
           // ─── إجمالي الورشة ───
-          const wTotals: (string | number)[] = [`إجمالي ${wName}`, "", "", wBase, 0, wOt, wGrant, wDeduct, wDebt, wAdv, wPrev, wNet, wPaid, wRemain];
+          const wTotals: (string | number)[] = [`إجمالي ${wName}`, "", "", wBase, 0, wOt, wGrant, wDeduct, wDebt, wAdv, wPrev, wNet, wPaid, "", "", wRemain];
           const wTRow = ws.getRow(currentRow);
           wTRow.height = 22;
           wTotals.forEach((val, ci) => {
@@ -4907,7 +4925,7 @@ export async function registerRoutes(
         }
 
         // ─── إجمالي الفترة الكلي ───
-        const gTotals: (string | number)[] = [`إجمالي ${sd.label}`, "", "", gBase, 0, gOt, gGrant, gDeduct, gDebt, gAdv, gPrev, gNet, gPaid, gRemain];
+        const gTotals: (string | number)[] = [`إجمالي ${sd.label}`, "", "", gBase, 0, gOt, gGrant, gDeduct, gDebt, gAdv, gPrev, gNet, gPaid, "", "", gRemain];
         const gTRow = ws.getRow(currentRow);
         gTRow.height = 28;
         gTotals.forEach((val, ci) => {
