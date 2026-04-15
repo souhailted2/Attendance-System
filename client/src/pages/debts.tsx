@@ -6,8 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle, Search, User, FileSpreadsheet } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, CreditCard, CheckCircle, Search, User, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import { fmtDZD } from "@/lib/utils";
 
 type Employee = { id: string; name: string; employeeCode: string; isActive: boolean };
@@ -25,6 +26,8 @@ export default function Debts() {
   const [form, setForm] = useState(emptyForm);
   const [searchQuery, setSearchQuery] = useState("");
   const [empSearch, setEmpSearch] = useState("");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [existingActiveDebt, setExistingActiveDebt] = useState<Debt | null>(null);
 
   const { data: employees = [] } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: debts = [], isLoading } = useQuery<Debt[]>({ queryKey: ["/api/debts"] });
@@ -67,6 +70,18 @@ export default function Debts() {
     if (!form.employeeId || !form.description || !form.totalAmount || !form.monthlyDeduction) {
       toast({ title: "يرجى تعبئة جميع الحقول", variant: "destructive" }); return;
     }
+    const activeDebt = debts.find(d => d.employeeId === form.employeeId && d.isActive);
+    if (activeDebt) {
+      setExistingActiveDebt(activeDebt);
+      setConfirmOpen(true);
+      return;
+    }
+    createMut.mutate(form);
+  }
+
+  function handleConfirmAdd() {
+    setConfirmOpen(false);
+    setExistingActiveDebt(null);
     createMut.mutate(form);
   }
 
@@ -267,6 +282,44 @@ export default function Debts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Duplicate Active Debt Confirmation */}
+      <AlertDialog open={confirmOpen} onOpenChange={v => { if (!v) { setConfirmOpen(false); setExistingActiveDebt(null); } }}>
+        <AlertDialogContent dir="rtl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              تحذير: دين نشط موجود
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right space-y-2">
+              <span className="block">
+                هذا الموظف لديه دين نشط بالفعل. هل تريد إضافة دين جديد؟
+              </span>
+              {existingActiveDebt && (
+                <span className="block mt-3 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-sm">
+                  <span className="block font-medium text-foreground">{getEmpName(existingActiveDebt.employeeId)}</span>
+                  <span className="block text-muted-foreground mt-1">
+                    الدين الحالي: <span className="font-mono font-medium text-foreground">{fmtDZD(existingActiveDebt.remainingAmount)}</span> متبقي من أصل <span className="font-mono font-medium text-foreground">{fmtDZD(existingActiveDebt.totalAmount)}</span>
+                  </span>
+                  <span className="block text-muted-foreground">{existingActiveDebt.description}</span>
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row-reverse gap-2">
+            <AlertDialogAction
+              onClick={handleConfirmAdd}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              data-testid="button-confirm-add-debt"
+            >
+              تأكيد الإضافة
+            </AlertDialogAction>
+            <AlertDialogCancel data-testid="button-cancel-confirm-debt">
+              إلغاء
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editDebt} onOpenChange={v => !v && setEditDebt(null)}>
