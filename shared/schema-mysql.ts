@@ -289,6 +289,7 @@ export const grants = mysqlTable("grants", {
   shiftValue: text("shift_value"),
   workshopId: varchar("workshop_id", { length: 36 }),
   employeeIds: text("employee_ids"),
+  excludedEmployeeIds: text("excluded_employee_ids"),
   createdAt: text("created_at").notNull(),
   createdBy: text("created_by").notNull(),
 });
@@ -311,7 +312,7 @@ export const grantConditions = mysqlTable("grant_conditions", {
 
 export const insertGrantSchema = createInsertSchema(grants).pick({
   name: true, amount: true, type: true, targetType: true,
-  shiftValue: true, workshopId: true, employeeIds: true, createdAt: true, createdBy: true,
+  shiftValue: true, workshopId: true, employeeIds: true, excludedEmployeeIds: true, createdAt: true, createdBy: true,
 });
 export type InsertGrant = z.infer<typeof insertGrantSchema>;
 export type Grant = typeof grants.$inferSelect;

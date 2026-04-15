@@ -511,6 +511,7 @@ export class MysqlStorage implements IStorage {
       shiftValue: g.shiftValue ?? null,
       workshopId: g.workshopId ?? null,
       employeeIds: g.employeeIds ?? null,
+      excludedEmployeeIds: (g as any).excludedEmployeeIds ?? null,
       createdAt: g.createdAt,
       createdBy: g.createdBy,
       conditions: condList
@@ -535,7 +536,7 @@ export class MysqlStorage implements IStorage {
 
   async createGrant(data: InsertGrant, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions> {
     const id = randomUUID();
-    await mysqlDb.insert(schema.grants).values({
+    await (mysqlDb.insert(schema.grants) as any).values({
       id,
       name: data.name,
       amount: data.amount,
@@ -544,6 +545,7 @@ export class MysqlStorage implements IStorage {
       shiftValue: data.shiftValue ?? null,
       workshopId: data.workshopId ?? null,
       employeeIds: data.employeeIds ?? null,
+      excludedEmployeeIds: (data as any).excludedEmployeeIds ?? null,
       createdAt: data.createdAt,
       createdBy: data.createdBy,
     });
@@ -592,9 +594,63 @@ export class MysqlStorage implements IStorage {
       shiftValue: g.shiftValue ?? null,
       workshopId: g.workshopId ?? null,
       employeeIds: g.employeeIds ?? null,
+      excludedEmployeeIds: (g as any).excludedEmployeeIds ?? null,
       createdAt: g.createdAt,
       createdBy: g.createdBy,
       conditions: builtConditions,
+    };
+  }
+
+  async updateGrant(id: string, data: Partial<InsertGrant>, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions> {
+    const rawPool = pool as import("mysql2/promise").Pool;
+    const sets: string[] = [];
+    const params: any[] = [];
+    if (data.name !== undefined) { sets.push("name=?"); params.push(data.name); }
+    if (data.amount !== undefined) { sets.push("amount=?"); params.push(data.amount); }
+    if (data.type !== undefined) { sets.push("type=?"); params.push(data.type); }
+    if (data.targetType !== undefined) { sets.push("target_type=?"); params.push(data.targetType); }
+    if ("shiftValue" in data) { sets.push("shift_value=?"); params.push(data.shiftValue ?? null); }
+    if ("workshopId" in data) { sets.push("workshop_id=?"); params.push(data.workshopId ?? null); }
+    if ("employeeIds" in data) { sets.push("employee_ids=?"); params.push(data.employeeIds ?? null); }
+    if ("excludedEmployeeIds" in data) { sets.push("excluded_employee_ids=?"); params.push((data as any).excludedEmployeeIds ?? null); }
+    if (sets.length > 0) {
+      params.push(id);
+      await rawPool.query(`UPDATE grants SET ${sets.join(",")} WHERE id=?`, params);
+    }
+    await mysqlDb.delete(schema.grantConditions).where(eq(schema.grantConditions.grantId, id));
+    const builtConditions: GrantCondition[] = [];
+    for (const c of conditions) {
+      const cid = randomUUID();
+      await mysqlDb.insert(schema.grantConditions).values({
+        id: cid, grantId: id, conditionType: c.conditionType,
+        attendancePeriodType: c.attendancePeriodType ?? null,
+        attendancePeriodValue: c.attendancePeriodValue ?? null,
+        absenceMode: c.absenceMode != null ? String(c.absenceMode) : null,
+        daysThreshold: c.daysThreshold != null ? String(c.daysThreshold) : null,
+        weekdayCount: c.weekdayCount != null ? String(c.weekdayCount) : null,
+        weekdays: c.weekdays ?? null,
+        minutesThreshold: c.minutesThreshold ?? null,
+        violationsThreshold: c.violationsThreshold ?? null,
+        effectType: c.effectType,
+        effectAmount: c.effectAmount ?? null,
+      });
+      const [row] = await mysqlDb.select().from(schema.grantConditions).where(eq(schema.grantConditions.id, cid));
+      builtConditions.push({
+        id: row.id, grantId: row.grantId, conditionType: row.conditionType,
+        attendancePeriodType: row.attendancePeriodType ?? null,
+        attendancePeriodValue: row.attendancePeriodValue ?? null,
+        absenceMode: row.absenceMode ?? null, daysThreshold: row.daysThreshold ?? null,
+        weekdayCount: row.weekdayCount ?? null, weekdays: row.weekdays ?? null,
+        minutesThreshold: row.minutesThreshold ?? null, violationsThreshold: row.violationsThreshold ?? null,
+        effectType: row.effectType, effectAmount: row.effectAmount ?? null,
+      });
+    }
+    const [g] = await mysqlDb.select().from(schema.grants).where(eq(schema.grants.id, id));
+    return {
+      id: g.id, name: g.name, amount: g.amount, type: g.type, targetType: g.targetType,
+      shiftValue: g.shiftValue ?? null, workshopId: g.workshopId ?? null,
+      employeeIds: g.employeeIds ?? null, excludedEmployeeIds: (g as any).excludedEmployeeIds ?? null,
+      createdAt: g.createdAt, createdBy: g.createdBy, conditions: builtConditions,
     };
   }
 
@@ -796,6 +852,13 @@ export class MysqlStorage implements IStorage {
     ) as [any[], any];
     if (!Array.isArray(spCols) || spCols.length === 0) {
       await rawPool.query(`ALTER TABLE salary_payments ADD COLUMN remaining_balance DECIMAL(12,2) NOT NULL DEFAULT 0`);
+    }
+    // إضافة عمود excluded_employee_ids إلى جدول grants إن لم يكن موجوداً
+    const [grantExcCols] = await rawPool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='grants' AND COLUMN_NAME='excluded_employee_ids'`
+    ) as [any[], any];
+    if (!Array.isArray(grantExcCols) || grantExcCols.length === 0) {
+      await rawPool.query(`ALTER TABLE grants ADD COLUMN excluded_employee_ids TEXT NULL DEFAULT NULL`);
     }
   }
 

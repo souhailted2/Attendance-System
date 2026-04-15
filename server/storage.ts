@@ -99,6 +99,7 @@ export interface IStorage {
 
   getGrants(): Promise<GrantWithConditions[]>;
   createGrant(data: InsertGrant, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions>;
+  updateGrant(id: string, data: Partial<InsertGrant>, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions>;
   deleteGrant(id: string): Promise<void>;
 
   getScheduleOverrides(): Promise<WorkScheduleOverride[]>;
@@ -235,6 +236,7 @@ class LazyStorage implements IStorage {
 
   getGrants() { return this.impl().then(s => s.getGrants()); }
   createGrant(d: InsertGrant, c: Omit<InsertGrantCondition, "grantId">[]) { return this.impl().then(s => s.createGrant(d, c)); }
+  updateGrant(id: string, d: Partial<InsertGrant>, c: Omit<InsertGrantCondition, "grantId">[]) { return this.impl().then(s => s.updateGrant(id, d, c)); }
   deleteGrant(id: string) { return this.impl().then(s => s.deleteGrant(id)); }
 
   getScheduleOverrides() { return this.impl().then(s => s.getScheduleOverrides()); }

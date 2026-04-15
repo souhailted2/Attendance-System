@@ -3031,6 +3031,30 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  app.patch("/api/grants/:id", async (req, res) => {
+    if (!requireOwnerOrAttendence(req, res)) return;
+    try {
+      const { name, amount, type, targetType, shiftValue, workshopId, employeeIds, excludedEmployeeIds, conditions } = req.body;
+      if (!name || !name.trim()) return res.status(400).json({ message: "اسم المنحة مطلوب" });
+      if (!amount || isNaN(parseFloat(amount))) return res.status(400).json({ message: "المبلغ يجب أن يكون رقماً" });
+      const record = await storage.updateGrant(
+        req.params.id,
+        {
+          name: name.trim(),
+          amount: String(parseFloat(amount)),
+          type,
+          targetType,
+          shiftValue: shiftValue || null,
+          workshopId: workshopId || null,
+          employeeIds: employeeIds || null,
+          excludedEmployeeIds: excludedEmployeeIds || null,
+        } as any,
+        Array.isArray(conditions) ? conditions : []
+      );
+      return res.json(record);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
   app.delete("/api/grants/:id", async (req, res) => {
     if (!requireOwnerOrAttendence(req, res)) return;
     try {
@@ -3149,6 +3173,13 @@ export async function registerRoutes(
           let empIds: string[] = [];
           try { empIds = JSON.parse(grant.employeeIds ?? "[]"); } catch { empIds = []; }
           targetEmps = activeEmployees.filter(e => empIds.includes(e.id));
+        }
+
+        // استثناء العمال المستثنين
+        let excludedGrantIds: string[] = [];
+        try { excludedGrantIds = JSON.parse((grant as any).excludedEmployeeIds ?? "[]"); } catch { excludedGrantIds = []; }
+        if (excludedGrantIds.length > 0) {
+          targetEmps = targetEmps.filter(e => !excludedGrantIds.includes(e.id));
         }
 
         const baseAmount = parseFloat(grant.amount);
@@ -4532,6 +4563,9 @@ export async function registerRoutes(
             applies = ids.includes(emp.id);
           }
           if (!applies) continue;
+          // تحقق من الاستثناء
+          let excIds: string[] = []; try { excIds = JSON.parse((grant as any).excludedEmployeeIds ?? "[]"); } catch { excIds = []; }
+          if (excIds.includes(emp.id)) continue;
 
           const baseGrant = parseFloat(grant.amount) || 0;
           const conds = grant.conditions;

@@ -399,6 +399,7 @@ export class PgStorage implements IStorage {
       shiftValue: data.shiftValue ?? null,
       workshopId: data.workshopId ?? null,
       employeeIds: data.employeeIds ?? null,
+      excludedEmployeeIds: (data as any).excludedEmployeeIds ?? null,
       createdAt: data.createdAt,
       createdBy: data.createdBy,
     }).returning();
@@ -423,6 +424,38 @@ export class PgStorage implements IStorage {
       condRows.push(row);
     }
     return { ...grant, conditions: condRows };
+  }
+
+  async updateGrant(id: string, data: Partial<InsertGrant>, conditions: Omit<InsertGrantCondition, "grantId">[]): Promise<GrantWithConditions> {
+    const updateData: Record<string, any> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.amount !== undefined) updateData.amount = data.amount;
+    if (data.type !== undefined) updateData.type = data.type;
+    if (data.targetType !== undefined) updateData.targetType = data.targetType;
+    if ("shiftValue" in data) updateData.shiftValue = data.shiftValue ?? null;
+    if ("workshopId" in data) updateData.workshopId = data.workshopId ?? null;
+    if ("employeeIds" in data) updateData.employeeIds = data.employeeIds ?? null;
+    if ("excludedEmployeeIds" in data) updateData.excludedEmployeeIds = (data as any).excludedEmployeeIds ?? null;
+    if (Object.keys(updateData).length > 0) {
+      await pgDb.update(schema.grants).set(updateData).where(eq(schema.grants.id, id));
+    }
+    await pgDb.delete(schema.grantConditions).where(eq(schema.grantConditions.grantId, id));
+    const condRows: GrantCondition[] = [];
+    for (const c of conditions) {
+      const cid = randomUUID();
+      const [row] = await pgDb.insert(schema.grantConditions).values({
+        id: cid, grantId: id, conditionType: c.conditionType,
+        attendancePeriodType: c.attendancePeriodType ?? null,
+        attendancePeriodValue: c.attendancePeriodValue ?? null,
+        absenceMode: c.absenceMode ?? null, daysThreshold: c.daysThreshold ?? null,
+        weekdayCount: c.weekdayCount ?? null, weekdays: c.weekdays ?? null,
+        minutesThreshold: c.minutesThreshold ?? null, violationsThreshold: c.violationsThreshold ?? null,
+        effectType: c.effectType, effectAmount: c.effectAmount ?? null,
+      }).returning();
+      condRows.push(row);
+    }
+    const [g] = await pgDb.select().from(schema.grants).where(eq(schema.grants.id, id));
+    return { ...g, conditions: condRows };
   }
 
   async deleteGrant(id: string): Promise<void> {

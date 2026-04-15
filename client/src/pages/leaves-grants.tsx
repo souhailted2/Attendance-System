@@ -23,7 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users, User, X, TrendingUp, TrendingDown, Ban } from "lucide-react";
+import { CalendarDays, Gift, BarChart3, Trash2, Plus, ChevronLeft, Sun, Moon, Wrench, Users, User, X, TrendingUp, TrendingDown, Ban, Pencil, UserMinus } from "lucide-react";
 import { fmtDZD } from "@/lib/utils";
 import type { Workshop, Employee } from "@shared/schema";
 
@@ -644,7 +644,8 @@ interface GrantConditionFull {
 interface GrantFull {
   id: string; name: string; amount: string; type: string;
   targetType: string; shiftValue: string | null; workshopId: string | null;
-  employeeIds: string | null; createdAt: string; createdBy: string;
+  employeeIds: string | null; excludedEmployeeIds: string | null;
+  createdAt: string; createdBy: string;
   conditions: GrantConditionFull[];
 }
 interface ConditionDraft {
@@ -960,12 +961,14 @@ function ConditionRow({ cond, onChange, onDelete }: {
   );
 }
 
-function GrantCard({ grant, workshops, employees, onDelete }: {
-  grant: GrantFull; workshops: Workshop[]; employees: Employee[]; onDelete: () => void;
+function GrantCard({ grant, workshops, employees, onDelete, onEdit }: {
+  grant: GrantFull; workshops: Workshop[]; employees: Employee[]; onDelete: () => void; onEdit: () => void;
 }) {
   const isGrant = grant.type === "grant";
-  const empIds: string[] = grant.employeeIds ? JSON.parse(grant.employeeIds) : [];
+  const empIds: string[] = grant.employeeIds ? (() => { try { return JSON.parse(grant.employeeIds!); } catch { return []; } })() : [];
   const empNames = empIds.map(id => employees.find(e => e.id === id)?.name ?? id).join("، ");
+  const excludedIds: string[] = grant.excludedEmployeeIds ? (() => { try { return JSON.parse(grant.excludedEmployeeIds!); } catch { return []; } })() : [];
+  const excludedNames = excludedIds.map(id => employees.find(e => e.id === id)?.name ?? id);
 
   return (
     <Card className={`border-r-4 ${isGrant ? "border-r-green-500" : "border-r-red-500"}`} data-testid={`card-grant-${grant.id}`}>
@@ -980,23 +983,28 @@ function GrantCard({ grant, workshops, employees, onDelete }: {
               {fmtDZD(grant.amount)}
             </Badge>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0" data-testid={`button-delete-grant-${grant.id}`}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent dir="rtl">
-              <AlertDialogHeader>
-                <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
-                <AlertDialogDescription>سيتم حذف "{grant.name}" وكل شروطها. لا يمكن التراجع.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={onEdit} data-testid={`button-edit-grant-${grant.id}`}>
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" data-testid={`button-delete-grant-${grant.id}`}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent dir="rtl">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                  <AlertDialogDescription>سيتم حذف "{grant.name}" وكل شروطها. لا يمكن التراجع.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
           <Badge variant="secondary" className="text-xs">{targetLabel(grant, workshops)}</Badge>
@@ -1004,6 +1012,14 @@ function GrantCard({ grant, workshops, employees, onDelete }: {
             <span className="text-xs text-muted-foreground">{empNames}</span>
           )}
         </div>
+        {excludedNames.length > 0 && (
+          <div className="flex items-start gap-1.5 rounded bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 px-2 py-1.5">
+            <UserMinus className="h-3 w-3 text-orange-600 shrink-0 mt-0.5" />
+            <span className="text-xs text-orange-700 dark:text-orange-400">
+              <span className="font-medium">مستثنون:</span> {excludedNames.join("، ")}
+            </span>
+          </div>
+        )}
         {grant.conditions.length > 0 && (
           <div className="space-y-1 pt-1">
             {grant.conditions.map(c => (
@@ -1024,6 +1040,7 @@ function GrantCard({ grant, workshops, employees, onDelete }: {
 function GrantsTab() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingGrant, setEditingGrant] = useState<GrantFull | null>(null);
   const [grantName, setGrantName] = useState("");
   const [grantAmount, setGrantAmount] = useState("");
   const [grantType, setGrantType] = useState<"grant" | "penalty">("grant");
@@ -1033,6 +1050,8 @@ function GrantsTab() {
   const [selectedEmpIds, setSelectedEmpIds] = useState<string[]>([]);
   const [conditions, setConditions] = useState<ConditionDraft[]>([]);
   const [empSearch, setEmpSearch] = useState("");
+  const [excludedEmpIds, setExcludedEmpIds] = useState<string[]>([]);
+  const [excSearch, setExcSearch] = useState("");
 
   const { data: grants = [], isLoading: grantsLoading } = useQuery<GrantFull[]>({ queryKey: ["/api/grants"] });
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
@@ -1043,6 +1062,17 @@ function GrantsTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/grants"] });
       toast({ title: "تم الحفظ", description: `تمت إضافة "${grantName}" بنجاح` });
+      resetForm();
+      setDialogOpen(false);
+    },
+    onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, body }: { id: string; body: object }) => apiRequest("PATCH", `/api/grants/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/grants"] });
+      toast({ title: "تم التعديل", description: `تم تعديل "${grantName}" بنجاح` });
       resetForm();
       setDialogOpen(false);
     },
@@ -1062,6 +1092,40 @@ function GrantsTab() {
     setGrantName(""); setGrantAmount(""); setGrantType("grant");
     setTargetType("all"); setShiftValue("morning"); setWorkshopId("");
     setSelectedEmpIds([]); setConditions([]); setEmpSearch("");
+    setExcludedEmpIds([]); setExcSearch(""); setEditingGrant(null);
+  }
+
+  function openEdit(g: GrantFull) {
+    setEditingGrant(g);
+    setGrantName(g.name);
+    setGrantAmount(g.amount);
+    setGrantType(g.type as "grant" | "penalty");
+    setTargetType(g.targetType as "all" | "shift" | "workshop" | "employee");
+    setShiftValue((g.shiftValue ?? "morning") as "morning" | "evening");
+    setWorkshopId(g.workshopId ?? "");
+    try { setSelectedEmpIds(g.employeeIds ? JSON.parse(g.employeeIds) : []); } catch { setSelectedEmpIds([]); }
+    try { setExcludedEmpIds(g.excludedEmployeeIds ? JSON.parse(g.excludedEmployeeIds) : []); } catch { setExcludedEmpIds([]); }
+    // تحويل conditions من GrantConditionFull إلى ConditionDraft
+    setConditions(g.conditions.map(c => ({
+      localId: Math.random().toString(36).slice(2),
+      conditionType: c.conditionType,
+      attendancePeriodType: c.attendancePeriodType ?? "month",
+      attendancePeriodValue: c.attendancePeriodValue ?? "",
+      monthsCount: c.conditionType === "attendance" && c.attendancePeriodType === "months" ? (c.attendancePeriodValue ?? "2") : "2",
+      specificWeeksDates: c.conditionType === "attendance" && c.attendancePeriodType === "specific_weeks"
+        ? (() => { try { return JSON.parse(c.attendancePeriodValue ?? "[]"); } catch { return []; } })()
+        : [],
+      absenceMode: c.absenceMode ?? "count",
+      daysThreshold: c.daysThreshold ?? "1",
+      weekdayCount: c.weekdayCount ?? "1",
+      weekdays: c.weekdays ? (() => { try { return JSON.parse(c.weekdays!); } catch { return []; } })() : [],
+      minutesThreshold: String(c.minutesThreshold ?? 30),
+      violationsThreshold: String(c.violationsThreshold ?? 3),
+      effectType: c.effectType,
+      effectAmount: c.effectAmount ?? "",
+    })));
+    setEmpSearch(""); setExcSearch("");
+    setDialogOpen(true);
   }
 
   function handleSubmit() {
@@ -1075,7 +1139,7 @@ function GrantsTab() {
       if (c.conditionType === "absence" && c.absenceMode === "weekday" && c.weekdays.length === 0)
         return toast({ title: "اختر يوماً واحداً على الأقل في شرط الغياب", variant: "destructive" });
     }
-    addMutation.mutate({
+    const body = {
       name: grantName.trim(),
       amount: String(parseFloat(grantAmount)),
       type: grantType,
@@ -1083,8 +1147,14 @@ function GrantsTab() {
       shiftValue: targetType === "shift" ? shiftValue : null,
       workshopId: targetType === "workshop" ? workshopId : null,
       employeeIds: targetType === "employee" ? JSON.stringify(selectedEmpIds) : null,
+      excludedEmployeeIds: excludedEmpIds.length > 0 ? JSON.stringify(excludedEmpIds) : null,
       conditions: conditions.map(conditionToPayload),
-    });
+    };
+    if (editingGrant) {
+      updateMutation.mutate({ id: editingGrant.id, body });
+    } else {
+      addMutation.mutate(body);
+    }
   }
 
   const grantsList = grants.filter(g => g.type === "grant");
@@ -1092,6 +1162,13 @@ function GrantsTab() {
   const filteredEmps = employees.filter(e =>
     e.isActive && (empSearch === "" || e.name.includes(empSearch) || e.employeeCode.includes(empSearch))
   );
+  const filteredExcEmps = employees.filter(e =>
+    e.isActive && (excSearch === "" ||
+      e.name.includes(excSearch) ||
+      e.employeeCode.includes(excSearch) ||
+      (e.cardNumber ?? "").includes(excSearch))
+  );
+  const isPending = addMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-4">
@@ -1117,7 +1194,8 @@ function GrantsTab() {
             ) : (
               grantsList.map(g => (
                 <GrantCard key={g.id} grant={g} workshops={workshops} employees={employees}
-                  onDelete={() => deleteMutation.mutate(g.id)} />
+                  onDelete={() => deleteMutation.mutate(g.id)}
+                  onEdit={() => openEdit(g)} />
               ))
             )}
           </div>
@@ -1132,7 +1210,8 @@ function GrantsTab() {
             ) : (
               penaltiesList.map(g => (
                 <GrantCard key={g.id} grant={g} workshops={workshops} employees={employees}
-                  onDelete={() => deleteMutation.mutate(g.id)} />
+                  onDelete={() => deleteMutation.mutate(g.id)}
+                  onEdit={() => openEdit(g)} />
               ))
             )}
           </div>
@@ -1140,10 +1219,10 @@ function GrantsTab() {
       )}
 
       {/* Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) resetForm(); setDialogOpen(open); }}>
         <DialogContent className="max-w-2xl" dir="rtl">
           <DialogHeader>
-            <DialogTitle>إضافة منحة / عقوبة جديدة</DialogTitle>
+            <DialogTitle>{editingGrant ? `تعديل: ${editingGrant.name}` : "إضافة منحة / عقوبة جديدة"}</DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[70vh] pl-1">
             <div className="space-y-4 pl-2">
@@ -1262,12 +1341,57 @@ function GrantsTab() {
                     onDelete={() => setConditions(prev => prev.filter((_, j) => j !== i))} />
                 ))}
               </div>
+
+              <Separator />
+
+              {/* الاستثناء */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <UserMinus className="h-4 w-4 text-orange-600" />
+                  <Label>الاستثناء — عمال غير معنيين بهذه المنحة/العقوبة</Label>
+                </div>
+                <div className="border rounded-lg p-2 space-y-2">
+                  <Input
+                    placeholder="بحث بالاسم أو الرقم أو رقم البطاقة..."
+                    value={excSearch}
+                    onChange={e => setExcSearch(e.target.value)}
+                    data-testid="input-exc-search"
+                  />
+                  <ScrollArea className="h-36">
+                    <div className="space-y-1">
+                      {filteredExcEmps.map(emp => (
+                        <label key={emp.id} className="flex items-center gap-2 p-1 rounded hover:bg-muted cursor-pointer text-sm">
+                          <Checkbox
+                            checked={excludedEmpIds.includes(emp.id)}
+                            onCheckedChange={checked => {
+                              setExcludedEmpIds(prev =>
+                                checked ? [...prev, emp.id] : prev.filter(id => id !== emp.id)
+                              );
+                            }}
+                            data-testid={`checkbox-exc-${emp.id}`}
+                          />
+                          <span>{emp.name}</span>
+                          <span className="text-muted-foreground text-xs">{emp.employeeCode}</span>
+                          {emp.cardNumber && <span className="text-muted-foreground text-xs">({emp.cardNumber})</span>}
+                        </label>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  {excludedEmpIds.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-orange-600 font-medium">{excludedEmpIds.length} موظف مستثنى</p>
+                      <Button type="button" variant="ghost" size="sm" className="text-xs h-6"
+                        onClick={() => setExcludedEmpIds([])}>مسح الكل</Button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </ScrollArea>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} data-testid="button-cancel-grant">إلغاء</Button>
-            <Button onClick={handleSubmit} disabled={addMutation.isPending} data-testid="button-save-grant">
-              {addMutation.isPending ? "جاري الحفظ..." : "حفظ"}
+            <Button variant="outline" onClick={() => { resetForm(); setDialogOpen(false); }} data-testid="button-cancel-grant">إلغاء</Button>
+            <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-grant">
+              {isPending ? "جاري الحفظ..." : (editingGrant ? "حفظ التعديلات" : "حفظ")}
             </Button>
           </DialogFooter>
         </DialogContent>
