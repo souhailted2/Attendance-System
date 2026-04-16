@@ -4939,11 +4939,10 @@ export async function registerRoutes(
             const fmt = colFmt[ci];
             if (fmt) cell.numFmt = fmt;
           });
-          currentRow++;
-
-          // ─── فاصل صفحة بعد كل ورشة ───
+          // ─── فاصل صفحة بعد إجمالي الورشة ───
           ws.getRow(currentRow).addPageBreak();
-          currentRow++; // صف فارغ + فاصل
+          currentRow++; // تجاوز صف إجمالي الورشة
+          currentRow++; // صف فارغ فاصل
 
           gBase    += wBase;   gOt    += wOt;    gGrant   += wGrant;
           gDeduct  += wDeduct; gDebt  += wDebt;  gAdv     += wAdv;
