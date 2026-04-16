@@ -4162,11 +4162,11 @@ export async function registerRoutes(
       const monthStr = String(month).padStart(2, "0");
       const filename = `تسبيقات_${year}-${monthStr}.xlsx`;
 
-      const NCOLS_ADV = 6;
+      const NCOLS_ADV = 5;
       const moneyFmtAdv = "#,##0.00";
       const scoreFmtAdv = "0.00";
-      const colFmtAdv: (string | null)[] = [null, null, moneyFmtAdv, scoreFmtAdv, moneyFmtAdv, null];
-      const headersAdv = ["الاسم","رقم الموظف","الراتب الأساسي","نقاط الحضور","مبلغ التسبيقة","الامضاء"];
+      const colFmtAdv: (string | null)[] = [null, null, scoreFmtAdv, moneyFmtAdv, null];
+      const headersAdv = ["الاسم","رقم الموظف","نقاط الحضور","مبلغ التسبيقة","الامضاء"];
 
       const SHIFT_DEFS_ADV = [
         { key: "morning", label: "الفترة الصباحية", color: "FF1B3A5C" },
@@ -4250,7 +4250,7 @@ export async function registerRoutes(
           workshopGroupsAdv.find(g => g.workshopId === wid)!.rows.push(row);
         }
 
-        let gBase = 0, gScore = 0;
+        let gScore = 0;
         for (const group of workshopGroupsAdv) {
           const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
           const wHeaderBg = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
@@ -4278,12 +4278,11 @@ export async function registerRoutes(
 
           // بناء صفوف الجدول
           const tableRowsAdv: (string | number)[][] = [];
-          let wBase = 0, wScore = 0;
+          let wScore = 0;
           for (const row of group.rows) {
-            const bs = parseFloat(row.baseSalary as any) || 0;
             const sc = parseFloat(row.attendanceScore as any) || 0;
-            wBase += bs; wScore += sc;
-            const tRow: (string | number)[] = [row.employeeName, row.employeeCode ?? "", bs, sc, "", ""];
+            wScore += sc;
+            const tRow: (string | number)[] = [row.employeeName, row.employeeCode ?? "", sc, "", ""];
             tRow.forEach((v, ci) => trackWAdv(ci, v));
             tableRowsAdv.push(tRow);
           }
@@ -4321,10 +4320,9 @@ export async function registerRoutes(
               cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
               const fmt = colFmtAdv[ci];
               if (fmt) cell.numFmt = fmt;
-              if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
-              else if (ci === 5) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
-              else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } }; }
-              else if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { color: { argb: "FF0055CC" } }; }
+              if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
+              else if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
+              else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { color: { argb: "FF0055CC" } }; }
               else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
             }
             r.height = 21;
@@ -4332,7 +4330,7 @@ export async function registerRoutes(
           });
 
           // إجمالي الورشة
-          const wTotalsAdv: (string | number)[] = [`إجمالي ${wName}`, "", wBase, wScore, "", ""];
+          const wTotalsAdv: (string | number)[] = [`إجمالي ${wName}`, "", wScore, "", ""];
           const wTRowAdv = ws.getRow(currentRowAdv);
           wTRowAdv.height = 22;
           wTotalsAdv.forEach((val, ci) => {
@@ -4348,11 +4346,11 @@ export async function registerRoutes(
           });
           currentRowAdv++;
           rowsOnPageAdv += workshopHeight;
-          gBase += wBase; gScore += wScore;
+          gScore += wScore;
         }
 
         // إجمالي الفترة
-        const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gBase, gScore, "", ""];
+        const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gScore, "", ""];
         const gTRowAdv = ws.getRow(currentRowAdv);
         gTRowAdv.height = 28;
         gTotalsAdv.forEach((val, ci) => {
@@ -4368,7 +4366,7 @@ export async function registerRoutes(
         });
 
         ws.columns.forEach((col, ci) => {
-          const minW = ci === 5 ? 22 : 10;
+          const minW = ci === 4 ? 22 : 10;
           col.width = Math.min(40, Math.max(colWidthsAdv[ci] + 3, minW));
         });
       }
@@ -4412,13 +4410,13 @@ export async function registerRoutes(
         if (detectedMonth) break;
       }
 
-      // قراءة الصفوف: العمود 2 = الرقم، العمود 5 = مبلغ التسبيقة
+      // قراءة الصفوف: العمود 2 = الرقم، العمود 4 = مبلغ التسبيقة
       const parsedRows: { code: string; amount: number }[] = [];
       for (const ws of wb2.worksheets) {
         ws.eachRow((row, rowIndex) => {
           if (rowIndex === 1) return;
           const codeRaw = String(row.getCell(2).value ?? "").trim();
-          const amtRaw = row.getCell(5).value;
+          const amtRaw = row.getCell(4).value;
           const amount = typeof amtRaw === "number" ? amtRaw : parseFloat(String(amtRaw ?? ""));
           // تخطي الصفوف التي لا تحتوي على رقم موظف صالح (عناوين الورشات/الجداول/الإجماليات)
           if (!codeRaw) return;
