@@ -4192,38 +4192,135 @@ export async function registerRoutes(
         cell.border = { top: s, bottom: s, left: s, right: s };
       }
 
+      // ─── دالة مساعدة: رسم ورشة واحدة على ورقة عمل ───
+      // ترجع { endRow, score }
+      type AdvGroup = { workshopId: string | null; rows: AdvRow[] };
+      function renderAdvWorkshop(
+        ws: ExcelJS.Worksheet,
+        group: AdvGroup,
+        startRow: number,
+        colWidths: number[],
+        tableName: string
+      ): { endRow: number; score: number } {
+        const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
+        const wHeaderBg = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
+        const wLabelColor = group.workshopId ? "FF1B3A5C" : "FFB45309";
+        function trk(ci: number, val: string | number | null | undefined) {
+          const len = String(val ?? "").length;
+          if (len > colWidths[ci]) colWidths[ci] = len;
+        }
+        let cur = startRow;
+
+        // عنوان الورشة
+        ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+        const wHCell = ws.getCell(cur, 1);
+        wHCell.value = `◆  ${wName}`;
+        wHCell.font = { bold: true, size: 11, color: { argb: wLabelColor } };
+        wHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
+        wHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: wHeaderBg } };
+        setBorderAdv(wHCell);
+        ws.getRow(cur).height = 24;
+        cur++;
+
+        // بناء صفوف الجدول
+        const tableRowsAdv: (string | number)[][] = [];
+        let wScore = 0;
+        for (const row of group.rows) {
+          const sc = parseFloat(row.attendanceScore as any) || 0;
+          wScore += sc;
+          const tRow: (string | number)[] = [row.employeeName, row.employeeCode ?? "", sc, "", ""];
+          tRow.forEach((v, ci) => trk(ci, v));
+          tableRowsAdv.push(tRow);
+        }
+        headersAdv.forEach((h, ci) => trk(ci, h));
+
+        // إنشاء الجدول
+        ws.addTable({
+          name: tableName.replace(/[^A-Za-z0-9_]/g, "_"),
+          ref: `A${cur}`,
+          headerRow: true, totalsRow: false,
+          style: { theme: "TableStyleMedium2", showRowStripes: true },
+          columns: headersAdv.map(h => ({ name: h, filterButton: false })),
+          rows: tableRowsAdv,
+        });
+
+        // تنسيق رؤوس الأعمدة
+        const tHdr = ws.getRow(cur);
+        for (let ci = 0; ci < NCOLS_ADV; ci++) {
+          const cell = tHdr.getCell(ci + 1);
+          cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+          cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
+          setBorderAdv(cell);
+        }
+        tHdr.height = 26;
+        cur++;
+
+        // تنسيق صفوف البيانات
+        group.rows.forEach((_, idx) => {
+          const r = ws.getRow(cur);
+          const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+          for (let ci = 0; ci < NCOLS_ADV; ci++) {
+            const cell = r.getCell(ci + 1);
+            setBorderAdv(cell);
+            cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+            const fmt = colFmtAdv[ci];
+            if (fmt) cell.numFmt = fmt;
+            if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
+            else if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
+            else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { color: { argb: "FF0055CC" } }; }
+            else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
+          }
+          r.height = 21;
+          cur++;
+        });
+
+        // إجمالي الورشة
+        const wTotalsAdv: (string | number)[] = [`إجمالي ${wName}`, "", wScore, "", ""];
+        const wTRowAdv = ws.getRow(cur);
+        wTRowAdv.height = 22;
+        wTotalsAdv.forEach((val, ci) => {
+          trk(ci, val);
+          const cell = wTRowAdv.getCell(ci + 1);
+          cell.value = val;
+          cell.font = { bold: true, color: { argb: wLabelColor } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
+          setBorderAdv(cell);
+          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+          const fmt = colFmtAdv[ci];
+          if (fmt) cell.numFmt = fmt;
+        });
+        cur++;
+        return { endRow: cur, score: wScore };
+      }
+
+      // ─── دالة مساعدة: بناء ورقة عمل وإعداد عنوانها ───
+      function initAdvSheet(
+        label: string,
+        title: string,
+        color: string,
+        fitToHeight: number
+      ): { ws: ExcelJS.Worksheet; colWidths: number[] } {
+        const wsNew = workbookAdv.addWorksheet(label.substring(0, 31), { views: [{ rightToLeft: true }] });
+        const colWidths: number[] = new Array(NCOLS_ADV).fill(6);
+        wsNew.mergeCells(1, 1, 1, NCOLS_ADV);
+        const tc = wsNew.getCell("A1");
+        tc.value = title;
+        tc.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
+        tc.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        tc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
+        wsNew.getRow(1).height = 34;
+        wsNew.pageSetup = { orientation: "landscape" as const, fitToPage: true, fitToWidth: 1, fitToHeight, printTitlesRow: "1:1" };
+        wsNew.views = [{ rightToLeft: true }];
+        return { ws: wsNew, colWidths };
+      }
+
+      const PAGE_ROW_CAP_ADV = 35;
+
       for (const sd of SHIFT_DEFS_ADV) {
         const shiftRows = byShiftAdv.get(sd.key) ?? [];
-
-        // ─── إنشاء الورقة دائماً حتى لو لم يكن هناك موظفون في هذه الفترة ───
-        const ws = workbookAdv.addWorksheet(sd.label, { views: [{ rightToLeft: true }] });
-        const colWidthsAdv: number[] = new Array(NCOLS_ADV).fill(6);
-        function trackWAdv(ci: number, val: string | number | null | undefined) {
-          const len = String(val ?? "").length;
-          if (len > colWidthsAdv[ci]) colWidthsAdv[ci] = len;
-        }
-        const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
-        ws.mergeCells(1, 1, 1, NCOLS_ADV);
-        const titleCell = ws.getCell("A1");
-        titleCell.value = sheetTitle;
-        titleCell.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
-        titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
-        ws.getRow(1).height = 34;
-        ws.pageSetup = { orientation: "landscape" as const, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:1" };
-        ws.views = [{ rightToLeft: true }];
-
-        if (shiftRows.length === 0) {
-          // ورقة فارغة: اكتفِ بصف يشير إلى عدم وجود موظفين
-          ws.mergeCells(2, 1, 2, NCOLS_ADV);
-          const emptyCell = ws.getCell(2, 1);
-          emptyCell.value = "لا يوجد موظفون في هذه الفترة";
-          emptyCell.font = { italic: true, color: { argb: "FF888888" } };
-          emptyCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-          ws.getRow(2).height = 28;
-          ws.columns.forEach(col => { col.width = 20; });
-          continue;
-        }
+        // ─── تجاهل الفترات الفارغة ───
+        if (shiftRows.length === 0) continue;
 
         const sortedRows = [...shiftRows].sort((a, b) => {
           const wa = a.workshopId ? (workshopMap.get(a.workshopId) ?? "") : null;
@@ -4236,13 +4333,8 @@ export async function registerRoutes(
           return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
         });
 
-        let currentRowAdv = 2;
-        let rowsOnPageAdv = 1;
-        let isFirstGroupAdv = true;
-        const PAGE_ROW_CAP_ADV = 35;
-
         // ─── تجميع حسب الورشة ───
-        const workshopGroupsAdv: Array<{ workshopId: string | null; rows: AdvRow[] }> = [];
+        const workshopGroupsAdv: AdvGroup[] = [];
         const seenWsAdv = new Set<string | null>();
         for (const row of sortedRows) {
           const wid = row.workshopId ?? null;
@@ -4250,125 +4342,75 @@ export async function registerRoutes(
           workshopGroupsAdv.find(g => g.workshopId === wid)!.rows.push(row);
         }
 
-        let gScore = 0;
-        for (const group of workshopGroupsAdv) {
-          const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
-          const wHeaderBg = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
-          const wLabelColor = group.workshopId ? "FF1B3A5C" : "FFB45309";
-          const workshopHeight = group.rows.length + 3;
+        // ─── تصنيف الورشات: صغيرة (تناسب صفحة) / كبيرة (تتجاوز صفحة) ───
+        const smallGroups = workshopGroupsAdv.filter(g => (g.rows.length + 3) <= PAGE_ROW_CAP_ADV);
+        const largeGroups = workshopGroupsAdv.filter(g => (g.rows.length + 3) > PAGE_ROW_CAP_ADV);
 
-          if (!isFirstGroupAdv) {
-            const spaceNeeded = 1 + workshopHeight;
-            if (rowsOnPageAdv + spaceNeeded > PAGE_ROW_CAP_ADV) {
-              ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; rowsOnPageAdv = 0;
-            } else { currentRowAdv++; rowsOnPageAdv++; }
-          }
-          isFirstGroupAdv = false;
+        // ─── ورقة الفترة: تجمع الورشات الصغيرة بحشو ذكي ───
+        if (smallGroups.length > 0) {
+          const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
+          const { ws, colWidths } = initAdvSheet(sd.label, sheetTitle, sd.color, 0);
 
-          // عنوان الورشة
-          ws.mergeCells(currentRowAdv, 1, currentRowAdv, NCOLS_ADV);
-          const wHCell = ws.getCell(currentRowAdv, 1);
-          wHCell.value = `◆  ${wName}`;
-          wHCell.font = { bold: true, size: 11, color: { argb: wLabelColor } };
-          wHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
-          wHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: wHeaderBg } };
-          setBorderAdv(wHCell);
-          ws.getRow(currentRowAdv).height = 24;
-          currentRowAdv++;
+          let currentRowAdv = 2;
+          let rowsOnPageAdv = 1;
+          let isFirstGroupAdv = true;
+          let gScore = 0;
 
-          // بناء صفوف الجدول
-          const tableRowsAdv: (string | number)[][] = [];
-          let wScore = 0;
-          for (const row of group.rows) {
-            const sc = parseFloat(row.attendanceScore as any) || 0;
-            wScore += sc;
-            const tRow: (string | number)[] = [row.employeeName, row.employeeCode ?? "", sc, "", ""];
-            tRow.forEach((v, ci) => trackWAdv(ci, v));
-            tableRowsAdv.push(tRow);
-          }
-          headersAdv.forEach((h, ci) => trackWAdv(ci, h));
-
-          // إنشاء الجدول
-          ws.addTable({
-            name: `TA_${sd.key}_${group.workshopId ?? "none"}`.replace(/[^A-Za-z0-9_]/g, "_"),
-            ref: `A${currentRowAdv}`,
-            headerRow: true, totalsRow: false,
-            style: { theme: "TableStyleMedium2", showRowStripes: true },
-            columns: headersAdv.map(h => ({ name: h, filterButton: false })),
-            rows: tableRowsAdv,
-          });
-
-          // تنسيق رؤوس الأعمدة
-          const tHdr = ws.getRow(currentRowAdv);
-          for (let ci = 0; ci < NCOLS_ADV; ci++) {
-            const cell = tHdr.getCell(ci + 1);
-            cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
-            cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
-            setBorderAdv(cell);
-          }
-          tHdr.height = 26;
-          currentRowAdv++;
-
-          // تنسيق صفوف البيانات
-          group.rows.forEach((_, idx) => {
-            const r = ws.getRow(currentRowAdv);
-            const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
-            for (let ci = 0; ci < NCOLS_ADV; ci++) {
-              const cell = r.getCell(ci + 1);
-              setBorderAdv(cell);
-              cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-              const fmt = colFmtAdv[ci];
-              if (fmt) cell.numFmt = fmt;
-              if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
-              else if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
-              else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { color: { argb: "FF0055CC" } }; }
-              else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
+          for (const group of smallGroups) {
+            const workshopHeight = group.rows.length + 3;
+            if (!isFirstGroupAdv) {
+              const spaceNeeded = 1 + workshopHeight;
+              if (rowsOnPageAdv + spaceNeeded > PAGE_ROW_CAP_ADV) {
+                ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; rowsOnPageAdv = 0;
+              } else { currentRowAdv++; rowsOnPageAdv++; }
             }
-            r.height = 21;
-            currentRowAdv++;
-          });
+            isFirstGroupAdv = false;
 
-          // إجمالي الورشة
-          const wTotalsAdv: (string | number)[] = [`إجمالي ${wName}`, "", wScore, "", ""];
-          const wTRowAdv = ws.getRow(currentRowAdv);
-          wTRowAdv.height = 22;
-          wTotalsAdv.forEach((val, ci) => {
-            trackWAdv(ci, val);
-            const cell = wTRowAdv.getCell(ci + 1);
+            const tName = `TA_${sd.key}_s_${group.workshopId ?? "none"}`;
+            const res = renderAdvWorkshop(ws, group, currentRowAdv, colWidths, tName);
+            currentRowAdv = res.endRow;
+            rowsOnPageAdv += workshopHeight;
+            gScore += res.score;
+          }
+
+          // إجمالي الفترة
+          const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gScore, "", ""];
+          const gTRowAdv = ws.getRow(currentRowAdv);
+          gTRowAdv.height = 28;
+          gTotalsAdv.forEach((val, ci) => {
+            const len = String(val ?? "").length; if (len > colWidths[ci]) colWidths[ci] = len;
+            const cell = gTRowAdv.getCell(ci + 1);
             cell.value = val;
-            cell.font = { bold: true, color: { argb: wLabelColor } };
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
+            cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
             setBorderAdv(cell);
             cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-            const fmt = colFmtAdv[ci];
-            if (fmt) cell.numFmt = fmt;
+            const fmt = colFmtAdv[ci]; if (fmt) cell.numFmt = fmt;
           });
-          currentRowAdv++;
-          rowsOnPageAdv += workshopHeight;
-          gScore += wScore;
+
+          ws.columns.forEach((col, ci) => {
+            const minW = ci === 4 ? 22 : 10;
+            col.width = Math.min(40, Math.max(colWidths[ci] + 3, minW));
+          });
         }
 
-        // إجمالي الفترة
-        const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gScore, "", ""];
-        const gTRowAdv = ws.getRow(currentRowAdv);
-        gTRowAdv.height = 28;
-        gTotalsAdv.forEach((val, ci) => {
-          trackWAdv(ci, val);
-          const cell = gTRowAdv.getCell(ci + 1);
-          cell.value = val;
-          cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
-          setBorderAdv(cell);
-          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-          const fmt = colFmtAdv[ci];
-          if (fmt) cell.numFmt = fmt;
-        });
+        // ─── ورقة مستقلة لكل ورشة كبيرة — fitToHeight:1 يضغطها لصفحة واحدة ───
+        for (const group of largeGroups) {
+          const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
+          const sheetLabel = `${wName} — ${sd.label}`;
+          const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${wName}`;
+          const { ws, colWidths } = initAdvSheet(sheetLabel, sheetTitle, sd.color, 1);
 
-        ws.columns.forEach((col, ci) => {
-          const minW = ci === 4 ? 22 : 10;
-          col.width = Math.min(40, Math.max(colWidthsAdv[ci] + 3, minW));
-        });
+          const tName = `TA_${sd.key}_L_${group.workshopId ?? "none"}`;
+          const res = renderAdvWorkshop(ws, group, 2, colWidths, tName);
+
+          ws.columns.forEach((col, ci) => {
+            const minW = ci === 4 ? 22 : 10;
+            col.width = Math.min(40, Math.max(colWidths[ci] + 3, minW));
+          });
+          // الإجمالي الكلي = إجمالي الورشة نفسها (لا صف فترة إضافي)
+          void res;
+        }
       }
 
       const encFilename = encodeURIComponent(filename);
