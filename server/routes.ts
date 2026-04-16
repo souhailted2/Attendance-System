@@ -2408,6 +2408,42 @@ export async function registerRoutes(
         `pause`,
       ].join("\r\n");
 
+      const setupAutostartBat = [
+        `@echo off`,
+        `chcp 65001 >nul`,
+        `title ZKTeco AutoSync - إعداد التشغيل التلقائي`,
+        `echo ════════════════════════════════════════════════════════`,
+        `echo   ZKTeco AutoSync - إعداد التشغيل التلقائي مع Windows`,
+        `echo ════════════════════════════════════════════════════════`,
+        `echo.`,
+        `net session >nul 2>&1`,
+        `if %errorlevel% neq 0 (`,
+        `    echo ❌ يجب تشغيل هذا الملف كـ Administrator`,
+        `    echo.`,
+        `    echo    انقر بالزر الأيمن على الملف ثم "Run as administrator"`,
+        `    echo.`,
+        `    pause`,
+        `    exit /b 1`,
+        `)`,
+        `set "SCRIPT_DIR=%~dp0"`,
+        `set "TASK_NAME=ZKTeco_AutoSync"`,
+        `set "VBS_FILE=%SCRIPT_DIR%autostart-silent.vbs"`,
+        `echo Set WshShell = CreateObject("WScript.Shell") > "%VBS_FILE%"`,
+        `echo WshShell.Run Chr(34) ^& "%SCRIPT_DIR%auto.bat" ^& Chr(34), 0, False >> "%VBS_FILE%"`,
+        `echo Set WshShell = Nothing >> "%VBS_FILE%"`,
+        `schtasks /delete /tn "%TASK_NAME%" /f >nul 2>&1`,
+        `schtasks /create /tn "%TASK_NAME%" /tr "wscript.exe \\"%VBS_FILE%\\"" /sc onlogon /rl highest /delay 0000:30 /f >nul 2>&1`,
+        `if %errorlevel% equ 0 (`,
+        `    echo ✅ تم إعداد التشغيل التلقائي بنجاح!`,
+        `    echo    سيشتغل ZKTeco AutoSync تلقائياً عند كل تسجيل دخول لـ Windows`,
+        `) else (`,
+        `    echo ❌ فشل إعداد المهمة المجدولة`,
+        `    echo    انقر بالزر الأيمن على الملف ثم "Run as administrator"`,
+        `)`,
+        `echo.`,
+        `pause`,
+      ].join("\r\n");
+
       const instructions = [
         `نظام مزامنة الحضور - ZKTeco MDB Agent`,
         `========================================`,
@@ -2433,7 +2469,12 @@ export async function registerRoutes(
         `الخطوة 3 (مراقبة تلقائية - موصى به):`,
         `  - انقر مرتين على: auto.bat  ← الأفضل`,
         `  - سيراقب الملف باستمرار ويزامن فوراً عند أي تغيير`,
-        `  - يكتشف: حضور جديد، موظف جديد، تعديل الاسم، تغيير رقم البطاقة`,
+        ``,
+        `الخطوة 4 (تشغيل تلقائي مع Windows - مهم جداً):`,
+        `  - انقر بالزر الأيمن على: setup-autostart.bat`,
+        `  - اختر "Run as administrator"`,
+        `  - سيشتغل auto.bat تلقائياً عند كل إعادة تشغيل للكمبيوتر`,
+        `  - بهذا لن تحتاج لفتحه يدوياً في كل مرة`,
         ``,
         `الخطوة 3 (بديل - مزامنة كل 30 دقيقة):`,
         `  - انقر مرتين على: watch.bat`,
@@ -2442,6 +2483,7 @@ export async function registerRoutes(
         `  - إذا كان مسار ملف قاعدة البيانات مختلفاً، عدّل DB_PATH في ملف .env`,
         `  - عند أول تشغيل سيُنشئ البرنامج الموظفين تلقائياً في النظام`,
         `  - سجلات الحضور السابقة (30 يوم) ستُرسل في أول تشغيل`,
+        `  - عند تحميل حركات من الجهاز يدوياً في ZKTeco، ستُرسل تلقائياً للموقع`,
         ``,
         `للمساعدة: تواصل مع مدير النظام`,
       ].join("\r\n");
@@ -2459,13 +2501,14 @@ export async function registerRoutes(
       });
       zip.pipe(res);
 
-      zip.append(getMdbAgentJs(),    { name: "mdb-agent.js" });
-      zip.append(getMdbPackageJson(), { name: "package.json" });
-      zip.append(envContent,          { name: ".env" });
-      zip.append(runBat,              { name: "run.bat" });
-      zip.append(autoBat,             { name: "auto.bat" });
-      zip.append(watchBat,            { name: "watch.bat" });
-      zip.append(instructions,        { name: "تعليمات.txt" });
+      zip.append(getMdbAgentJs(),      { name: "mdb-agent.js" });
+      zip.append(getMdbPackageJson(),  { name: "package.json" });
+      zip.append(envContent,           { name: ".env" });
+      zip.append(runBat,               { name: "run.bat" });
+      zip.append(autoBat,              { name: "auto.bat" });
+      zip.append(watchBat,             { name: "watch.bat" });
+      zip.append(setupAutostartBat,    { name: "setup-autostart.bat" });
+      zip.append(instructions,         { name: "تعليمات.txt" });
 
       await zip.finalize();
     } catch (error: any) {

@@ -464,6 +464,10 @@ if (autoMode) {
           return;
         }
         isSyncing = true;
+        // ─── إصلاح: نعيد الفحص الكامل (آخر DAYS_BACK يوم) عند كل تغيير في الملف ───
+        // السبب: عند تحميل الحركات من الجهاز إلى ZKTeco بعد المزامنة الأولى،
+        //        تكون التواريخ أقدم من lastSync فتُفوّتها النافذة الضيقة.
+        isFirstRun = true;
         try {
           await runSync();
         } finally {
