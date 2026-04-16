@@ -4118,6 +4118,321 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
+  // GET /api/advances/export-template?month=&year= — تصدير قالب Excel للتسبيقات
+  app.get("/api/advances/export-template", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const year = parseInt(req.query.year as string);
+      const month = parseInt(req.query.month as string);
+      if (isNaN(year) || isNaN(month) || month < 1 || month > 12)
+        return res.status(400).json({ message: "السنة والشهر مطلوبان" });
+
+      const rows = await computePayrollRows(year, month);
+      type AdvRow = (typeof rows)[number];
+      const allWorkshops = await storage.getWorkshops();
+      const workshopMap = new Map(allWorkshops.map(w => [w.id as string, w.name as string]));
+
+      const MONTHS_DZ = ["يناير","فيفري","مارس","أفريل","ماي","جوان","جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+      const monthStr = String(month).padStart(2, "0");
+      const filename = `تسبيقات_${year}-${monthStr}.xlsx`;
+
+      const NCOLS_ADV = 5;
+      const moneyFmtAdv = "#,##0.00";
+      const scoreFmtAdv = "0.00";
+      const colFmtAdv: (string | null)[] = [null, null, moneyFmtAdv, scoreFmtAdv, moneyFmtAdv];
+      const headersAdv = ["الاسم","رقم الموظف","الراتب الأساسي","نقاط الحضور","مبلغ التسبيقة"];
+
+      const SHIFT_DEFS_ADV = [
+        { key: "morning", label: "الفترة الصباحية", color: "FF1B3A5C" },
+        { key: "evening", label: "الفترة المسائية", color: "FF3A1B5C" },
+        { key: "guard",   label: "فترة الحراس",     color: "FF1B5C3A" },
+      ];
+      function getShiftKeyAdv(row: AdvRow): string {
+        if (row.is24hShift) return "guard";
+        if ((row.shift ?? "morning") === "evening") return "evening";
+        return "morning";
+      }
+      const byShiftAdv = new Map<string, AdvRow[]>();
+      for (const row of rows) {
+        const sk = getShiftKeyAdv(row);
+        if (!byShiftAdv.has(sk)) byShiftAdv.set(sk, []);
+        byShiftAdv.get(sk)!.push(row);
+      }
+
+      const workbookAdv = new ExcelJS.Workbook();
+      workbookAdv.creator = "Attendance System";
+      function setBorderAdv(cell: ExcelJS.Cell) {
+        const s = { style: "thin" as const };
+        cell.border = { top: s, bottom: s, left: s, right: s };
+      }
+
+      for (const sd of SHIFT_DEFS_ADV) {
+        const shiftRows = byShiftAdv.get(sd.key);
+        if (!shiftRows || shiftRows.length === 0) continue;
+
+        const sortedRows = [...shiftRows].sort((a, b) => {
+          const wa = a.workshopId ? (workshopMap.get(a.workshopId) ?? "") : null;
+          const wb = b.workshopId ? (workshopMap.get(b.workshopId) ?? "") : null;
+          if (wa === null && wb !== null) return 1;
+          if (wa !== null && wb === null) return -1;
+          if (wa === null && wb === null) return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+          const wCmp = (wa as string).localeCompare(wb as string, "ar");
+          if (wCmp !== 0) return wCmp;
+          return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+        });
+
+        const ws = workbookAdv.addWorksheet(sd.label, { views: [{ rightToLeft: true }] });
+        const colWidthsAdv: number[] = new Array(NCOLS_ADV).fill(6);
+        function trackWAdv(ci: number, val: string | number | null | undefined) {
+          const len = String(val ?? "").length;
+          if (len > colWidthsAdv[ci]) colWidthsAdv[ci] = len;
+        }
+
+        // ─── عنوان الورقة ───
+        const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
+        ws.mergeCells(1, 1, 1, NCOLS_ADV);
+        const titleCell = ws.getCell("A1");
+        titleCell.value = sheetTitle;
+        titleCell.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
+        ws.getRow(1).height = 34;
+        ws.pageSetup = { orientation: "landscape" as const, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:1" };
+        ws.views = [{ rightToLeft: true }];
+
+        let currentRowAdv = 2;
+        let rowsOnPageAdv = 1;
+        let isFirstGroupAdv = true;
+        const PAGE_ROW_CAP_ADV = 35;
+
+        // ─── تجميع حسب الورشة ───
+        const workshopGroupsAdv: Array<{ workshopId: string | null; rows: AdvRow[] }> = [];
+        const seenWsAdv = new Set<string | null>();
+        for (const row of sortedRows) {
+          const wid = row.workshopId ?? null;
+          if (!seenWsAdv.has(wid)) { seenWsAdv.add(wid); workshopGroupsAdv.push({ workshopId: wid, rows: [] }); }
+          workshopGroupsAdv.find(g => g.workshopId === wid)!.rows.push(row);
+        }
+
+        let gBase = 0, gScore = 0;
+        for (const group of workshopGroupsAdv) {
+          const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
+          const wHeaderBg = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
+          const wLabelColor = group.workshopId ? "FF1B3A5C" : "FFB45309";
+          const workshopHeight = group.rows.length + 3;
+
+          if (!isFirstGroupAdv) {
+            const spaceNeeded = 1 + workshopHeight;
+            if (rowsOnPageAdv + spaceNeeded > PAGE_ROW_CAP_ADV) {
+              ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; rowsOnPageAdv = 0;
+            } else { currentRowAdv++; rowsOnPageAdv++; }
+          }
+          isFirstGroupAdv = false;
+
+          // عنوان الورشة
+          ws.mergeCells(currentRowAdv, 1, currentRowAdv, NCOLS_ADV);
+          const wHCell = ws.getCell(currentRowAdv, 1);
+          wHCell.value = `◆  ${wName}`;
+          wHCell.font = { bold: true, size: 11, color: { argb: wLabelColor } };
+          wHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
+          wHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: wHeaderBg } };
+          setBorderAdv(wHCell);
+          ws.getRow(currentRowAdv).height = 24;
+          currentRowAdv++;
+
+          // بناء صفوف الجدول
+          const tableRowsAdv: (string | number)[][] = [];
+          let wBase = 0, wScore = 0;
+          for (const row of group.rows) {
+            const bs = parseFloat(row.baseSalary as any) || 0;
+            const sc = parseFloat(row.attendanceScore as any) || 0;
+            wBase += bs; wScore += sc;
+            const tRow: (string | number)[] = [row.employeeName, row.employeeCode ?? "", bs, sc, ""];
+            tRow.forEach((v, ci) => trackWAdv(ci, v));
+            tableRowsAdv.push(tRow);
+          }
+          headersAdv.forEach((h, ci) => trackWAdv(ci, h));
+
+          // إنشاء الجدول
+          ws.addTable({
+            name: `TA_${sd.key}_${group.workshopId ?? "none"}`.replace(/[^A-Za-z0-9_]/g, "_"),
+            ref: `A${currentRowAdv}`,
+            headerRow: true, totalsRow: false,
+            style: { theme: "TableStyleMedium2", showRowStripes: true },
+            columns: headersAdv.map(h => ({ name: h, filterButton: false })),
+            rows: tableRowsAdv,
+          });
+
+          // تنسيق رؤوس الأعمدة
+          const tHdr = ws.getRow(currentRowAdv);
+          for (let ci = 0; ci < NCOLS_ADV; ci++) {
+            const cell = tHdr.getCell(ci + 1);
+            cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+            cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
+            setBorderAdv(cell);
+          }
+          tHdr.height = 26;
+          currentRowAdv++;
+
+          // تنسيق صفوف البيانات
+          group.rows.forEach((_, idx) => {
+            const r = ws.getRow(currentRowAdv);
+            const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+            for (let ci = 0; ci < NCOLS_ADV; ci++) {
+              const cell = r.getCell(ci + 1);
+              setBorderAdv(cell);
+              cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+              const fmt = colFmtAdv[ci];
+              if (fmt) cell.numFmt = fmt;
+              if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
+              else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4EDDA" } }; }
+              else if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { color: { argb: "FF0055CC" } }; }
+              else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
+            }
+            r.height = 21;
+            currentRowAdv++;
+          });
+
+          // إجمالي الورشة
+          const wTotalsAdv: (string | number)[] = [`إجمالي ${wName}`, "", wBase, wScore, ""];
+          const wTRowAdv = ws.getRow(currentRowAdv);
+          wTRowAdv.height = 22;
+          wTotalsAdv.forEach((val, ci) => {
+            trackWAdv(ci, val);
+            const cell = wTRowAdv.getCell(ci + 1);
+            cell.value = val;
+            cell.font = { bold: true, color: { argb: wLabelColor } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
+            setBorderAdv(cell);
+            cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+            const fmt = colFmtAdv[ci];
+            if (fmt) cell.numFmt = fmt;
+          });
+          currentRowAdv++;
+          rowsOnPageAdv += workshopHeight;
+          gBase += wBase; gScore += wScore;
+        }
+
+        // إجمالي الفترة
+        const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gBase, gScore, ""];
+        const gTRowAdv = ws.getRow(currentRowAdv);
+        gTRowAdv.height = 28;
+        gTotalsAdv.forEach((val, ci) => {
+          trackWAdv(ci, val);
+          const cell = gTRowAdv.getCell(ci + 1);
+          cell.value = val;
+          cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
+          setBorderAdv(cell);
+          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+          const fmt = colFmtAdv[ci];
+          if (fmt) cell.numFmt = fmt;
+        });
+
+        ws.columns.forEach((col, ci) => { col.width = Math.min(40, Math.max(colWidthsAdv[ci] + 3, 10)); });
+      }
+
+      const encFilename = encodeURIComponent(filename);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="advances_${year}-${monthStr}.xlsx"; filename*=UTF-8''${encFilename}`);
+      await workbookAdv.xlsx.write(res);
+      res.end();
+    } catch (e: any) {
+      console.error("[advances-export-error]", e?.message, e?.stack);
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
+  // POST /api/advances/parse-excel — تحليل ملف Excel للتسبيقات وإرجاع معاينة
+  app.post("/api/advances/parse-excel", upload.single("file"), async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      if (!req.file) return res.status(400).json({ message: "لم يتم رفع ملف" });
+      const MONTHS_DZ_PARSE = ["يناير","فيفري","مارس","أفريل","ماي","جوان","جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
+      const wb2 = new ExcelJS.Workbook();
+      await wb2.xlsx.load(req.file.buffer);
+
+      let detectedMonth: number | null = null;
+      let detectedYear: number | null = null;
+
+      // استخراج الشهر والسنة من عنوان الورقة الأولى
+      for (const ws of wb2.worksheets) {
+        const raw = ws.getCell(1, 1);
+        const val = String(raw.value ?? "");
+        for (let i = 0; i < MONTHS_DZ_PARSE.length; i++) {
+          if (val.includes(MONTHS_DZ_PARSE[i])) {
+            detectedMonth = i + 1;
+            const ym = val.match(/\d{4}/);
+            if (ym) detectedYear = parseInt(ym[0]);
+            break;
+          }
+        }
+        if (detectedMonth) break;
+      }
+
+      // قراءة الصفوف: العمود 2 = الرقم، العمود 5 = مبلغ التسبيقة
+      const parsedRows: { code: string; amount: number }[] = [];
+      for (const ws of wb2.worksheets) {
+        ws.eachRow((row, rowIndex) => {
+          if (rowIndex === 1) return;
+          const codeRaw = String(row.getCell(2).value ?? "").trim();
+          const amtRaw = row.getCell(5).value;
+          const amount = typeof amtRaw === "number" ? amtRaw : parseFloat(String(amtRaw ?? ""));
+          if (!codeRaw || /[\u0600-\u06FF]/.test(codeRaw)) return;
+          if (isNaN(amount) || amount <= 0) return;
+          parsedRows.push({ code: codeRaw, amount });
+        });
+      }
+
+      const allEmps = await storage.getEmployees();
+      const codeMap = new Map(allEmps.map(e => [e.employeeCode, e]));
+      const matchedRows = parsedRows.map(r => {
+        const emp = codeMap.get(r.code);
+        return { code: r.code, employeeName: emp?.name ?? null, employeeId: emp?.id ?? null, amount: r.amount, found: !!emp };
+      });
+
+      return res.json({ detectedMonth, detectedYear, rows: matchedRows });
+    } catch (e: any) {
+      console.error("[advances-parse-excel-error]", e?.message);
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
+  // POST /api/advances/import-bulk — استيراد تسبيقات من Excel
+  app.post("/api/advances/import-bulk", async (req, res) => {
+    if (!requireCaisseOrOwner(req, res)) return;
+    try {
+      const { month, year, rows } = req.body;
+      if (!month || !year || !Array.isArray(rows) || rows.length === 0)
+        return res.status(400).json({ message: "الشهر والسنة والصفوف مطلوبة" });
+      const advanceDate = `${year}-${String(month).padStart(2, "0")}-01`;
+      let created = 0;
+      const errors: string[] = [];
+      for (const row of rows) {
+        const { employeeId, amount } = row;
+        if (!employeeId || !amount) continue;
+        try {
+          await storage.createAdvance({
+            employeeId,
+            amount: String(amount),
+            advanceDate,
+            month: parseInt(month),
+            year: parseInt(year),
+            notes: "مستورد من Excel",
+            createdAt: new Date().toISOString(),
+          });
+          created++;
+        } catch (err: any) { errors.push(err.message); }
+      }
+      return res.json({ created, errors });
+    } catch (e: any) {
+      console.error("[advances-import-bulk-error]", e?.message);
+      return res.status(500).json({ message: e.message });
+    }
+  });
+
   // GET /api/advances/:id — تسبيقة واحدة
   app.get("/api/advances/:id", async (req, res) => {
     if (!requireCaisseOrOwner(req, res)) return;
