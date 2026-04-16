@@ -4315,7 +4315,17 @@ export async function registerRoutes(
         return { ws: wsNew, colWidths };
       }
 
-      const PAGE_ROW_CAP_ADV = 35;
+      // ─── ثوابت الارتفاع الحقيقي بالنقاط (points) — A4 أفقي بهوامش قياسية ───
+      // A4 landscape: 297×210mm. هوامش 25mm أعلى/أسفل → 160mm = ~453pt.
+      // نطرح صف العنوان (34pt) المكرر على كل صفحة عبر printTitlesRow → ~419pt.
+      // نستخدم 400pt كقيمة محافظة لضمان عدم التجاوز.
+      const PAGE_PTS_ADV  = 400; // نقاط متاحة لمحتوى الورشات في الصفحة الواحدة
+      const WS_HDR_PTS    = 24;  // ارتفاع سطر عنوان الورشة
+      const TBL_HDR_PTS   = 26;  // ارتفاع سطر رأس الجدول
+      const DATA_PTS      = 21;  // ارتفاع كل سطر بيانات موظف
+      const TOTALS_PTS    = 22;  // ارتفاع سطر إجمالي الورشة
+      const SEP_PTS       = 22;  // ارتفاع سطر الفصل بين ورشتين
+      const wsPts = (n: number) => WS_HDR_PTS + TBL_HDR_PTS + n * DATA_PTS + TOTALS_PTS;
 
       for (const sd of SHIFT_DEFS_ADV) {
         const shiftRows = byShiftAdv.get(sd.key) ?? [];
@@ -4342,37 +4352,41 @@ export async function registerRoutes(
           workshopGroupsAdv.find(g => g.workshopId === wid)!.rows.push(row);
         }
 
-        // ─── تصنيف الورشات: صغيرة (تناسب صفحة) / كبيرة (تتجاوز صفحة) ───
-        const smallGroups = workshopGroupsAdv.filter(g => (g.rows.length + 3) <= PAGE_ROW_CAP_ADV);
-        const largeGroups = workshopGroupsAdv.filter(g => (g.rows.length + 3) > PAGE_ROW_CAP_ADV);
+        // ─── تصنيف الورشات بناءً على الارتفاع الحقيقي بالنقاط ───
+        const smallGroups = workshopGroupsAdv.filter(g => wsPts(g.rows.length) <= PAGE_PTS_ADV);
+        const largeGroups = workshopGroupsAdv.filter(g => wsPts(g.rows.length) > PAGE_PTS_ADV);
         // مجموع نقاط الورشات الكبيرة (لإدراجها في إجمالي الفترة الكلي)
         const largeGroupsScore = largeGroups.reduce((sum, g) =>
           sum + g.rows.reduce((s, r) => s + (parseFloat(r.attendanceScore as any) || 0), 0), 0);
 
-        // ─── ورقة الفترة: تجمع الورشات الصغيرة بحشو ذكي ───
+        // ─── ورقة الفترة: تجمع الورشات الصغيرة بحشو ذكي (مبني على النقاط) ───
         if (smallGroups.length > 0) {
           const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
           const { ws, colWidths } = initAdvSheet(sd.label, sheetTitle, sd.color, 0);
 
           let currentRowAdv = 2;
-          let rowsOnPageAdv = 1;
+          let ptsOnPage = 0; // نقاط مستهلكة في الصفحة الحالية
           let isFirstGroupAdv = true;
           let gScore = 0;
 
           for (const group of smallGroups) {
-            const workshopHeight = group.rows.length + 3;
+            const groupPts = wsPts(group.rows.length);
             if (!isFirstGroupAdv) {
-              const spaceNeeded = 1 + workshopHeight;
-              if (rowsOnPageAdv + spaceNeeded > PAGE_ROW_CAP_ADV) {
-                ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; rowsOnPageAdv = 0;
-              } else { currentRowAdv++; rowsOnPageAdv++; }
+              const spaceNeeded = SEP_PTS + groupPts;
+              if (ptsOnPage + spaceNeeded > PAGE_PTS_ADV) {
+                // لا تتسع الورشة → فاصل صفحة
+                ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; ptsOnPage = 0;
+              } else {
+                // تتسع → سطر فراغ بسيط بين الورشتين
+                currentRowAdv++; ptsOnPage += SEP_PTS;
+              }
             }
             isFirstGroupAdv = false;
 
             const tName = `TA_${sd.key}_s_${group.workshopId ?? "none"}`;
             const res = renderAdvWorkshop(ws, group, currentRowAdv, colWidths, tName);
             currentRowAdv = res.endRow;
-            rowsOnPageAdv += workshopHeight;
+            ptsOnPage += groupPts;
             gScore += res.score;
           }
 
