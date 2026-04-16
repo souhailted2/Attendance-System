@@ -4325,7 +4325,7 @@ export async function registerRoutes(
       const DATA_PTS      = 21;  // ارتفاع كل سطر بيانات موظف
       const TOTALS_PTS    = 22;  // ارتفاع سطر إجمالي الورشة
       const SEP_PTS       = 22;  // ارتفاع سطر الفصل بين ورشتين
-      const wsPts = (n: number) => WS_HDR_PTS + TBL_HDR_PTS + n * DATA_PTS + TOTALS_PTS;
+      const workshopPts = (n: number) => WS_HDR_PTS + TBL_HDR_PTS + n * DATA_PTS + TOTALS_PTS;
 
       for (const sd of SHIFT_DEFS_ADV) {
         const shiftRows = byShiftAdv.get(sd.key) ?? [];
@@ -4353,8 +4353,8 @@ export async function registerRoutes(
         }
 
         // ─── تصنيف الورشات بناءً على الارتفاع الحقيقي بالنقاط ───
-        const smallGroups = workshopGroupsAdv.filter(g => wsPts(g.rows.length) <= PAGE_PTS_ADV);
-        const largeGroups = workshopGroupsAdv.filter(g => wsPts(g.rows.length) > PAGE_PTS_ADV);
+        const smallGroups = workshopGroupsAdv.filter(g => workshopPts(g.rows.length) <= PAGE_PTS_ADV);
+        const largeGroups = workshopGroupsAdv.filter(g => workshopPts(g.rows.length) > PAGE_PTS_ADV);
         // مجموع نقاط الورشات الكبيرة (لإدراجها في إجمالي الفترة الكلي)
         const largeGroupsScore = largeGroups.reduce((sum, g) =>
           sum + g.rows.reduce((s, r) => s + (parseFloat(r.attendanceScore as any) || 0), 0), 0);
@@ -4370,14 +4370,15 @@ export async function registerRoutes(
           let gScore = 0;
 
           for (const group of smallGroups) {
-            const groupPts = wsPts(group.rows.length);
+            const groupPts = workshopPts(group.rows.length);
             if (!isFirstGroupAdv) {
               const spaceNeeded = SEP_PTS + groupPts;
               if (ptsOnPage + spaceNeeded > PAGE_PTS_ADV) {
                 // لا تتسع الورشة → فاصل صفحة
                 ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; ptsOnPage = 0;
               } else {
-                // تتسع → سطر فراغ بسيط بين الورشتين
+                // تتسع → سطر فراغ بسيط بين الورشتين (ارتفاعه SEP_PTS)
+                ws.getRow(currentRowAdv).height = SEP_PTS;
                 currentRowAdv++; ptsOnPage += SEP_PTS;
               }
             }
