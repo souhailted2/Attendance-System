@@ -4167,8 +4167,37 @@ export async function registerRoutes(
       }
 
       for (const sd of SHIFT_DEFS_ADV) {
-        const shiftRows = byShiftAdv.get(sd.key);
-        if (!shiftRows || shiftRows.length === 0) continue;
+        const shiftRows = byShiftAdv.get(sd.key) ?? [];
+
+        // ─── إنشاء الورقة دائماً حتى لو لم يكن هناك موظفون في هذه الفترة ───
+        const ws = workbookAdv.addWorksheet(sd.label, { views: [{ rightToLeft: true }] });
+        const colWidthsAdv: number[] = new Array(NCOLS_ADV).fill(6);
+        function trackWAdv(ci: number, val: string | number | null | undefined) {
+          const len = String(val ?? "").length;
+          if (len > colWidthsAdv[ci]) colWidthsAdv[ci] = len;
+        }
+        const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
+        ws.mergeCells(1, 1, 1, NCOLS_ADV);
+        const titleCell = ws.getCell("A1");
+        titleCell.value = sheetTitle;
+        titleCell.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
+        ws.getRow(1).height = 34;
+        ws.pageSetup = { orientation: "landscape" as const, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:1" };
+        ws.views = [{ rightToLeft: true }];
+
+        if (shiftRows.length === 0) {
+          // ورقة فارغة: اكتفِ بصف يشير إلى عدم وجود موظفين
+          ws.mergeCells(2, 1, 2, NCOLS_ADV);
+          const emptyCell = ws.getCell(2, 1);
+          emptyCell.value = "لا يوجد موظفون في هذه الفترة";
+          emptyCell.font = { italic: true, color: { argb: "FF888888" } };
+          emptyCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+          ws.getRow(2).height = 28;
+          ws.columns.forEach(col => { col.width = 20; });
+          continue;
+        }
 
         const sortedRows = [...shiftRows].sort((a, b) => {
           const wa = a.workshopId ? (workshopMap.get(a.workshopId) ?? "") : null;
@@ -4180,25 +4209,6 @@ export async function registerRoutes(
           if (wCmp !== 0) return wCmp;
           return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
         });
-
-        const ws = workbookAdv.addWorksheet(sd.label, { views: [{ rightToLeft: true }] });
-        const colWidthsAdv: number[] = new Array(NCOLS_ADV).fill(6);
-        function trackWAdv(ci: number, val: string | number | null | undefined) {
-          const len = String(val ?? "").length;
-          if (len > colWidthsAdv[ci]) colWidthsAdv[ci] = len;
-        }
-
-        // ─── عنوان الورقة ───
-        const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
-        ws.mergeCells(1, 1, 1, NCOLS_ADV);
-        const titleCell = ws.getCell("A1");
-        titleCell.value = sheetTitle;
-        titleCell.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
-        titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
-        ws.getRow(1).height = 34;
-        ws.pageSetup = { orientation: "landscape" as const, fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "1:1" };
-        ws.views = [{ rightToLeft: true }];
 
         let currentRowAdv = 2;
         let rowsOnPageAdv = 1;
@@ -4380,7 +4390,10 @@ export async function registerRoutes(
           const codeRaw = String(row.getCell(2).value ?? "").trim();
           const amtRaw = row.getCell(5).value;
           const amount = typeof amtRaw === "number" ? amtRaw : parseFloat(String(amtRaw ?? ""));
-          if (!codeRaw || /[\u0600-\u06FF]/.test(codeRaw)) return;
+          // تخطي الصفوف التي لا تحتوي على رقم موظف صالح (عناوين الورشات/الجداول/الإجماليات)
+          if (!codeRaw) return;
+          if (/[\u0600-\u06FF]/.test(codeRaw)) return; // نص عربي
+          if (!/^\d+$/.test(codeRaw)) return; // يجب أن يكون الكود أرقاماً فقط
           if (isNaN(amount) || amount <= 0) return;
           parsedRows.push({ code: codeRaw, amount });
         });
