@@ -4716,7 +4716,7 @@ export async function registerRoutes(
       function calcSuggest(net: number, paid: number): number {
         if (paid > 0) return paid;
         if (net <= 0) return 0;
-        return Math.floor(net / 500) * 500;
+        return Math.round(net / 500) * 500;
       }
 
       // ─── تعريفات الفترات ───

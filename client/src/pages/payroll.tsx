@@ -106,7 +106,7 @@ export default function Payroll() {
   // اقتراح المبلغ المدفوع: أقرب 500 نزولاً من الصافي
   function suggestAmount(netSalary: number): number {
     if (netSalary <= 0) return 0;
-    return Math.floor(netSalary / 500) * 500;
+    return Math.round(netSalary / 500) * 500;
   }
 
   const getEffectiveAmountPaid = useCallback((row: PayrollRow) => {
