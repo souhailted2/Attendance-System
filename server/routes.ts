@@ -4345,6 +4345,9 @@ export async function registerRoutes(
         // ─── تصنيف الورشات: صغيرة (تناسب صفحة) / كبيرة (تتجاوز صفحة) ───
         const smallGroups = workshopGroupsAdv.filter(g => (g.rows.length + 3) <= PAGE_ROW_CAP_ADV);
         const largeGroups = workshopGroupsAdv.filter(g => (g.rows.length + 3) > PAGE_ROW_CAP_ADV);
+        // مجموع نقاط الورشات الكبيرة (لإدراجها في إجمالي الفترة الكلي)
+        const largeGroupsScore = largeGroups.reduce((sum, g) =>
+          sum + g.rows.reduce((s, r) => s + (parseFloat(r.attendanceScore as any) || 0), 0), 0);
 
         // ─── ورقة الفترة: تجمع الورشات الصغيرة بحشو ذكي ───
         if (smallGroups.length > 0) {
@@ -4373,8 +4376,8 @@ export async function registerRoutes(
             gScore += res.score;
           }
 
-          // إجمالي الفترة
-          const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gScore, "", ""];
+          // إجمالي الفترة (يشمل الورشات الصغيرة + الكبيرة)
+          const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gScore + largeGroupsScore, "", ""];
           const gTRowAdv = ws.getRow(currentRowAdv);
           gTRowAdv.height = 28;
           gTotalsAdv.forEach((val, ci) => {
@@ -4402,14 +4405,12 @@ export async function registerRoutes(
           const { ws, colWidths } = initAdvSheet(sheetLabel, sheetTitle, sd.color, 1);
 
           const tName = `TA_${sd.key}_L_${group.workshopId ?? "none"}`;
-          const res = renderAdvWorkshop(ws, group, 2, colWidths, tName);
+          renderAdvWorkshop(ws, group, 2, colWidths, tName);
 
           ws.columns.forEach((col, ci) => {
             const minW = ci === 4 ? 22 : 10;
             col.width = Math.min(40, Math.max(colWidths[ci] + 3, minW));
           });
-          // الإجمالي الكلي = إجمالي الورشة نفسها (لا صف فترة إضافي)
-          void res;
         }
       }
 
