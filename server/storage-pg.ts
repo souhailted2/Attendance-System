@@ -521,4 +521,9 @@ export class PgStorage implements IStorage {
   async getDeductions(_employeeId?: string, _month?: number, _year?: number): Promise<Deduction[]> { return []; }
   async createDeduction(_data: InsertDeduction): Promise<Deduction> { throw new Error("Not implemented for Postgres"); }
   async deleteDeduction(_id: string): Promise<void> { /* no-op: MySQL only */ }
+
+  async addSyncLockAttendance(_employeeId: string, _date: string): Promise<void> { /* no-op: MySQL only */ }
+  async hasSyncLockAttendance(_employeeId: string, _date: string): Promise<boolean> { return false; }
+  async addSyncLockEmployee(_employeeCode: string): Promise<void> { /* no-op: MySQL only */ }
+  async hasSyncLockEmployee(_employeeCode: string): Promise<boolean> { return false; }
 }

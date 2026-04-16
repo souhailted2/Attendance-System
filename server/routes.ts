@@ -378,6 +378,12 @@ async function processAttendanceLogs(
     const existing = await storage.getAttendanceByEmployeeAndDate(employee.id, entry.date);
 
     if (existing) {
+      // ⛔ إذا كان السجل محرراً يدوياً → لا تلمسه مهما كان
+      if ((existing as any).isManualEdit) {
+        duplicates++;
+        continue;
+      }
+
       // استعادة البصمات الخام الموجودة مسبقاً للدمج الصحيح
       let existingPunches: string[] = [];
       try {
@@ -441,6 +447,12 @@ async function processAttendanceLogs(
         duplicates++;
       }
     } else {
+      // ⛔ تحقق من قفل المزامنة — إذا حُذف هذا السجل يدوياً → لا تُعيده
+      const isLocked = await storage.hasSyncLockAttendance(employee.id, entry.date);
+      if (isLocked) {
+        duplicates++;
+        continue;
+      }
       // إنشاء سجل جديد
       try {
         await storage.createAttendance(attendanceData);
@@ -795,6 +807,10 @@ export async function registerRoutes(
     try {
       const emp = await storage.getEmployee(req.params.id);
       if (!emp) return res.status(404).json({ message: "الموظف غير موجود" });
+      // ⛔ تسجيل قفل المزامنة لمنع إعادة الموظف من الجهاز
+      if (emp.employeeCode) {
+        await storage.addSyncLockEmployee(emp.employeeCode);
+      }
       await storage.deleteEmployee(req.params.id);
       res.json({ message: "تم حذف الموظف بنجاح" });
     } catch (err) {
@@ -1055,6 +1071,7 @@ export async function registerRoutes(
         notes: notes || null,
         lateMinutes: 0, earlyLeaveMinutes: 0, middleAbsenceMinutes: 0, totalHours: "0", penalty: "0",
         rawPunches: manualPunches.length > 0 ? JSON.stringify(manualPunches) : null,
+        isManualEdit: true,
       };
 
       if (workRule) {
@@ -1159,6 +1176,7 @@ export async function registerRoutes(
           rawPunches: newRawPunches,
           middleAbsenceMinutes: newMiddleAbs,
           deletedPunches: JSON.stringify(deletedArr),
+          isManualEdit: true,
         };
 
         if (workRule) {
@@ -1253,6 +1271,7 @@ export async function registerRoutes(
         notes: notes !== undefined ? notes : existingRecords.notes,
         middleAbsenceMinutes: finalMiddleAbsenceMinutes,
         rawPunches: newRawPunches,
+        isManualEdit: true,
       };
 
       if (isRestStatus) {
@@ -1322,6 +1341,9 @@ export async function registerRoutes(
       const allWorkshopsDel = await storage.getWorkshops();
       const workshopDel = allWorkshopsDel.find(w => w.id === empDel?.workshopId);
       const workRuleDel = await getWorkRuleForEmployee(existing.employeeId);
+
+      // ⛔ تسجيل قفل المزامنة لمنع إعادة السجل من الجهاز
+      await storage.addSyncLockAttendance(existing.employeeId, existing.date);
 
       await storage.deleteAttendance(req.params.id);
 
@@ -2126,6 +2148,10 @@ export async function registerRoutes(
           }
           continue;
         }
+
+        // ⛔ تحقق من قفل المزامنة — إذا حُذف هذا الموظف يدوياً → لا تُعيده
+        const isEmpLocked = await storage.hasSyncLockEmployee(code);
+        if (isEmpLocked) { skipped++; continue; }
 
         await storage.createEmployee({
           name,

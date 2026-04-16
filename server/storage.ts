@@ -137,6 +137,11 @@ export interface IStorage {
   deleteDeduction(id: string): Promise<void>;
 
   initPayrollTables(): Promise<void>;
+
+  addSyncLockAttendance(employeeId: string, date: string): Promise<void>;
+  hasSyncLockAttendance(employeeId: string, date: string): Promise<boolean>;
+  addSyncLockEmployee(employeeCode: string): Promise<void>;
+  hasSyncLockEmployee(employeeCode: string): Promise<boolean>;
 }
 
 import { IS_MYSQL } from "./db";
@@ -274,6 +279,11 @@ class LazyStorage implements IStorage {
   deleteDeduction(id: string) { return this.impl().then(s => s.deleteDeduction(id)); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
+
+  addSyncLockAttendance(employeeId: string, date: string) { return this.impl().then(s => s.addSyncLockAttendance(employeeId, date)); }
+  hasSyncLockAttendance(employeeId: string, date: string) { return this.impl().then(s => s.hasSyncLockAttendance(employeeId, date)); }
+  addSyncLockEmployee(employeeCode: string) { return this.impl().then(s => s.addSyncLockEmployee(employeeCode)); }
+  hasSyncLockEmployee(employeeCode: string) { return this.impl().then(s => s.hasSyncLockEmployee(employeeCode)); }
 }
 
 export const storage: IStorage = new LazyStorage();

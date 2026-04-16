@@ -115,9 +115,19 @@ export const attendanceRecords = mysqlTable("attendance_records", {
   notes: text("notes"),
   rawPunches: text("raw_punches"),
   deletedPunches: text("deleted_punches"),
+  isManualEdit: boolean("is_manual_edit").notNull().default(false),
 }, (table) => [
   uniqueIndex("attendance_employee_date_idx").on(table.employeeId, table.date),
 ]);
+
+export const syncLocks = mysqlTable("sync_locks", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  lockType: varchar("lock_type", { length: 50 }).notNull(),
+  employeeId: varchar("employee_id", { length: 36 }),
+  date: varchar("date", { length: 20 }),
+  employeeCode: varchar("employee_code", { length: 100 }),
+  createdAt: varchar("created_at", { length: 50 }).notNull(),
+});
 
 export const deviceSettings = mysqlTable("device_settings", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -214,7 +224,11 @@ export const insertEmployeeSchema = createInsertSchema(employees).pick({
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({
   employeeId: true, date: true, checkIn: true, checkOut: true, status: true,
   lateMinutes: true, earlyLeaveMinutes: true, middleAbsenceMinutes: true, totalHours: true, penalty: true, notes: true,
-  rawPunches: true, deletedPunches: true,
+  rawPunches: true, deletedPunches: true, isManualEdit: true,
+});
+
+export const insertSyncLockSchema = createInsertSchema(syncLocks).pick({
+  lockType: true, employeeId: true, date: true, employeeCode: true, createdAt: true,
 });
 export const insertDeviceSettingsSchema = createInsertSchema(deviceSettings).pick({
   name: true, ipAddress: true, port: true, isActive: true, lastSyncAt: true, workshopId: true, serialNumber: true,
@@ -245,6 +259,8 @@ export type InsertEmployee = z.infer<typeof insertEmployeeSchema>;
 export type Employee = typeof employees.$inferSelect;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
+export type InsertSyncLock = z.infer<typeof insertSyncLockSchema>;
+export type SyncLock = typeof syncLocks.$inferSelect;
 export type InsertDeviceSettings = z.infer<typeof insertDeviceSettingsSchema>;
 export type DeviceSettings = typeof deviceSettings.$inferSelect;
 export type InsertAppSettings = z.infer<typeof insertAppSettingsSchema>;

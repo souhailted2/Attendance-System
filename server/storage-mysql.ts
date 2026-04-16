@@ -23,6 +23,7 @@ import type {
   InsertAdvance, Advance,
   InsertDeduction, Deduction,
   SalaryPayment,
+  SyncLock,
 } from "@shared/schema";
 import { pool } from "./db";
 import type { IStorage } from "./storage";
@@ -1009,5 +1010,63 @@ export class MysqlStorage implements IStorage {
     const createdAt = new Date().toISOString();
     await mysqlDb.insert(schema.salaryPayments).values({ id, employeeId, month, amountPaid, remainingBalance, createdAt });
     return { id, employeeId, month, amountPaid, remainingBalance, createdAt } as SalaryPayment;
+  }
+
+  async addSyncLockAttendance(employeeId: string, date: string): Promise<void> {
+    const existing = await mysqlDb.select().from(schema.syncLocks).where(
+      and(
+        eq(schema.syncLocks.lockType, "attendance_deleted"),
+        eq(schema.syncLocks.employeeId, employeeId),
+        eq(schema.syncLocks.date, date),
+      ),
+    );
+    if (existing.length > 0) return;
+    await mysqlDb.insert(schema.syncLocks).values({
+      id: randomUUID(),
+      lockType: "attendance_deleted",
+      employeeId,
+      date,
+      employeeCode: null,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async hasSyncLockAttendance(employeeId: string, date: string): Promise<boolean> {
+    const rows = await mysqlDb.select().from(schema.syncLocks).where(
+      and(
+        eq(schema.syncLocks.lockType, "attendance_deleted"),
+        eq(schema.syncLocks.employeeId, employeeId),
+        eq(schema.syncLocks.date, date),
+      ),
+    );
+    return rows.length > 0;
+  }
+
+  async addSyncLockEmployee(employeeCode: string): Promise<void> {
+    const existing = await mysqlDb.select().from(schema.syncLocks).where(
+      and(
+        eq(schema.syncLocks.lockType, "employee_deleted"),
+        eq(schema.syncLocks.employeeCode, employeeCode),
+      ),
+    );
+    if (existing.length > 0) return;
+    await mysqlDb.insert(schema.syncLocks).values({
+      id: randomUUID(),
+      lockType: "employee_deleted",
+      employeeId: null,
+      date: null,
+      employeeCode,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  async hasSyncLockEmployee(employeeCode: string): Promise<boolean> {
+    const rows = await mysqlDb.select().from(schema.syncLocks).where(
+      and(
+        eq(schema.syncLocks.lockType, "employee_deleted"),
+        eq(schema.syncLocks.employeeCode, employeeCode),
+      ),
+    );
+    return rows.length > 0;
   }
 }
