@@ -4809,10 +4809,34 @@ export async function registerRoutes(
           workshopGroups.find(g => g.workshopId === wid)!.rows.push(row);
         }
 
+        // ─── ثوابت الحشو الذكي للصفحات ───
+        // A4 أفقي بهامش 1 بوصة ≈ 35 سطراً قابلاً للطباعة
+        const PAGE_ROW_CAPACITY = 35;
+        let rowsOnPage = 1; // صف عنوان الفترة
+        let isFirstGroup = true;
+
         for (const group of workshopGroups) {
           const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
           const wHeaderBg  = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
           const wLabelColor = group.workshopId ? "FF1B3A5C" : "FFB45309";
+
+          // ─── حشو ذكي: فاصل صفحة أو سطر فراغ حسب المساحة المتبقية ───
+          // حجم الورشة: عنوان(1) + رؤوس الجدول(1) + موظفون(N) + إجمالي(1)
+          const workshopHeight = group.rows.length + 3;
+          if (!isFirstGroup) {
+            const spaceNeeded = 1 + workshopHeight; // سطر فراغ فاصل + الورشة
+            if (rowsOnPage + spaceNeeded > PAGE_ROW_CAPACITY) {
+              // لا تتسع الورشة على الصفحة الحالية → فاصل صفحة
+              ws.getRow(currentRow).addPageBreak();
+              currentRow++;   // صف يحمل الفاصل
+              rowsOnPage = 0;
+            } else {
+              // تتسع → سطر فراغ بسيط بين الورشتين
+              currentRow++;
+              rowsOnPage++;
+            }
+          }
+          isFirstGroup = false;
 
           // ─── عنوان الورشة (صف مدمج) ───
           ws.mergeCells(currentRow, 1, currentRow, NCOLS);
@@ -4939,10 +4963,8 @@ export async function registerRoutes(
             const fmt = colFmt[ci];
             if (fmt) cell.numFmt = fmt;
           });
-          // ─── فاصل صفحة بعد إجمالي الورشة ───
-          ws.getRow(currentRow).addPageBreak();
           currentRow++; // تجاوز صف إجمالي الورشة
-          currentRow++; // صف فارغ فاصل
+          rowsOnPage += workshopHeight;
 
           gBase    += wBase;   gOt    += wOt;    gGrant   += wGrant;
           gDeduct  += wDeduct; gDebt  += wDebt;  gAdv     += wAdv;
