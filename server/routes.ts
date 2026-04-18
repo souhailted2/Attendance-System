@@ -4168,265 +4168,207 @@ export async function registerRoutes(
       const colFmtAdv: (string | null)[] = [null, null, scoreFmtAdv, moneyFmtAdv, null];
       const headersAdv = ["الاسم","رقم الموظف","نقاط الحضور","مبلغ التسبيقة","الامضاء"];
 
-      const SHIFT_DEFS_ADV = [
-        { key: "morning", label: "الفترة الصباحية", color: "FF1B3A5C" },
-        { key: "evening", label: "الفترة المسائية", color: "FF3A1B5C" },
-        { key: "guard",   label: "فترة الحراس",     color: "FF1B5C3A" },
+      // ─── 16 مجموعة بالترتيب المحدد ───
+      // المطابقة بـ trim() لتجاوز المسافات الزائدة في أسماء الورشات
+      const CUSTOM_GROUPS_ADV = [
+        { num: 1,  label: "الإدارة",                                                workshops: ["الإدارة"] },
+        { num: 2,  label: "الصامولة + السلسلة",                                     workshops: ["الصامولة", "السلسلة"] },
+        { num: 3,  label: "الفيلتاج",                                               workshops: ["الفيلتاج"] },
+        { num: 4,  label: "التركيب",                                                workshops: ["التركيب"] },
+        { num: 5,  label: "الكاليبراج + رونديل",                                    workshops: ["الكاليبراج", "رونديل"] },
+        { num: 6,  label: "التيج فيلتي + الخراطة + فيس ال",                         workshops: ["التيج فيلتي", "الخراطة", "فيس ال"] },
+        { num: 7,  label: "البراغي",                                                workshops: ["البراغي"] },
+        { num: 8,  label: "الرفش",                                                  workshops: ["الرفش"] },
+        { num: 9,  label: "الشبكة",                                                 workshops: ["الشبكة"] },
+        { num: 10, label: "التلحيم + النظافة + سلك الزنقاج",                        workshops: ["التلحيم", "عمال النظافة", "سلك الزنقاج"] },
+        { num: 11, label: "الزنقاج",                                                workshops: ["الزنقاج"] },
+        { num: 12, label: "السكوتش + الدهن + الحراس",                               workshops: ["السكوتش", "الدهن", "الحراس"] },
+        { num: 13, label: "الميكانيك + المخزن الرئيسي",                             workshops: ["الميكانيك", "المخزن الرئيسي"] },
+        { num: 14, label: "المخزن 2",                                               workshops: ["المخزن 2"] },
+        { num: 15, label: "السائق + المطبخ + الترصيص الصحي + الكهرباء",             workshops: ["السائق", "المطبخ", "الترصيص الصحي", "الصيانة الكهربائية"] },
+        { num: 16, label: "السلك + الجودة والإنتاج",                                 workshops: ["السلك", "مسؤول الانتاج و الجودة"] },
       ];
-      function getShiftKeyAdv(row: AdvRow): string {
-        if (row.is24hShift) return "guard";
-        if ((row.shift ?? "morning") === "evening") return "evening";
-        return "morning";
+
+      // بناء خريطة: اسم الورشة (trimmed) → قائمة IDs
+      const nameToIds = new Map<string, string[]>();
+      for (const [id, name] of workshopMap) {
+        const t = name.trim();
+        if (!nameToIds.has(t)) nameToIds.set(t, []);
+        nameToIds.get(t)!.push(id);
       }
-      const byShiftAdv = new Map<string, AdvRow[]>();
-      for (const row of rows) {
-        const sk = getShiftKeyAdv(row);
-        if (!byShiftAdv.has(sk)) byShiftAdv.set(sk, []);
-        byShiftAdv.get(sk)!.push(row);
-      }
+
+      // ─── ورقتا العمل: صباحي (+ حراس) و مسائي ───
+      const SHEET_DEFS_ADV = [
+        {
+          key: "morning",
+          label: "الفترة الصباحية",
+          color: "FF1B3A5C",
+          filter: (r: AdvRow) => r.is24hShift || (r.shift ?? "morning") !== "evening",
+        },
+        {
+          key: "evening",
+          label: "الفترة المسائية",
+          color: "FF3A1B5C",
+          filter: (r: AdvRow) => !r.is24hShift && (r.shift ?? "morning") === "evening",
+        },
+      ];
 
       const workbookAdv = new ExcelJS.Workbook();
       workbookAdv.creator = "Attendance System";
+
       function setBorderAdv(cell: ExcelJS.Cell) {
         const s = { style: "thin" as const };
         cell.border = { top: s, bottom: s, left: s, right: s };
       }
 
-      // ─── دالة مساعدة: رسم ورشة واحدة على ورقة عمل ───
-      // ترجع { endRow, score }
-      type AdvGroup = { workshopId: string | null; rows: AdvRow[] };
-      function renderAdvWorkshop(
-        ws: ExcelJS.Worksheet,
-        group: AdvGroup,
-        startRow: number,
-        colWidths: number[],
-        tableName: string
-      ): { endRow: number; score: number } {
-        const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
-        const wHeaderBg = group.workshopId ? "FFE8F4FD" : "FFFFF3CD";
-        const wLabelColor = group.workshopId ? "FF1B3A5C" : "FFB45309";
-        function trk(ci: number, val: string | number | null | undefined) {
-          const len = String(val ?? "").length;
-          if (len > colWidths[ci]) colWidths[ci] = len;
-        }
-        let cur = startRow;
-
-        // عنوان الورشة
-        ws.mergeCells(cur, 1, cur, NCOLS_ADV);
-        const wHCell = ws.getCell(cur, 1);
-        wHCell.value = `◆  ${wName}`;
-        wHCell.font = { bold: true, size: 11, color: { argb: wLabelColor } };
-        wHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
-        wHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: wHeaderBg } };
-        setBorderAdv(wHCell);
-        ws.getRow(cur).height = 24;
-        cur++;
-
-        // بناء صفوف الجدول
-        const tableRowsAdv: (string | number)[][] = [];
-        let wScore = 0;
-        for (const row of group.rows) {
-          const sc = parseFloat(row.attendanceScore as any) || 0;
-          wScore += sc;
-          const tRow: (string | number)[] = [row.employeeName, row.employeeCode ?? "", sc, "", ""];
-          tRow.forEach((v, ci) => trk(ci, v));
-          tableRowsAdv.push(tRow);
-        }
-        headersAdv.forEach((h, ci) => trk(ci, h));
-
-        // إنشاء الجدول
-        ws.addTable({
-          name: tableName.replace(/[^A-Za-z0-9_]/g, "_"),
-          ref: `A${cur}`,
-          headerRow: true, totalsRow: false,
-          style: { theme: "TableStyleMedium2", showRowStripes: true },
-          columns: headersAdv.map(h => ({ name: h, filterButton: false })),
-          rows: tableRowsAdv,
-        });
-
-        // تنسيق رؤوس الأعمدة
-        const tHdr = ws.getRow(cur);
-        for (let ci = 0; ci < NCOLS_ADV; ci++) {
-          const cell = tHdr.getCell(ci + 1);
-          cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
-          cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
-          setBorderAdv(cell);
-        }
-        tHdr.height = 26;
-        cur++;
-
-        // تنسيق صفوف البيانات
-        group.rows.forEach((_, idx) => {
-          const r = ws.getRow(cur);
-          const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
-          for (let ci = 0; ci < NCOLS_ADV; ci++) {
-            const cell = r.getCell(ci + 1);
-            setBorderAdv(cell);
-            cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-            const fmt = colFmtAdv[ci];
-            if (fmt) cell.numFmt = fmt;
-            if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
-            else if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
-            else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { color: { argb: "FF0055CC" } }; }
-            else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
-          }
-          r.height = 21;
-          cur++;
-        });
-
-        // إجمالي الورشة
-        const wTotalsAdv: (string | number)[] = [`إجمالي ${wName}`, "", wScore, "", ""];
-        const wTRowAdv = ws.getRow(cur);
-        wTRowAdv.height = 22;
-        wTotalsAdv.forEach((val, ci) => {
-          trk(ci, val);
-          const cell = wTRowAdv.getCell(ci + 1);
-          cell.value = val;
-          cell.font = { bold: true, color: { argb: wLabelColor } };
-          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
-          setBorderAdv(cell);
-          cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
-          const fmt = colFmtAdv[ci];
-          if (fmt) cell.numFmt = fmt;
-        });
-        cur++;
-        return { endRow: cur, score: wScore };
+      function trkWidth(colWidths: number[], ci: number, val: string | number | null | undefined) {
+        const len = String(val ?? "").length;
+        if (len > colWidths[ci]) colWidths[ci] = len;
       }
 
-      // ─── دالة مساعدة: بناء ورقة عمل وإعداد عنوانها ───
-      function initAdvSheet(
-        label: string,
-        title: string,
-        color: string,
-        fitToHeight: number
-      ): { ws: ExcelJS.Worksheet; colWidths: number[] } {
-        const wsNew = workbookAdv.addWorksheet(label.substring(0, 31), { views: [{ rightToLeft: true }] });
+      // ─── بناء ورقة عمل لفترة واحدة ───
+      function buildAdvSheet(sheetDef: (typeof SHEET_DEFS_ADV)[number]) {
+        const shiftRows = rows.filter(sheetDef.filter);
+        if (shiftRows.length === 0) return;
+
+        const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sheetDef.label}`;
+        const ws = workbookAdv.addWorksheet(sheetDef.label.substring(0, 31), { views: [{ rightToLeft: true }] });
         const colWidths: number[] = new Array(NCOLS_ADV).fill(6);
-        wsNew.mergeCells(1, 1, 1, NCOLS_ADV);
-        const tc = wsNew.getCell("A1");
-        tc.value = title;
-        tc.font = { bold: true, size: 15, color: { argb: "FFFFFFFF" } };
-        tc.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
-        tc.fill = { type: "pattern", pattern: "solid", fgColor: { argb: color } };
-        wsNew.getRow(1).height = 34;
-        wsNew.pageSetup = { orientation: "landscape" as const, fitToPage: true, fitToWidth: 1, fitToHeight, printTitlesRow: "1:1" };
-        wsNew.views = [{ rightToLeft: true }];
-        return { ws: wsNew, colWidths };
-      }
 
-      // ─── ثوابت الارتفاع الحقيقي بالنقاط (points) — A4 أفقي بهوامش قياسية ───
-      // A4 landscape: 297×210mm. هوامش 25mm أعلى/أسفل → 160mm = ~453pt.
-      // نطرح صف العنوان (34pt) المكرر على كل صفحة عبر printTitlesRow → ~419pt.
-      // نستخدم 400pt كقيمة محافظة لضمان عدم التجاوز.
-      const PAGE_PTS_ADV  = 400; // نقاط متاحة لمحتوى الورشات في الصفحة الواحدة
-      const WS_HDR_PTS    = 24;  // ارتفاع سطر عنوان الورشة
-      const TBL_HDR_PTS   = 26;  // ارتفاع سطر رأس الجدول
-      const DATA_PTS      = 21;  // ارتفاع كل سطر بيانات موظف
-      const TOTALS_PTS    = 22;  // ارتفاع سطر إجمالي الورشة
-      const SEP_PTS       = 22;  // ارتفاع سطر الفصل بين ورشتين
-      const workshopPts = (n: number) => WS_HDR_PTS + TBL_HDR_PTS + n * DATA_PTS + TOTALS_PTS;
+        // عنوان الورقة (يتكرر عند الطباعة)
+        ws.mergeCells(1, 1, 1, NCOLS_ADV);
+        const titleCell = ws.getCell("A1");
+        titleCell.value = sheetTitle;
+        titleCell.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
+        titleCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sheetDef.color } };
+        ws.getRow(1).height = 36;
 
-      for (const sd of SHIFT_DEFS_ADV) {
-        const shiftRows = byShiftAdv.get(sd.key) ?? [];
-        // ─── تجاهل الفترات الفارغة ───
-        if (shiftRows.length === 0) continue;
+        // إعداد الطباعة: عمودي، A4، بدون ضغط
+        ws.pageSetup = {
+          orientation: "portrait" as const,
+          paperSize: 9, // A4
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+          printTitlesRow: "1:1",
+        };
+        ws.views = [{ rightToLeft: true }];
 
-        const sortedRows = [...shiftRows].sort((a, b) => {
-          const wa = a.workshopId ? (workshopMap.get(a.workshopId) ?? "") : null;
-          const wb = b.workshopId ? (workshopMap.get(b.workshopId) ?? "") : null;
-          if (wa === null && wb !== null) return 1;
-          if (wa !== null && wb === null) return -1;
-          if (wa === null && wb === null) return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
-          const wCmp = (wa as string).localeCompare(wb as string, "ar");
-          if (wCmp !== 0) return wCmp;
-          return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
-        });
+        let cur = 2;
+        let tableCounter = 0;
+        let sheetTotalScore = 0;
 
-        // ─── تجميع حسب الورشة ───
-        const workshopGroupsAdv: AdvGroup[] = [];
-        const seenWsAdv = new Set<string | null>();
-        for (const row of sortedRows) {
-          const wid = row.workshopId ?? null;
-          if (!seenWsAdv.has(wid)) { seenWsAdv.add(wid); workshopGroupsAdv.push({ workshopId: wid, rows: [] }); }
-          workshopGroupsAdv.find(g => g.workshopId === wid)!.rows.push(row);
-        }
+        for (const grp of CUSTOM_GROUPS_ADV) {
+          // جمع موظفي هذه المجموعة من الفترة الحالية
+          const groupIds = new Set<string>(
+            grp.workshops.flatMap(wName => nameToIds.get(wName) ?? [])
+          );
+          const grpRows = shiftRows
+            .filter(r => r.workshopId ? groupIds.has(r.workshopId as string) : false)
+            .sort((a, b) => {
+              const wa = (workshopMap.get(a.workshopId as string) ?? "").trim();
+              const wb = (workshopMap.get(b.workshopId as string) ?? "").trim();
+              const wCmp = grp.workshops.indexOf(wa) - grp.workshops.indexOf(wb);
+              if (wCmp !== 0) return wCmp;
+              return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+            });
 
-        // ─── تصنيف الورشات بناءً على الارتفاع الحقيقي بالنقاط ───
-        const smallGroups = workshopGroupsAdv.filter(g => workshopPts(g.rows.length) <= PAGE_PTS_ADV);
-        const largeGroups = workshopGroupsAdv.filter(g => workshopPts(g.rows.length) > PAGE_PTS_ADV);
-        // مجموع نقاط الورشات الكبيرة (لإدراجها في إجمالي الفترة الكلي)
-        const largeGroupsScore = largeGroups.reduce((sum, g) =>
-          sum + g.rows.reduce((s, r) => s + (parseFloat(r.attendanceScore as any) || 0), 0), 0);
+          if (grpRows.length === 0) continue;
 
-        // ─── ورقة الفترة: تجمع الورشات الصغيرة بحشو ذكي (مبني على النقاط) ───
-        if (smallGroups.length > 0) {
-          const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sd.label}`;
-          const { ws, colWidths } = initAdvSheet(sd.label, sheetTitle, sd.color, 0);
+          // ─── عنوان المجموعة ───
+          ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+          const grpHCell = ws.getCell(cur, 1);
+          grpHCell.value = `${grp.num}  —  ${grp.label}`;
+          grpHCell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+          grpHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
+          grpHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sheetDef.color } };
+          setBorderAdv(grpHCell);
+          ws.getRow(cur).height = 28;
+          trkWidth(colWidths, 0, grpHCell.value);
+          cur++;
 
-          let currentRowAdv = 2;
-          let ptsOnPage = 0; // نقاط مستهلكة في الصفحة الحالية
-          let isFirstGroupAdv = true;
-          let gScore = 0;
-
-          for (const group of smallGroups) {
-            const groupPts = workshopPts(group.rows.length);
-            if (!isFirstGroupAdv) {
-              const spaceNeeded = SEP_PTS + groupPts;
-              if (ptsOnPage + spaceNeeded > PAGE_PTS_ADV) {
-                // لا تتسع الورشة → فاصل صفحة
-                ws.getRow(currentRowAdv).addPageBreak(); currentRowAdv++; ptsOnPage = 0;
-              } else {
-                // تتسع → سطر فراغ بسيط بين الورشتين (ارتفاعه SEP_PTS)
-                ws.getRow(currentRowAdv).height = SEP_PTS;
-                currentRowAdv++; ptsOnPage += SEP_PTS;
-              }
-            }
-            isFirstGroupAdv = false;
-
-            const tName = `TA_${sd.key}_s_${group.workshopId ?? "none"}`;
-            const res = renderAdvWorkshop(ws, group, currentRowAdv, colWidths, tName);
-            currentRowAdv = res.endRow;
-            ptsOnPage += groupPts;
-            gScore += res.score;
-          }
-
-          // إجمالي الفترة (يشمل الورشات الصغيرة + الكبيرة)
-          const gTotalsAdv: (string | number)[] = [`إجمالي ${sd.label}`, "", gScore + largeGroupsScore, "", ""];
-          const gTRowAdv = ws.getRow(currentRowAdv);
-          gTRowAdv.height = 28;
-          gTotalsAdv.forEach((val, ci) => {
-            const len = String(val ?? "").length; if (len > colWidths[ci]) colWidths[ci] = len;
-            const cell = gTRowAdv.getCell(ci + 1);
-            cell.value = val;
+          // ─── رأس الجدول ───
+          const hdrRow = ws.getRow(cur);
+          headersAdv.forEach((h, ci) => {
+            const cell = hdrRow.getCell(ci + 1);
+            cell.value = h;
             cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sd.color } };
+            cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
+            setBorderAdv(cell);
+            trkWidth(colWidths, ci, h);
+          });
+          hdrRow.height = 26;
+          cur++;
+
+          // ─── صفوف البيانات ───
+          let grpScore = 0;
+          grpRows.forEach((row, idx) => {
+            const sc = parseFloat(row.attendanceScore as any) || 0;
+            grpScore += sc;
+            const dataRow = ws.getRow(cur);
+            const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+            const vals: (string | number)[] = [row.employeeName ?? "", row.employeeCode ?? "", sc, "", ""];
+            vals.forEach((v, ci) => {
+              const cell = dataRow.getCell(ci + 1);
+              cell.value = v;
+              setBorderAdv(cell);
+              cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+              const fmt = colFmtAdv[ci]; if (fmt) cell.numFmt = fmt;
+              if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
+              else if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
+              else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { size: 11, color: { argb: "FF0055CC" } }; }
+              else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
+              trkWidth(colWidths, ci, v);
+            });
+            dataRow.height = 22;
+            cur++;
+          });
+          sheetTotalScore += grpScore;
+          tableCounter++;
+
+          // ─── إجمالي المجموعة ───
+          const totRow = ws.getRow(cur);
+          totRow.height = 24;
+          const totVals: (string | number)[] = [`إجمالي  ${grp.label}`, "", grpScore, "", ""];
+          totVals.forEach((v, ci) => {
+            const cell = totRow.getCell(ci + 1);
+            cell.value = v;
+            cell.font = { bold: true, size: 11, color: { argb: sheetDef.color } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
             setBorderAdv(cell);
             cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
             const fmt = colFmtAdv[ci]; if (fmt) cell.numFmt = fmt;
+            trkWidth(colWidths, ci, v);
           });
+          cur++;
 
-          ws.columns.forEach((col, ci) => {
-            const minW = ci === 4 ? 22 : 10;
-            col.width = Math.min(40, Math.max(colWidths[ci] + 3, minW));
-          });
+          // ─── فاصل صفحة بعد كل مجموعة ───
+          ws.getRow(cur).addPageBreak();
+          cur++;
         }
 
-        // ─── ورقة مستقلة لكل ورشة كبيرة — fitToHeight:1 يضغطها لصفحة واحدة ───
-        for (const group of largeGroups) {
-          const wName = group.workshopId ? (workshopMap.get(group.workshopId) ?? "—") : "بدون ورشة";
-          const sheetLabel = `${wName} — ${sd.label}`;
-          const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${wName}`;
-          const { ws, colWidths } = initAdvSheet(sheetLabel, sheetTitle, sd.color, 1);
+        // ─── إجمالي الفترة الكلي (آخر صفحة) ───
+        ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+        const grandCell = ws.getCell(cur, 1);
+        grandCell.value = `الإجمالي الكلي — ${sheetDef.label}  :  ${sheetTotalScore.toFixed(2)} نقطة`;
+        grandCell.font = { bold: true, size: 13, color: { argb: "FFFFFFFF" } };
+        grandCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+        grandCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sheetDef.color } };
+        setBorderAdv(grandCell);
+        ws.getRow(cur).height = 32;
 
-          const tName = `TA_${sd.key}_L_${group.workshopId ?? "none"}`;
-          renderAdvWorkshop(ws, group, 2, colWidths, tName);
+        // عرض الأعمدة
+        ws.columns.forEach((col, ci) => {
+          const minW = ci === 4 ? 20 : ci === 0 ? 28 : 12;
+          col.width = Math.min(42, Math.max(colWidths[ci] + 3, minW));
+        });
+      }
 
-          ws.columns.forEach((col, ci) => {
-            const minW = ci === 4 ? 22 : 10;
-            col.width = Math.min(40, Math.max(colWidths[ci] + 3, minW));
-          });
-        }
+      for (const sd of SHEET_DEFS_ADV) {
+        buildAdvSheet(sd);
       }
 
       const encFilename = encodeURIComponent(filename);
