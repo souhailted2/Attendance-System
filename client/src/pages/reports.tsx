@@ -1718,7 +1718,7 @@ export default function Reports() {
                     <TableRow>
                       <TableHead className="text-right">الموظف</TableHead>
                       <TableHead className="text-center">الساعات الإضافية</TableHead>
-                      <TableHead className="text-center">تعويض الإضافي</TableHead>
+                      <TableHead className="text-center">مجموع الساعات</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
