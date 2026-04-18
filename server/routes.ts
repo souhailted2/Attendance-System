@@ -755,7 +755,7 @@ export async function registerRoutes(
       role: "workshop",
       allowedShifts: allowedShifts ?? null,
       allowedWorkshopIds: allowedWorkshopIds ?? null,
-    } as any);
+    });
     res.json({ id: user.id, username: user.username, role: user.role, allowedShifts: user.allowedShifts, allowedWorkshopIds: user.allowedWorkshopIds });
   });
 

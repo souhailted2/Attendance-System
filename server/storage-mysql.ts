@@ -43,7 +43,14 @@ export class MysqlStorage implements IStorage {
 
   async createUser(data: InsertUser): Promise<User> {
     const id = randomUUID();
-    await mysqlDb.insert(schema.users).values({ id, username: data.username, password: data.password });
+    await mysqlDb.insert(schema.users).values({
+      id,
+      username: data.username,
+      password: data.password,
+      role: data.role ?? "staff",
+      allowedShifts: data.allowedShifts ?? null,
+      allowedWorkshopIds: data.allowedWorkshopIds ?? null,
+    });
     const [result] = await mysqlDb.select().from(schema.users).where(eq(schema.users.id, id));
     return result as User;
   }
@@ -54,7 +61,14 @@ export class MysqlStorage implements IStorage {
   }
 
   async updateUser(id: string, data: Partial<Pick<User, 'role' | 'allowedShifts' | 'allowedWorkshopIds' | 'password'>>): Promise<User | undefined> {
-    await mysqlDb.update(schema.users).set(data as any).where(eq(schema.users.id, id));
+    const updateValues: Partial<{ role: string; allowedShifts: string | null; allowedWorkshopIds: string | null; password: string }> = {};
+    if (data.role !== undefined) updateValues.role = data.role;
+    if (data.allowedShifts !== undefined) updateValues.allowedShifts = data.allowedShifts;
+    if (data.allowedWorkshopIds !== undefined) updateValues.allowedWorkshopIds = data.allowedWorkshopIds;
+    if (data.password !== undefined) updateValues.password = data.password;
+    if (Object.keys(updateValues).length > 0) {
+      await mysqlDb.update(schema.users).set(updateValues).where(eq(schema.users.id, id));
+    }
     const [result] = await mysqlDb.select().from(schema.users).where(eq(schema.users.id, id));
     return result as User | undefined;
   }

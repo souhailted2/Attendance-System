@@ -205,6 +205,10 @@ export const frozenArchives = pgTable("frozen_archives", {
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
+}).extend({
+  role: z.string().optional(),
+  allowedShifts: z.string().nullable().optional(),
+  allowedWorkshopIds: z.string().nullable().optional(),
 });
 
 export const insertCompanySchema = createInsertSchema(companies).pick({

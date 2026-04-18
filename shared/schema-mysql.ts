@@ -209,7 +209,11 @@ export const lockedRecords = mysqlTable("locked_records", {
   activityLogId: varchar("activity_log_id", { length: 36 }),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true });
+export const insertUserSchema = createInsertSchema(users).pick({ username: true, password: true }).extend({
+  role: z.string().optional(),
+  allowedShifts: z.string().nullable().optional(),
+  allowedWorkshopIds: z.string().nullable().optional(),
+});
 export const insertCompanySchema = createInsertSchema(companies).pick({ name: true, description: true });
 export const insertWorkshopSchema = createInsertSchema(workshops).pick({ name: true, description: true });
 export const insertPositionSchema = createInsertSchema(positions).pick({ name: true, description: true });
