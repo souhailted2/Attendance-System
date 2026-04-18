@@ -4255,11 +4255,27 @@ export async function registerRoutes(
         };
         ws.views = [{ rightToLeft: true }];
 
-        let cur = 2;
-        let tableCounter = 0;
-        let sheetTotalScore = 0;
+        // ─── ثوابت الأحجام (نقاط) — A4 عمودي بهوامش 0.75in ───
+        // 297mm - 2×19.05mm = 258.9mm ≈ 734pt. نطرح صف العنوان (36pt) + هامش أمان → 680pt
+        const PAGE_PTS = 680;
+        const GRP_H    = 28;  // عنوان المجموعة
+        const TBL_H    = 26;  // رأس الجدول
+        const WS_SUB_H = 20;  // سطر اسم الورشة داخل المجموعة المدمجة
+        const DATA_H   = 22;  // صف بيانات موظف
+        const TOT_H    = 24;  // صف إجمالي المجموعة
+        const SEP_H    = 10;  // فاصل رقيق بين مجموعتين على نفس الصفحة
 
-        // ─── عرض "لا توجد بيانات" إذا كانت الفترة فارغة ───
+        // ارتفاع مجموعة = عنوان + رأس + (فواصل ورشات إن تعددت) + بيانات + إجمالي
+        function calcGrpH(nRows: number, nActiveWs: number): number {
+          return GRP_H + TBL_H + (nActiveWs > 1 ? nActiveWs * WS_SUB_H : 0) + nRows * DATA_H + TOT_H;
+        }
+
+        let cur = 2;
+        let sheetTotalScore = 0;
+        let ptsOnPage  = 0;     // نقاط مستهلكة في الصفحة الحالية
+        let firstOnPage = true; // هل هذه أول مجموعة في الصفحة؟
+
+        // ─── "لا توجد بيانات" إذا كانت الفترة فارغة ───
         if (shiftRows.length === 0) {
           ws.mergeCells(cur, 1, cur, NCOLS_ADV);
           const emptyCell = ws.getCell(cur, 1);
@@ -4288,6 +4304,29 @@ export async function registerRoutes(
 
           if (grpRows.length === 0) continue;
 
+          // الورشات الفعلية التي بها موظفون في هذه الفترة
+          const activeWsNames = grp.workshops.filter(wn =>
+            grpRows.some(r => (workshopMap.get(r.workshopId as string) ?? "").trim() === wn)
+          );
+          const grpPts = calcGrpH(grpRows.length, activeWsNames.length);
+
+          // ─── حشو ذكي: هل تتسع المجموعة في الصفحة الحالية؟ ───
+          if (!firstOnPage) {
+            if (ptsOnPage + SEP_H + grpPts > PAGE_PTS) {
+              // لا تتسع → فاصل صفحة قبل هذه المجموعة
+              ws.getRow(cur).addPageBreak();
+              cur++;
+              ptsOnPage = 0;
+              firstOnPage = true;
+            } else {
+              // تتسع → سطر فاصل رقيق بين المجموعتين
+              ws.getRow(cur).height = SEP_H;
+              cur++;
+              ptsOnPage += SEP_H;
+            }
+          }
+          firstOnPage = false;
+
           // ─── عنوان المجموعة ───
           ws.mergeCells(cur, 1, cur, NCOLS_ADV);
           const grpHCell = ws.getCell(cur, 1);
@@ -4296,7 +4335,7 @@ export async function registerRoutes(
           grpHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
           grpHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sheetDef.color } };
           setBorderAdv(grpHCell);
-          ws.getRow(cur).height = 28;
+          ws.getRow(cur).height = GRP_H;
           trkWidth(colWidths, 0, grpHCell.value);
           cur++;
 
@@ -4311,16 +4350,37 @@ export async function registerRoutes(
             setBorderAdv(cell);
             trkWidth(colWidths, ci, h);
           });
-          hdrRow.height = 26;
+          hdrRow.height = TBL_H;
           cur++;
 
-          // ─── صفوف البيانات ───
+          // ─── صفوف البيانات مع فواصل أسماء الورشات في المجموعات المدمجة ───
+          const multiWs = activeWsNames.length > 1;
           let grpScore = 0;
-          grpRows.forEach((row, idx) => {
+          let dataIdx = 0;
+          let lastWsName: string | null = null;
+
+          for (const row of grpRows) {
+            const wsName = (workshopMap.get(row.workshopId as string) ?? "").trim();
+
+            // فاصل اسم الورشة عند تغيير الورشة في مجموعة متعددة الورشات
+            if (multiWs && wsName !== lastWsName) {
+              lastWsName = wsName;
+              ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+              const wsSubCell = ws.getCell(cur, 1);
+              wsSubCell.value = `◈  ${wsName}`;
+              wsSubCell.font = { bold: true, size: 10, color: { argb: "FF1B3A5C" } };
+              wsSubCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 2 };
+              wsSubCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD6E8F4" } };
+              setBorderAdv(wsSubCell);
+              ws.getRow(cur).height = WS_SUB_H;
+              cur++;
+            }
+
+            // صف بيانات الموظف
             const sc = Number(row.attendanceScore ?? 0) || 0;
             grpScore += sc;
             const dataRow = ws.getRow(cur);
-            const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+            const rowBg = dataIdx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
             const vals: (string | number)[] = [row.employeeName ?? "", row.employeeCode ?? "", sc, "", ""];
             vals.forEach((v, ci) => {
               const cell = dataRow.getCell(ci + 1);
@@ -4334,15 +4394,15 @@ export async function registerRoutes(
               else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
               trkWidth(colWidths, ci, v);
             });
-            dataRow.height = 22;
+            dataRow.height = DATA_H;
             cur++;
-          });
+            dataIdx++;
+          }
           sheetTotalScore += grpScore;
-          tableCounter++;
 
           // ─── إجمالي المجموعة ───
           const totRow = ws.getRow(cur);
-          totRow.height = 24;
+          totRow.height = TOT_H;
           const totVals: (string | number)[] = [`إجمالي  ${grp.label}`, "", grpScore, "", ""];
           totVals.forEach((v, ci) => {
             const cell = totRow.getCell(ci + 1);
@@ -4355,10 +4415,7 @@ export async function registerRoutes(
             trkWidth(colWidths, ci, v);
           });
           cur++;
-
-          // ─── فاصل صفحة بعد كل مجموعة ───
-          ws.getRow(cur).addPageBreak();
-          cur++;
+          ptsOnPage += grpPts;
         }
 
         // ─── إجمالي الفترة الكلي (آخر صفحة) ───
