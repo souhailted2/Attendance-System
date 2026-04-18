@@ -4226,10 +4226,9 @@ export async function registerRoutes(
         if (len > colWidths[ci]) colWidths[ci] = len;
       }
 
-      // ─── بناء ورقة عمل لفترة واحدة ───
+      // ─── بناء ورقة عمل لفترة واحدة (دائماً تُنشأ حتى لو لا توجد بيانات) ───
       function buildAdvSheet(sheetDef: (typeof SHEET_DEFS_ADV)[number]) {
         const shiftRows = rows.filter(sheetDef.filter);
-        if (shiftRows.length === 0) return;
 
         const sheetTitle = `تسبيقات شهر ${MONTHS_DZ[month - 1]} ${year} — ${sheetDef.label}`;
         const ws = workbookAdv.addWorksheet(sheetDef.label.substring(0, 31), { views: [{ rightToLeft: true }] });
@@ -4259,6 +4258,18 @@ export async function registerRoutes(
         let cur = 2;
         let tableCounter = 0;
         let sheetTotalScore = 0;
+
+        // ─── عرض "لا توجد بيانات" إذا كانت الفترة فارغة ───
+        if (shiftRows.length === 0) {
+          ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+          const emptyCell = ws.getCell(cur, 1);
+          emptyCell.value = "لا توجد بيانات لهذه الفترة";
+          emptyCell.font = { bold: true, size: 12, color: { argb: "FF888888" } };
+          emptyCell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+          ws.getRow(cur).height = 40;
+          ws.columns.forEach((col, ci) => { col.width = ci === 0 ? 30 : 14; });
+          return;
+        }
 
         for (const grp of CUSTOM_GROUPS_ADV) {
           // جمع موظفي هذه المجموعة من الفترة الحالية
@@ -4306,7 +4317,7 @@ export async function registerRoutes(
           // ─── صفوف البيانات ───
           let grpScore = 0;
           grpRows.forEach((row, idx) => {
-            const sc = parseFloat(row.attendanceScore as any) || 0;
+            const sc = Number(row.attendanceScore ?? 0) || 0;
             grpScore += sc;
             const dataRow = ws.getRow(cur);
             const rowBg = idx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
