@@ -299,11 +299,7 @@ export default function Payroll() {
                           {/* 2 */}
                           <th className="px-2 py-2 text-center font-medium">الرقم</th>
                           {/* 3 */}
-                          <th className="px-2 py-2 text-right font-medium bg-amber-50 dark:bg-amber-950/20">المبلغ المدفوع</th>
-                          {/* 3b: المبلغ المقترح — للورشة فقط */}
-                          {isWorkshop && (
-                            <th className="px-2 py-2 text-right font-medium text-amber-600 dark:text-amber-400">المبلغ المقترح</th>
-                          )}
+                          <th className="px-2 py-2 text-right font-medium bg-amber-50 dark:bg-amber-950/20">المبلغ الذي ستستلمه</th>
                           {/* 4 */}
                           <th className="px-2 py-2 text-center font-medium">الامضاء</th>
                           {/* 5 */}
@@ -349,10 +345,19 @@ export default function Payroll() {
                                 <p className="text-xs text-muted-foreground font-mono">{row.employeeCode}</p>
                               </td>
 
-                              {/* 3: المبلغ المدفوع */}
+                              {/* 3: المبلغ الذي ستستلمه */}
                               {isWorkshop ? (
-                                <td className="px-2 py-2 font-mono text-xs">
-                                  {row.amountPaid > 0 ? fmtDZD(row.amountPaid) : <span className="text-muted-foreground">—</span>}
+                                <td className="px-2 py-2 bg-amber-50 dark:bg-amber-950/20">
+                                  {row.amountPaid > 0 ? (
+                                    <span className="font-mono text-xs font-medium">{fmtDZD(row.amountPaid)}</span>
+                                  ) : suggestAmount(row.netSalary) > 0 ? (
+                                    <div className="flex flex-col gap-0">
+                                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">مقترح</span>
+                                      <span className="font-mono text-xs text-amber-600 dark:text-amber-400 italic">{fmtDZD(suggestAmount(row.netSalary))}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">—</span>
+                                  )}
                                 </td>
                               ) : (() => {
                                 const suggested = row.amountPaid === 0 ? suggestAmount(row.netSalary) : 0;
@@ -408,15 +413,6 @@ export default function Payroll() {
                                   </td>
                                 );
                               })()}
-
-                              {/* 3b: المبلغ المقترح — للورشة فقط */}
-                              {isWorkshop && (
-                                <td className="px-2 py-2 font-mono text-xs text-amber-600 dark:text-amber-400">
-                                  {suggestAmount(row.netSalary) > 0
-                                    ? fmtDZD(suggestAmount(row.netSalary))
-                                    : <span className="text-muted-foreground">—</span>}
-                                </td>
-                              )}
 
                               {/* 4: الامضاء (فارغ للطباعة) */}
                               <td className="px-2 py-2 border-l border-dashed border-muted-foreground/20" style={{ minWidth: "80px" }}>
@@ -551,12 +547,6 @@ export default function Payroll() {
                           <td className="px-2 py-2 font-mono bg-amber-50 dark:bg-amber-950/20">
                             {fmtDZD(rows.reduce((s, r) => s + getEffectiveAmountPaid(r), 0))}
                           </td>
-                          {/* المبلغ المقترح — للورشة فقط */}
-                          {isWorkshop && (
-                            <td className="px-2 py-2 font-mono text-amber-600 dark:text-amber-400">
-                              {fmtDZD(rows.reduce((s, r) => s + suggestAmount(r.netSalary), 0))}
-                            </td>
-                          )}
                           {/* الامضاء */}
                           <td className="px-2 py-2"></td>
                           {/* الراتب */}
