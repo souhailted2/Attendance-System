@@ -53,12 +53,34 @@ async function ensureCaisseUser() {
   console.log(`✅ تم إنشاء مستخدم الصندوق: caisse / allaltpl2040`);
 }
 
+async function correctFrenchNames() {
+  try {
+    const emp27 = await storage.getEmployeeByCode("27");
+    const emp46 = await storage.getEmployeeByCode("46");
+
+    // الموظف 27 (مدخل هدى): كان لديه "Kebsa Aicha" خطأً — الاسم الفرنسي الصحيح هو "Madkhal Houda"
+    if (emp27 && emp27.frenchName?.trim() === "Kebsa Aicha") {
+      await storage.updateEmployee(emp27.id, { frenchName: "Madkhal Houda" });
+      console.log("✅ تم تصحيح الاسم الفرنسي للموظف 27: 'Kebsa Aicha' → 'Madkhal Houda'");
+    }
+
+    // الموظفة 46 (كبسة عائشة): كانت بدون اسم فرنسي — الاسم الصحيح هو "Kebsa Aicha"
+    if (emp46 && (!emp46.frenchName || !emp46.frenchName.trim())) {
+      await storage.updateEmployee(emp46.id, { frenchName: "Kebsa Aicha" });
+      console.log("✅ تم تصحيح الاسم الفرنسي للموظفة 46: تعيين 'Kebsa Aicha'");
+    }
+  } catch (err) {
+    console.warn("⚠️ لم يتم تصحيح الأسماء الفرنسية (قد لا تكون البيانات موجودة):", (err as Error).message);
+  }
+}
+
 export async function seedDatabase() {
   await storage.initActivityLogs();
   await ensureAdminUser();
   await ensureAttendanceUser();
   await ensureObserverUser();
   await ensureCaisseUser();
+  await correctFrenchNames();
 
   const existingCompanies = await storage.getCompanies();
   if (existingCompanies.length > 0) return;

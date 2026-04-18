@@ -13,13 +13,58 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useFavorites } from "@/hooks/use-favorites";
-import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star, UserCheck, UserX, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Users as UsersIcon, Hash, CreditCard, SlidersHorizontal, Star, UserCheck, UserX, Trash2, Languages, AlertTriangle, CheckCircle } from "lucide-react";
 import type { Employee, Company, Workshop, Position, WorkRule } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 import { RowActions } from "@/components/row-actions";
 import { Pagination } from "@/components/pagination";
 
 const EMPLOYEES_PAGE_SIZE = 20;
+
+const ARABIC_TO_LATIN: Record<string, string[]> = {
+  "ا": ["a"], "أ": ["a"], "إ": ["a"], "آ": ["a"],
+  "ب": ["b"],
+  "ت": ["t"],
+  "ث": ["th", "t"],
+  "ج": ["dj", "j", "g"],
+  "ح": ["h"],
+  "خ": ["kh", "k"],
+  "د": ["d"],
+  "ذ": ["dh", "d", "z"],
+  "ر": ["r"],
+  "ز": ["z"],
+  "س": ["s"],
+  "ش": ["ch", "sh", "s"],
+  "ص": ["s"],
+  "ض": ["d"],
+  "ط": ["t"],
+  "ظ": ["z", "d"],
+  "ع": ["a", "o", "e"],
+  "غ": ["gh", "g"],
+  "ف": ["f"],
+  "ق": ["k", "q", "g"],
+  "ك": ["k", "c"],
+  "ل": ["l"],
+  "م": ["m"],
+  "ن": ["n"],
+  "ه": ["h"],
+  "و": ["w", "v", "o", "u"],
+  "ي": ["y", "i"],
+  "ى": ["a", "y"],
+};
+
+function detectFrenchNameMismatch(arabicName: string, frenchName: string): boolean {
+  if (!frenchName?.trim() || !arabicName?.trim()) return false;
+  const arabicWords = arabicName.trim().split(/\s+/);
+  const frenchWords = frenchName.trim().split(/\s+/);
+  if (arabicWords.length < 1 || frenchWords.length < 1) return false;
+  const arabicLastNameFirstChar = arabicWords[0][0];
+  const frenchLastNameFirstChar = frenchWords[0][0]?.toLowerCase();
+  if (!arabicLastNameFirstChar || !frenchLastNameFirstChar) return false;
+  const expectedLatinChars = ARABIC_TO_LATIN[arabicLastNameFirstChar];
+  if (!expectedLatinChars) return false;
+  return !expectedLatinChars.some((ch) => frenchLastNameFirstChar.startsWith(ch));
+}
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -51,6 +96,7 @@ export default function Employees() {
   const [filterActive, setFilterActive] = useState("all");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
+  const [reviewMode, setReviewMode] = useState(false);
 
   useEffect(() => { setPage(1); }, [search, filterWorkshop, filterCompany, filterActive]);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -350,7 +396,98 @@ export default function Employees() {
             <SelectItem value="inactive">غير نشط</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant={reviewMode ? "default" : "outline"}
+          size="sm"
+          onClick={() => setReviewMode(!reviewMode)}
+          data-testid="button-review-french-names"
+          className="gap-2"
+        >
+          <Languages className="h-4 w-4" />
+          مراجعة الأسماء الفرنسية
+        </Button>
       </div>
+
+      {/* French names review panel */}
+      {reviewMode && (() => {
+        const allEmps = employees || [];
+        const mismatched = allEmps.filter((e) => e.frenchName?.trim() && detectFrenchNameMismatch(e.name, e.frenchName));
+        const missing = allEmps.filter((e) => !e.frenchName?.trim());
+        const correct = allEmps.filter((e) => e.frenchName?.trim() && !detectFrenchNameMismatch(e.name, e.frenchName));
+        const sorted = [
+          ...mismatched.sort((a, b) => (parseInt(a.employeeCode) || 0) - (parseInt(b.employeeCode) || 0)),
+          ...missing.sort((a, b) => (parseInt(a.employeeCode) || 0) - (parseInt(b.employeeCode) || 0)),
+          ...correct.sort((a, b) => (parseInt(a.employeeCode) || 0) - (parseInt(b.employeeCode) || 0)),
+        ];
+        return (
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <Languages className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                <h3 className="font-medium text-sm">مراجعة الأسماء الفرنسية</h3>
+                <div className="flex items-center gap-2 mr-auto text-xs flex-wrap">
+                  {mismatched.length > 0 && (
+                    <span className="flex items-center gap-1 text-red-600 dark:text-red-400" data-testid="count-mismatched">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {mismatched.length} تعارض
+                    </span>
+                  )}
+                  {missing.length > 0 && (
+                    <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400" data-testid="count-missing">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      {missing.length} بدون اسم فرنسي
+                    </span>
+                  )}
+                  <span className="text-muted-foreground">
+                    {correct.length} صحيح
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-1 max-h-96 overflow-y-auto" data-testid="review-french-names-list">
+                {sorted.map((emp) => {
+                  const isMismatch = !!emp.frenchName?.trim() && detectFrenchNameMismatch(emp.name, emp.frenchName);
+                  const isMissing = !emp.frenchName?.trim();
+                  let rowClass = "bg-green-50 dark:bg-green-950/20";
+                  if (isMismatch) rowClass = "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800";
+                  else if (isMissing) rowClass = "bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800";
+                  return (
+                    <div
+                      key={emp.id}
+                      data-testid={`review-row-${emp.id}`}
+                      className={`flex items-center gap-3 p-2 rounded-md text-sm ${rowClass}`}
+                    >
+                      <span className="w-10 text-center text-xs text-muted-foreground flex-shrink-0">{emp.employeeCode}</span>
+                      {isMismatch ? (
+                        <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" data-testid={`icon-mismatch-${emp.id}`} />
+                      ) : isMissing ? (
+                        <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" data-testid={`icon-missing-${emp.id}`} />
+                      ) : (
+                        <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" data-testid={`icon-ok-${emp.id}`} />
+                      )}
+                      <span className="flex-1 font-medium" dir="rtl">{emp.name}</span>
+                      <span className={`flex-1 ${isMissing ? "text-muted-foreground italic text-xs" : "text-muted-foreground"}`} dir="ltr">
+                        {emp.frenchName || "— غير محدد —"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 flex-shrink-0"
+                        onClick={() => { openEdit(emp); }}
+                        data-testid={`button-edit-review-${emp.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  );
+                })}
+                {sorted.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">لا يوجد موظفون</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Results count */}
       {!isLoading && (
@@ -394,7 +531,12 @@ export default function Employees() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-medium text-sm" data-testid={`text-name-${emp.id}`}>{emp.name}</p>
                           {emp.frenchName && (
-                            <span className="text-xs text-muted-foreground" dir="ltr" data-testid={`text-french-name-${emp.id}`}>{emp.frenchName}</span>
+                            <span className="flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground" dir="ltr" data-testid={`text-french-name-${emp.id}`}>{emp.frenchName}</span>
+                              {emp.frenchName?.trim() && detectFrenchNameMismatch(emp.name, emp.frenchName) && (
+                                <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" title="اسم فرنسي مشتبه به" data-testid={`icon-name-warning-${emp.id}`} />
+                              )}
+                            </span>
                           )}
                           {emp.isActive
                             ? <Badge className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-0" data-testid={`badge-status-${emp.id}`}>نشط</Badge>
