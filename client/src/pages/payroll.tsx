@@ -8,6 +8,7 @@ import { Loader2, FileSpreadsheet, TrendingDown, Search, ChevronRight, ChevronLe
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { fmtDZD } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const now = new Date();
@@ -40,6 +41,8 @@ type Workshop = { id: string; name: string };
 
 export default function Payroll() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isWorkshop = user?.role === "workshop";
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [queryKey, setQueryKey] = useState<[string, string, string] | null>(null);
@@ -343,7 +346,11 @@ export default function Payroll() {
                               </td>
 
                               {/* 3: المبلغ المدفوع */}
-                              {(() => {
+                              {isWorkshop ? (
+                                <td className="px-2 py-2 font-mono text-xs">
+                                  {row.amountPaid > 0 ? fmtDZD(row.amountPaid) : <span className="text-muted-foreground">—</span>}
+                                </td>
+                              ) : (() => {
                                 const suggested = row.amountPaid === 0 ? suggestAmount(row.netSalary) : 0;
                                 // هل الخانة تعرض الاقتراح حالياً (لم يكتب المستخدم شيئاً)
                                 const showingSuggestion = suggested > 0 && pendingPayments[row.employeeId] === undefined;
@@ -451,17 +458,19 @@ export default function Payroll() {
                                         <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
                                           معلَّق
                                         </span>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-5 w-5 p-0 text-green-600 hover:text-green-700"
-                                          onClick={() => handleToggleDebtSkip(row)}
-                                          disabled={isSkipping}
-                                          data-testid={`button-resume-debt-${row.employeeId}`}
-                                          title="إلغاء التعليق"
-                                        >
-                                          {isSkipping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-                                        </Button>
+                                        {!isWorkshop && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-5 w-5 p-0 text-green-600 hover:text-green-700"
+                                            onClick={() => handleToggleDebtSkip(row)}
+                                            disabled={isSkipping}
+                                            data-testid={`button-resume-debt-${row.employeeId}`}
+                                            title="إلغاء التعليق"
+                                          >
+                                            {isSkipping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+                                          </Button>
+                                        )}
                                       </div>
                                     );
                                   }
@@ -470,17 +479,19 @@ export default function Payroll() {
                                       <span className="text-amber-600 dark:text-amber-400">
                                         - {fmtDZD(row.debtDeduction)}
                                       </span>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-5 w-5 p-0 text-muted-foreground hover:text-amber-600"
-                                        onClick={() => handleToggleDebtSkip(row)}
-                                        disabled={isSkipping}
-                                        data-testid={`button-skip-debt-${row.employeeId}`}
-                                        title="تعليق الخصم"
-                                      >
-                                        {isSkipping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
-                                      </Button>
+                                      {!isWorkshop && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-5 w-5 p-0 text-muted-foreground hover:text-amber-600"
+                                          onClick={() => handleToggleDebtSkip(row)}
+                                          disabled={isSkipping}
+                                          data-testid={`button-skip-debt-${row.employeeId}`}
+                                          title="تعليق الخصم"
+                                        >
+                                          {isSkipping ? <Loader2 className="h-3 w-3 animate-spin" /> : <Pause className="h-3 w-3" />}
+                                        </Button>
+                                      )}
                                     </div>
                                   );
                                 })()}

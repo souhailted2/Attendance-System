@@ -33,7 +33,7 @@ async function ensureAdminUser() {
   }
 
   const hashed = await bcrypt.hash("admin123", 10);
-  await storage.createUser({ username: ADMIN_USERNAME, password: hashed, role: "owner" } as any);
+  await storage.createUser({ username: ADMIN_USERNAME, password: hashed, role: "owner" });
   console.log(`✅ تم إنشاء المستخدم الافتراضي: ${ADMIN_USERNAME} / admin123`);
 }
 
@@ -46,7 +46,7 @@ async function ensureAttendanceUser() {
     return;
   }
   const hashed = await bcrypt.hash("attendence123", 10);
-  await storage.createUser({ username: ATTENDANCE_USERNAME, password: hashed, role: "attendence" } as any);
+  await storage.createUser({ username: ATTENDANCE_USERNAME, password: hashed, role: "attendence" });
   console.log(`✅ تم إنشاء مستخدم الحضور: ${ATTENDANCE_USERNAME} / attendence123`);
 }
 
@@ -59,7 +59,7 @@ async function ensureObserverUser() {
     return;
   }
   const hashed = await bcrypt.hash("observer123", 10);
-  await storage.createUser({ username: OBSERVER_USERNAME, password: hashed, role: "observer" } as any);
+  await storage.createUser({ username: OBSERVER_USERNAME, password: hashed, role: "observer" });
   console.log(`✅ تم إنشاء مستخدم المراقب: ${OBSERVER_USERNAME} / observer123`);
 }
 
@@ -72,7 +72,7 @@ async function ensureCaisseUser() {
     return;
   }
   const hashed = await bcrypt.hash("allaltpl2040", 10);
-  await storage.createUser({ username: "caisse", password: hashed, role: "caisse" } as any);
+  await storage.createUser({ username: "caisse", password: hashed, role: "caisse" });
   console.log(`✅ تم إنشاء مستخدم الصندوق: caisse / allaltpl2040`);
 }
 

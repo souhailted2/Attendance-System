@@ -526,6 +526,15 @@ export async function registerRoutes(
   // حماية جميع مسارات API
   app.use("/api", requireAuth);
 
+  // حسابات الورشة = قراءة فقط — تُمنع كل طلبات الكتابة (POST/PATCH/DELETE) ما عدا تسجيل الدخول والخروج
+  const WORKSHOP_WRITE_ALLOWED = ["/api/logout"];
+  app.use("/api", (req: Request, res: Response, next: NextFunction) => {
+    if (req.session.role !== "workshop") return next();
+    if (req.method === "GET") return next();
+    if (WORKSHOP_WRITE_ALLOWED.some(p => req.path === p || req.path.startsWith(p + "/"))) return next();
+    return res.status(403).json({ message: "حسابات الورشة للقراءة فقط" });
+  });
+
   // تسجيل النشاطات (POST/PUT/PATCH/DELETE) — سجلات الحضور اليدوية لها تسجيل تفصيلي خاص بها
   const SKIP_LOG_PATHS = ["/api/login", "/api/logout", "/api/auth/me", "/api/archive-action"];
   const SKIP_LOG_PREFIXES = ["/api/activity-logs"];
