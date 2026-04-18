@@ -4,6 +4,9 @@ import { apiRequest } from "@/lib/queryClient";
 interface AuthUser {
   id: string;
   username: string;
+  role: string;
+  allowedShifts: string[] | null;
+  allowedWorkshopIds: string[] | null;
 }
 
 interface AuthContextType {
@@ -15,6 +18,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function parseJsonField(val: string | null | undefined): string[] | null {
+  if (!val) return null;
+  try { return JSON.parse(val); } catch { return null; }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -22,7 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data))
+      .then((data) => {
+        if (!data) { setUser(null); return; }
+        setUser({
+          id: data.id,
+          username: data.username,
+          role: data.role ?? "staff",
+          allowedShifts: parseJsonField(data.allowedShifts),
+          allowedWorkshopIds: parseJsonField(data.allowedWorkshopIds),
+        });
+      })
       .catch(() => setUser(null))
       .finally(() => setIsLoading(false));
   }, []);
@@ -36,7 +53,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || "فشل تسجيل الدخول");
-    setUser(data);
+    setUser({
+      id: data.id,
+      username: data.username,
+      role: data.role ?? "staff",
+      allowedShifts: parseJsonField(data.allowedShifts),
+      allowedWorkshopIds: parseJsonField(data.allowedWorkshopIds),
+    });
   }
 
   async function logout() {

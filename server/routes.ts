@@ -5,11 +5,14 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import ExcelJS from "exceljs";
 
-// تمديد نوع الجلسة ليشمل معرّف المستخدم واسم المستخدم
+// تمديد نوع الجلسة ليشمل معرّف المستخدم واسم المستخدم والدور
 declare module "express-session" {
   interface SessionData {
     userId: string;
     username: string;
+    role: string;
+    allowedShifts: string | null;
+    allowedWorkshopIds: string | null;
   }
 }
 
@@ -485,7 +488,16 @@ export async function registerRoutes(
       if (!valid) return res.status(401).json({ message: "اسم المستخدم أو كلمة المرور غير صحيحة" });
       req.session.userId = user.id;
       req.session.username = user.username;
-      res.json({ id: user.id, username: user.username });
+      req.session.role = user.role ?? "staff";
+      req.session.allowedShifts = user.allowedShifts ?? null;
+      req.session.allowedWorkshopIds = user.allowedWorkshopIds ?? null;
+      res.json({
+        id: user.id,
+        username: user.username,
+        role: user.role ?? "staff",
+        allowedShifts: user.allowedShifts ?? null,
+        allowedWorkshopIds: user.allowedWorkshopIds ?? null,
+      });
     } catch (err: any) {
       res.status(500).json({ message: err.message });
     }
@@ -502,7 +514,13 @@ export async function registerRoutes(
     if (!req.session.userId) return res.status(401).json({ message: "غير مصرح" });
     const user = await storage.getUser(req.session.userId);
     if (!user) return res.status(401).json({ message: "غير مصرح" });
-    res.json({ id: user.id, username: user.username });
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role ?? "staff",
+      allowedShifts: user.allowedShifts ?? null,
+      allowedWorkshopIds: user.allowedWorkshopIds ?? null,
+    });
   });
 
   // حماية جميع مسارات API
@@ -708,6 +726,71 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // ====== API إدارة الحسابات (owner فقط) ======
+
+  const PROTECTED_USERNAMES = ["owner", "attendence", "observer", "caisse"];
+
+  app.get("/api/accounts", async (req, res) => {
+    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح" });
+    const users = await storage.getAllUsers();
+    res.json(users.map(u => ({
+      id: u.id,
+      username: u.username,
+      role: u.role ?? "staff",
+      allowedShifts: u.allowedShifts ?? null,
+      allowedWorkshopIds: u.allowedWorkshopIds ?? null,
+    })));
+  });
+
+  app.post("/api/accounts", async (req, res) => {
+    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح" });
+    const { username, password, allowedShifts, allowedWorkshopIds } = req.body;
+    if (!username || !password) return res.status(400).json({ message: "اسم المستخدم وكلمة المرور مطلوبان" });
+    const existing = await storage.getUserByUsername(username);
+    if (existing) return res.status(409).json({ message: "اسم المستخدم موجود مسبقاً" });
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await storage.createUser({
+      username,
+      password: hashed,
+      role: "workshop",
+      allowedShifts: allowedShifts ?? null,
+      allowedWorkshopIds: allowedWorkshopIds ?? null,
+    } as any);
+    res.json({ id: user.id, username: user.username, role: user.role, allowedShifts: user.allowedShifts, allowedWorkshopIds: user.allowedWorkshopIds });
+  });
+
+  app.patch("/api/accounts/:id", async (req, res) => {
+    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح" });
+    const { allowedShifts, allowedWorkshopIds } = req.body;
+    const updated = await storage.updateUser(req.params.id, {
+      allowedShifts: allowedShifts ?? null,
+      allowedWorkshopIds: allowedWorkshopIds ?? null,
+    });
+    if (!updated) return res.status(404).json({ message: "الحساب غير موجود" });
+    res.json({ id: updated.id, username: updated.username, role: updated.role, allowedShifts: updated.allowedShifts, allowedWorkshopIds: updated.allowedWorkshopIds });
+  });
+
+  app.patch("/api/accounts/:id/password", async (req, res) => {
+    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح" });
+    const { password } = req.body;
+    if (!password) return res.status(400).json({ message: "كلمة المرور مطلوبة" });
+    const hashed = await bcrypt.hash(password, 10);
+    const updated = await storage.updateUser(req.params.id, { password: hashed });
+    if (!updated) return res.status(404).json({ message: "الحساب غير موجود" });
+    res.json({ success: true });
+  });
+
+  app.delete("/api/accounts/:id", async (req, res) => {
+    if (req.session.username !== "owner") return res.status(403).json({ message: "غير مصرح" });
+    const user = await storage.getUser(req.params.id);
+    if (!user) return res.status(404).json({ message: "الحساب غير موجود" });
+    if (PROTECTED_USERNAMES.includes(user.username)) return res.status(403).json({ message: "لا يمكن حذف الحسابات الأساسية" });
+    await storage.deleteUser(req.params.id);
+    res.json({ success: true });
+  });
+
+  // ====== CRUD الورشات ======
+
   app.get("/api/workshops", async (_req, res) => {
     const data = await storage.getWorkshops();
     res.json(data);
@@ -729,7 +812,25 @@ export async function registerRoutes(
   });
 
   app.delete("/api/workshops/:id", async (req, res) => {
-    await storage.deleteWorkshop(req.params.id);
+    // حذف الحسابات المرتبطة بهذه الورشة أولاً
+    const allUsers = await storage.getAllUsers();
+    const workshopId = req.params.id;
+    for (const u of allUsers) {
+      if (u.role === "workshop" && u.allowedWorkshopIds) {
+        try {
+          const ids: string[] = JSON.parse(u.allowedWorkshopIds);
+          if (ids.includes(workshopId)) {
+            const newIds = ids.filter(id => id !== workshopId);
+            if (newIds.length === 0) {
+              await storage.deleteUser(u.id);
+            } else {
+              await storage.updateUser(u.id, { allowedWorkshopIds: JSON.stringify(newIds) });
+            }
+          }
+        } catch {}
+      }
+    }
+    await storage.deleteWorkshop(workshopId);
     res.json({ success: true });
   });
 
@@ -1494,6 +1595,17 @@ export async function registerRoutes(
       if (workRuleId) filteredEmployees = filteredEmployees.filter(e => e.workRuleId === workRuleId);
       if (workshopId) filteredEmployees = filteredEmployees.filter(e => e.workshopId === workshopId);
       if (employeeId) filteredEmployees = filteredEmployees.filter(e => e.id === employeeId);
+
+      // فلترة إضافية لحسابات الورشات
+      if (req.session.role === "workshop") {
+        const allowedWsIds: string[] | null = req.session.allowedWorkshopIds ? JSON.parse(req.session.allowedWorkshopIds) : null;
+        const allowedShifts: string[] | null = req.session.allowedShifts ? JSON.parse(req.session.allowedShifts) : null;
+        if (allowedWsIds) filteredEmployees = filteredEmployees.filter(e => e.workshopId && allowedWsIds.includes(e.workshopId));
+        if (allowedShifts) filteredEmployees = filteredEmployees.filter(e => {
+          const empShift = e.shift || "morning";
+          return allowedShifts.includes(empShift) || (allowedShifts.includes("morning") && (e as any).is24hShift);
+        });
+      }
 
       // بناء Map للورشات وقواعد العمل للبحث السريع
       const workshopsMap = new Map(allWorkshops.map(w => [w.id, w]));
@@ -5271,12 +5383,22 @@ export async function registerRoutes(
 
   // GET /api/payroll/monthly?year=&month= — كشف الرواتب الشهري
   app.get("/api/payroll/monthly", async (req, res) => {
-    if (!requireCaisseOrOwner(req, res)) return;
+    const sessionRole = req.session.role ?? "staff";
+    if (sessionRole !== "workshop" && !requireCaisseOrOwner(req, res)) return;
     try {
       const year = parseInt(req.query.year as string);
       const month = parseInt(req.query.month as string);
       if (isNaN(year) || isNaN(month)) return res.status(400).json({ message: "السنة والشهر مطلوبان" });
-      const rows = await computePayrollRows(year, month);
+      let rows = await computePayrollRows(year, month);
+      if (sessionRole === "workshop") {
+        const allowedWsIds: string[] | null = req.session.allowedWorkshopIds ? JSON.parse(req.session.allowedWorkshopIds) : null;
+        const allowedShifts: string[] | null = req.session.allowedShifts ? JSON.parse(req.session.allowedShifts) : null;
+        if (allowedWsIds) rows = rows.filter(r => r.workshopId && allowedWsIds.includes(r.workshopId));
+        if (allowedShifts) rows = rows.filter(r => {
+          const empShift = (r as any).shift || "morning";
+          return allowedShifts.includes(empShift) || (allowedShifts.includes("morning") && (r as any).is24hShift);
+        });
+      }
       return res.json({ year, month, rows });
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });

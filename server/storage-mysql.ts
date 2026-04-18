@@ -48,6 +48,21 @@ export class MysqlStorage implements IStorage {
     return result as User;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    const rows = await mysqlDb.select().from(schema.users);
+    return rows as User[];
+  }
+
+  async updateUser(id: string, data: Partial<Pick<User, 'role' | 'allowedShifts' | 'allowedWorkshopIds' | 'password'>>): Promise<User | undefined> {
+    await mysqlDb.update(schema.users).set(data as any).where(eq(schema.users.id, id));
+    const [result] = await mysqlDb.select().from(schema.users).where(eq(schema.users.id, id));
+    return result as User | undefined;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await mysqlDb.delete(schema.users).where(eq(schema.users.id, id));
+  }
+
   async renameUser(oldUsername: string, newUsername: string): Promise<void> {
     await mysqlDb.update(schema.users)
       .set({ username: newUsername })

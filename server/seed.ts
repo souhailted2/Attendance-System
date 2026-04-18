@@ -7,12 +7,19 @@ const OBSERVER_USERNAME = "observer";
 
 async function ensureAdminUser() {
   const target = await storage.getUserByUsername(ADMIN_USERNAME);
-  if (target) return;
+  if (target) {
+    if (!target.role || target.role !== "owner") {
+      await storage.updateUser(target.id, { role: "owner" });
+      console.log(`✅ تم تعيين دور owner للمستخدم: ${ADMIN_USERNAME}`);
+    }
+    return;
+  }
 
   // ترقية من الاسم القديم bachir tedjani
   const oldBachir = await storage.getUserByUsername("bachir tedjani");
   if (oldBachir) {
     await storage.renameUser("bachir tedjani", ADMIN_USERNAME);
+    await storage.updateUser(oldBachir.id, { role: "owner" });
     console.log(`✅ تم تغيير اسم المستخدم: bachir tedjani → ${ADMIN_USERNAME}`);
     return;
   }
@@ -20,36 +27,52 @@ async function ensureAdminUser() {
   const old = await storage.getUserByUsername("admin");
   if (old) {
     await storage.renameUser("admin", ADMIN_USERNAME);
+    await storage.updateUser(old.id, { role: "owner" });
     console.log(`✅ تم تغيير اسم المستخدم: admin → ${ADMIN_USERNAME}`);
     return;
   }
 
   const hashed = await bcrypt.hash("admin123", 10);
-  await storage.createUser({ username: ADMIN_USERNAME, password: hashed });
+  await storage.createUser({ username: ADMIN_USERNAME, password: hashed, role: "owner" } as any);
   console.log(`✅ تم إنشاء المستخدم الافتراضي: ${ADMIN_USERNAME} / admin123`);
 }
 
 async function ensureAttendanceUser() {
   const existing = await storage.getUserByUsername(ATTENDANCE_USERNAME);
-  if (existing) return;
+  if (existing) {
+    if (!existing.role || existing.role !== "attendence") {
+      await storage.updateUser(existing.id, { role: "attendence" });
+    }
+    return;
+  }
   const hashed = await bcrypt.hash("attendence123", 10);
-  await storage.createUser({ username: ATTENDANCE_USERNAME, password: hashed });
+  await storage.createUser({ username: ATTENDANCE_USERNAME, password: hashed, role: "attendence" } as any);
   console.log(`✅ تم إنشاء مستخدم الحضور: ${ATTENDANCE_USERNAME} / attendence123`);
 }
 
 async function ensureObserverUser() {
   const existing = await storage.getUserByUsername(OBSERVER_USERNAME);
-  if (existing) return;
+  if (existing) {
+    if (!existing.role || existing.role !== "observer") {
+      await storage.updateUser(existing.id, { role: "observer" });
+    }
+    return;
+  }
   const hashed = await bcrypt.hash("observer123", 10);
-  await storage.createUser({ username: OBSERVER_USERNAME, password: hashed });
+  await storage.createUser({ username: OBSERVER_USERNAME, password: hashed, role: "observer" } as any);
   console.log(`✅ تم إنشاء مستخدم المراقب: ${OBSERVER_USERNAME} / observer123`);
 }
 
 async function ensureCaisseUser() {
   const existing = await storage.getUserByUsername("caisse");
-  if (existing) return;
+  if (existing) {
+    if (!existing.role || existing.role !== "caisse") {
+      await storage.updateUser(existing.id, { role: "caisse" });
+    }
+    return;
+  }
   const hashed = await bcrypt.hash("allaltpl2040", 10);
-  await storage.createUser({ username: "caisse", password: hashed });
+  await storage.createUser({ username: "caisse", password: hashed, role: "caisse" } as any);
   console.log(`✅ تم إنشاء مستخدم الصندوق: caisse / allaltpl2040`);
 }
 

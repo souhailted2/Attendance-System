@@ -63,6 +63,7 @@ const roleInfo: Record<string, { label: string; displayName: string; icon: typeo
   attendence: { label: "مسؤول الحضور", displayName: "مسؤول الحضور", icon: ClipboardCheck },
   observer: { label: "مراقب", displayName: "المراقب", icon: Eye },
   caisse: { label: "موظف الصندوق", displayName: "الصندوق", icon: Banknote },
+  workshop: { label: "حساب ورشة", displayName: "الورشة", icon: Wrench },
 };
 
 const caisseItems = [
@@ -85,10 +86,16 @@ function getAvatarGradient(username: string): string {
   return gradients[Math.abs(hash) % gradients.length];
 }
 
+const workshopItems = [
+  { title: "التقارير", url: "/reports", icon: BarChart3 },
+  { title: "كشف الرواتب", url: "/payroll", icon: FileSpreadsheet },
+];
+
 export function AppSidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const role = user ? (roleInfo[user.username] ?? { label: "مستخدم", displayName: user.username, icon: Users }) : null;
+  const role = user ? (roleInfo[user.role] ?? roleInfo[user.username] ?? { label: "مستخدم", displayName: user.username, icon: Users }) : null;
+  const isWorkshop = user?.role === "workshop";
 
   return (
     <Sidebar side="right">
@@ -111,8 +118,31 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        {/* CAISSE: واجهة خاصة للصندوق */}
-        {user?.username === "caisse" ? (
+        {/* WORKSHOP: واجهة مخصصة للورشة */}
+        {isWorkshop ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>الورشة</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {workshopItems.map((item) => {
+                  const active = location === item.url;
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton asChild isActive={active} data-testid={`link-nav-${item.url.replace("/", "")}`}>
+                        <Link href={item.url}>
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${active ? "bg-primary/20" : ""}`}>
+                            <item.icon className="h-3.5 w-3.5" />
+                          </span>
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : user?.username === "caisse" ? (
           <SidebarGroup>
             <SidebarGroupLabel>الصندوق</SidebarGroupLabel>
             <SidebarGroupContent>

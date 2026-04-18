@@ -47,6 +47,19 @@ export class PgStorage implements IStorage {
     return result;
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return pgDb.select().from(schema.users);
+  }
+
+  async updateUser(id: string, data: Partial<Pick<User, 'role' | 'allowedShifts' | 'allowedWorkshopIds' | 'password'>>): Promise<User | undefined> {
+    const [result] = await pgDb.update(schema.users).set(data).where(eq(schema.users.id, id)).returning();
+    return result;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    await pgDb.delete(schema.users).where(eq(schema.users.id, id));
+  }
+
   async renameUser(oldUsername: string, newUsername: string): Promise<void> {
     await pgDb.update(schema.users)
       .set({ username: newUsername })

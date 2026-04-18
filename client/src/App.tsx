@@ -66,6 +66,7 @@ const roleLabels: Record<string, { label: string; color: string }> = {
   attendence: { label: "حضور", color: "hsl(160 70% 38%)" },
   observer: { label: "مراقب", color: "hsl(43 96% 42%)" },
   caisse: { label: "صندوق", color: "hsl(36 90% 44%)" },
+  workshop: { label: "ورشة", color: "hsl(220 80% 50%)" },
 };
 
 function getInitials(name: string): string {
@@ -116,7 +117,7 @@ function UserBadge() {
   const { user } = useAuth();
   if (!user) return null;
   const initials = getInitials(user.username);
-  const role = roleLabels[user.username] ?? { label: "مستخدم", color: "hsl(262 75% 50%)" };
+  const role = roleLabels[user.role] ?? roleLabels[user.username] ?? { label: "مستخدم", color: "hsl(262 75% 50%)" };
   return (
     <div className="flex items-center gap-2">
       <div className="hidden sm:flex flex-col items-end leading-none gap-0.5">
@@ -152,14 +153,20 @@ function UserBadge() {
 function ProtectedRoute({
   component: Component,
   allowedUsers,
+  allowedRoles,
 }: {
   component: React.ComponentType;
   allowedUsers: string[];
+  allowedRoles?: string[];
 }) {
   const { user } = useAuth();
-  if (!user || !allowedUsers.includes(user.username)) {
-    const fallback = user?.username === "caisse" ? "/salaries" : "/";
-    return <Redirect to={fallback} />;
+  if (!user) return <Redirect to="/" />;
+  const roleAllowed = allowedRoles && user.role && allowedRoles.includes(user.role);
+  const userAllowed = allowedUsers.includes(user.username);
+  if (!roleAllowed && !userAllowed) {
+    if (user.role === "workshop") return <Redirect to="/reports" />;
+    if (user.username === "caisse") return <Redirect to="/salaries" />;
+    return <Redirect to="/" />;
   }
   return <Component />;
 }
@@ -179,7 +186,7 @@ function Router() {
         <ProtectedRoute component={Attendance} allowedUsers={[...NON_CAISSE_ROLES]} />
       </Route>
       <Route path="/reports">
-        <ProtectedRoute component={Reports} allowedUsers={[...NON_CAISSE_ROLES]} />
+        <ProtectedRoute component={Reports} allowedUsers={[...NON_CAISSE_ROLES]} allowedRoles={["workshop"]} />
       </Route>
       <Route path="/companies">
         <ProtectedRoute
@@ -262,7 +269,7 @@ function Router() {
         <ProtectedRoute component={Deductions} allowedUsers={["caisse", "owner"]} />
       </Route>
       <Route path="/payroll">
-        <ProtectedRoute component={Payroll} allowedUsers={["caisse"]} />
+        <ProtectedRoute component={Payroll} allowedUsers={["caisse"]} allowedRoles={["workshop"]} />
       </Route>
       <Route component={NotFound} />
     </Switch>

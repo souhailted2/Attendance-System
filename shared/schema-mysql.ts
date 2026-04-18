@@ -6,6 +6,9 @@ export const users = mysqlTable("auth_users", {
   id: varchar("id", { length: 36 }).primaryKey(),
   username: varchar("username", { length: 191 }).notNull(),
   password: text("password").notNull(),
+  role: varchar("role", { length: 50 }).default("staff"),
+  allowedShifts: text("allowed_shifts"),
+  allowedWorkshopIds: text("allowed_workshop_ids"),
 }, (table) => [
   uniqueIndex("auth_users_username_idx").on(table.username),
 ]);
