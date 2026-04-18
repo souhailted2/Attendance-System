@@ -4413,6 +4413,136 @@ export async function registerRoutes(
           ptsOnPage += grpPts;
         }
 
+        // ─── مجموعة 12: أخرى / غير مصنف ───
+        // تجمع كل الموظفين الذين لا تنتمي ورشتهم لأي من المجموعات 1-11
+        {
+          const coveredIds = new Set<string>(
+            CUSTOM_GROUPS_ADV.flatMap(g =>
+              g.workshops.flatMap(wName => nameToIds.get(wName) ?? [])
+            )
+          );
+          const otherRows = shiftRows
+            .filter(r => !r.workshopId || !coveredIds.has(r.workshopId as string))
+            .sort((a, b) => {
+              const wa = (workshopMap.get(a.workshopId as string) ?? "").trim();
+              const wb = (workshopMap.get(b.workshopId as string) ?? "").trim();
+              const wCmp = wa.localeCompare(wb, "ar");
+              if (wCmp !== 0) return wCmp;
+              return (a.employeeName ?? "").localeCompare(b.employeeName ?? "", "ar");
+            });
+
+          if (otherRows.length > 0) {
+            // الورشات المتميزة في المجموعة الأخرى
+            const otherWsNames = [...new Set(
+              otherRows.map(r => (workshopMap.get(r.workshopId as string) ?? "غير محدد").trim())
+            )].sort((a, b) => a.localeCompare(b, "ar"));
+
+            const grpPts = calcGrpH(otherRows.length, otherWsNames.length);
+
+            if (!firstOnPage) {
+              if (ptsOnPage + SEP_H + grpPts > PAGE_PTS) {
+                ws.getRow(cur).addPageBreak();
+                cur++;
+                ptsOnPage = 0;
+                firstOnPage = true;
+              } else {
+                ws.getRow(cur).height = SEP_H;
+                cur++;
+                ptsOnPage += SEP_H;
+              }
+            }
+            firstOnPage = false;
+
+            // عنوان المجموعة
+            ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+            const grpHCell = ws.getCell(cur, 1);
+            grpHCell.value = `12  —  أخرى / غير مصنف`;
+            grpHCell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+            grpHCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 1 };
+            grpHCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: sheetDef.color } };
+            setBorderAdv(grpHCell);
+            ws.getRow(cur).height = GRP_H;
+            trkWidth(colWidths, 0, grpHCell.value);
+            cur++;
+
+            // رأس الجدول
+            const hdrRow = ws.getRow(cur);
+            headersAdv.forEach((h, ci) => {
+              const cell = hdrRow.getCell(ci + 1);
+              cell.value = h;
+              cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
+              cell.alignment = { horizontal: "center", vertical: "middle", readingOrder: "rtl" };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2E4057" } };
+              setBorderAdv(cell);
+              trkWidth(colWidths, ci, h);
+            });
+            hdrRow.height = TBL_H;
+            cur++;
+
+            // صفوف البيانات مع فواصل أسماء الورشات
+            const multiWs = otherWsNames.length > 1;
+            let grpScore = 0;
+            let dataIdx = 0;
+            let lastWsName: string | null = null;
+
+            for (const row of otherRows) {
+              const wsName = (workshopMap.get(row.workshopId as string) ?? "غير محدد").trim();
+
+              if (multiWs && wsName !== lastWsName) {
+                lastWsName = wsName;
+                ws.mergeCells(cur, 1, cur, NCOLS_ADV);
+                const wsSubCell = ws.getCell(cur, 1);
+                wsSubCell.value = `◈  ${wsName}`;
+                wsSubCell.font = { bold: true, size: 10, color: { argb: "FF1B3A5C" } };
+                wsSubCell.alignment = { horizontal: "right", vertical: "middle", readingOrder: "rtl", indent: 2 };
+                wsSubCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD6E8F4" } };
+                setBorderAdv(wsSubCell);
+                ws.getRow(cur).height = WS_SUB_H;
+                cur++;
+              }
+
+              const sc = Number(row.attendanceScore ?? 0) || 0;
+              grpScore += sc;
+              const dataRow = ws.getRow(cur);
+              const rowBg = dataIdx % 2 === 1 ? "FFF8F9FA" : "FFFFFFFF";
+              const vals: (string | number)[] = [row.employeeName ?? "", row.employeeCode ?? "", sc, "", ""];
+              vals.forEach((v, ci) => {
+                const cell = dataRow.getCell(ci + 1);
+                cell.value = v;
+                setBorderAdv(cell);
+                cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+                const fmt = colFmtAdv[ci]; if (fmt) cell.numFmt = fmt;
+                if (ci === 3) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE3CD" } }; }
+                else if (ci === 4) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFF8F0" } }; cell.alignment = { ...cell.alignment, horizontal: "center" }; }
+                else if (ci === 2) { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD4E6F1" } }; cell.font = { size: 11, color: { argb: "FF0055CC" } }; }
+                else { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: rowBg } }; }
+                trkWidth(colWidths, ci, v);
+              });
+              dataRow.height = DATA_H;
+              cur++;
+              dataIdx++;
+            }
+            sheetTotalScore += grpScore;
+
+            // إجمالي المجموعة
+            const totRow = ws.getRow(cur);
+            totRow.height = TOT_H;
+            const totVals: (string | number)[] = [`إجمالي  أخرى / غير مصنف`, "", grpScore, "", ""];
+            totVals.forEach((v, ci) => {
+              const cell = totRow.getCell(ci + 1);
+              cell.value = v;
+              cell.font = { bold: true, size: 11, color: { argb: sheetDef.color } };
+              cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE9ECEF" } };
+              setBorderAdv(cell);
+              cell.alignment = { vertical: "middle", readingOrder: "rtl", horizontal: "right" };
+              const fmt = colFmtAdv[ci]; if (fmt) cell.numFmt = fmt;
+              trkWidth(colWidths, ci, v);
+            });
+            cur++;
+            ptsOnPage += grpPts;
+          }
+        }
+
         // ─── إجمالي الفترة الكلي (آخر صفحة) ───
         ws.mergeCells(cur, 1, cur, NCOLS_ADV);
         const grandCell = ws.getCell(cur, 1);
