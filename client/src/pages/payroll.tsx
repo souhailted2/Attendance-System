@@ -99,6 +99,20 @@ export default function Payroll() {
 
   const years = Array.from({ length: 5 }, (_, i) => String(now.getFullYear() - 2 + i));
 
+  // شهران متاحان للورشة فقط (الحالي + الماضي)
+  const workshopMonths = (() => {
+    const result = [];
+    for (let i = 0; i < 2; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      result.push({
+        month: String(d.getMonth() + 1),
+        year: String(d.getFullYear()),
+        label: `${MONTHS_AR[d.getMonth()]} ${d.getFullYear()}`,
+      });
+    }
+    return result;
+  })();
+
   function handleGenerate() {
     setQueryKey(["/api/payroll/monthly", year, month]);
     setPage(0);
@@ -194,25 +208,44 @@ export default function Payroll() {
       </div>
 
       <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <Select value={month} onValueChange={setMonth}>
-          <SelectTrigger className="w-36" data-testid="select-payroll-month">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTHS_AR.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={year} onValueChange={setYear}>
-          <SelectTrigger className="w-28" data-testid="select-payroll-year">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
-        </Select>
+        {isWorkshop ? (
+          <Select
+            value={`${year}-${month.padStart(2, "0")}`}
+            onValueChange={v => { const [y, m] = v.split("-"); setYear(y); setMonth(String(Number(m))); }}
+            data-testid="select-payroll-month-workshop"
+          >
+            <SelectTrigger className="w-44" data-testid="select-payroll-month">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {workshopMonths.map(wm => (
+                <SelectItem key={wm.label} value={`${wm.year}-${wm.month.padStart(2, "0")}`}>{wm.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <>
+            <Select value={month} onValueChange={setMonth}>
+              <SelectTrigger className="w-36" data-testid="select-payroll-month">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MONTHS_AR.map((m, i) => <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger className="w-28" data-testid="select-payroll-year">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+            </Select>
+          </>
+        )}
         <Button onClick={handleGenerate} disabled={isLoading} data-testid="button-generate-payroll">
           {isLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
           عرض الكشف
         </Button>
-        {data && (
+        {data && !isWorkshop && (
           <Button variant="outline" onClick={exportToExcel} data-testid="button-export-payroll-excel" className="gap-2 border-green-600/40 hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950/20">
             <FileSpreadsheet className="h-4 w-4 text-green-600" />
             <span className="text-green-700 dark:text-green-500">تصدير Excel</span>
@@ -228,32 +261,34 @@ export default function Payroll() {
 
       {data && (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-            <div className="rounded-xl border p-3 bg-card">
-              <p className="text-xs text-muted-foreground mb-1">إجمالي الأساسي</p>
-              <p className="text-lg font-bold">{fmtDZD(totalBase)}</p>
+          {/* Summary Cards — مخفية للورشة */}
+          {!isWorkshop && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+              <div className="rounded-xl border p-3 bg-card">
+                <p className="text-xs text-muted-foreground mb-1">إجمالي الأساسي</p>
+                <p className="text-lg font-bold">{fmtDZD(totalBase)}</p>
+              </div>
+              <div className="rounded-xl border p-3 bg-card">
+                <p className="text-xs text-muted-foreground mb-1">إجمالي الخصومات</p>
+                <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                  <TrendingDown className="inline h-3 w-3 ml-1" />
+                  {fmtDZD(totalDeductions)}
+                </p>
+              </div>
+              <div className="rounded-xl border p-3 bg-card">
+                <p className="text-xs text-muted-foreground mb-1">إجمالي الساعات الإضافية</p>
+                <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{fmtDZD(totalOvertime)}</p>
+              </div>
+              <div className="rounded-xl border p-3 bg-card">
+                <p className="text-xs text-muted-foreground mb-1">إجمالي المنح</p>
+                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fmtDZD(totalGrants)}</p>
+              </div>
+              <div className="rounded-xl border p-3 bg-card">
+                <p className="text-xs text-muted-foreground mb-1">إجمالي الصافي</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{fmtDZD(totalNet)}</p>
+              </div>
             </div>
-            <div className="rounded-xl border p-3 bg-card">
-              <p className="text-xs text-muted-foreground mb-1">إجمالي الخصومات</p>
-              <p className="text-lg font-bold text-red-600 dark:text-red-400">
-                <TrendingDown className="inline h-3 w-3 ml-1" />
-                {fmtDZD(totalDeductions)}
-              </p>
-            </div>
-            <div className="rounded-xl border p-3 bg-card">
-              <p className="text-xs text-muted-foreground mb-1">إجمالي الساعات الإضافية</p>
-              <p className="text-lg font-bold text-purple-600 dark:text-purple-400">{fmtDZD(totalOvertime)}</p>
-            </div>
-            <div className="rounded-xl border p-3 bg-card">
-              <p className="text-xs text-muted-foreground mb-1">إجمالي المنح</p>
-              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fmtDZD(totalGrants)}</p>
-            </div>
-            <div className="rounded-xl border p-3 bg-card">
-              <p className="text-xs text-muted-foreground mb-1">إجمالي الصافي</p>
-              <p className="text-lg font-bold text-green-600 dark:text-green-400">{fmtDZD(totalNet)}</p>
-            </div>
-          </div>
+          )}
 
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <div className="relative flex-1 min-w-[200px] max-w-sm">
@@ -539,7 +574,7 @@ export default function Payroll() {
                           );
                         })}
                       </tbody>
-                      <tfoot>
+                      {!isWorkshop && <tfoot>
                         <tr className="border-t bg-muted/50 font-bold text-xs">
                           <td className="px-2 py-2">مجموع الورشة</td>
                           <td className="px-2 py-2"></td>
@@ -588,7 +623,7 @@ export default function Payroll() {
                             {fmtDZD(rows.reduce((s, r) => s + getEffectiveRemaining(r), 0))}
                           </td>
                         </tr>
-                      </tfoot>
+                      </tfoot>}
                     </table>
                   </div>
                 );

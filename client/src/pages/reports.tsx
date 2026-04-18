@@ -225,11 +225,12 @@ export default function Reports() {
 
   const isOwnerOrAttendence = user?.username === "owner" || user?.username === "attendence";
 
-  // قائمة الأشهر المتاحة (24 شهرًا ماضيًا)
+  // قائمة الأشهر المتاحة: شهران فقط للورشة، 24 شهرًا للبقية
   const availableMonths = useMemo(() => {
     const months: { value: string; label: string }[] = [];
     const today = new Date();
-    for (let i = 0; i < 24; i++) {
+    const limit = isWorkshop ? 2 : 24;
+    for (let i = 0; i < limit; i++) {
       const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
       const y = d.getFullYear();
       const m = d.getMonth();
@@ -238,7 +239,7 @@ export default function Reports() {
       months.push({ value, label });
     }
     return months;
-  }, []);
+  }, [isWorkshop]);
 
   const { data: allGrants = [] } = useQuery<GrantWithConditions[]>({
     queryKey: ["/api/grants"],
