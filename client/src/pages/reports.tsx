@@ -148,6 +148,8 @@ function scoreColor(score: number, max: number): string {
   return "text-red-600 dark:text-red-400 font-semibold";
 }
 
+type WorkshopPayrollRow = { employeeId: string; employeeName: string; overtimeHours: number; overtimePay: number; netSalary: number; };
+
 export default function Reports() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -200,6 +202,22 @@ export default function Reports() {
   const { data: workshops = [] } = useQuery<Workshop[]>({ queryKey: ["/api/workshops"] });
   const { data: companies = [] } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
 
+  const [payrollYear, payrollMonth] = selectedMonth.split("-").map(Number);
+  const { data: workshopPayrollData } = useQuery<{ rows: WorkshopPayrollRow[] }>({
+    queryKey: ["/api/payroll/monthly", selectedMonth, selectedWorkshop?.id],
+    enabled: isWorkshop && !!selectedWorkshop,
+    queryFn: async () => {
+      const res = await fetch(`/api/payroll/monthly?year=${payrollYear}&month=${payrollMonth}`);
+      if (!res.ok) return { rows: [] };
+      return res.json();
+    },
+  });
+  const payrollMap = useMemo(() => {
+    const m = new Map<string, WorkshopPayrollRow>();
+    workshopPayrollData?.rows?.forEach((r) => m.set(r.employeeId, r));
+    return m;
+  }, [workshopPayrollData]);
+
   const { data: frozenArchives = [] } = useQuery<FrozenArchive[]>({
     queryKey: ["/api/frozen-archives"],
     enabled: isOwner,
@@ -239,6 +257,24 @@ export default function Reports() {
   });
 
   const activeEmployees = employees.filter((e) => e.isActive !== false);
+
+  // للورشات ذات ورشة واحدة: تحديد تلقائي
+  useEffect(() => {
+    if (!isWorkshop || selectedRule || selectedWorkshop) return;
+    if (workRules.length === 0 || workshops.length === 0 || activeEmployees.length === 0) return;
+    const allowedWsIds = user?.allowedWorkshopIds;
+    if (!allowedWsIds || allowedWsIds.length !== 1) return;
+    const ws = workshops.find((w) => allowedWsIds.includes(w.id));
+    if (!ws) return;
+    const allowedSh = user?.allowedShifts;
+    const empsInWs = activeEmployees.filter((e) =>
+      e.workshopId === ws.id && (!allowedSh || allowedSh.includes(e.shift ?? "morning"))
+    );
+    const ruleId = empsInWs[0]?.workRuleId;
+    if (!ruleId) return;
+    const rule = workRules.find((r) => r.id === ruleId);
+    if (rule) { setSelectedRule(rule); setSelectedWorkshop(ws); }
+  }, [isWorkshop, workRules.length, workshops.length, activeEmployees.length]);
 
   const isValidDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
   const datesValid =
@@ -466,6 +502,17 @@ export default function Reports() {
 
   function getEmpCountForRule(rule: WorkRule) {
     return activeEmployees.filter((e) => e.workRuleId === rule.id).length;
+  }
+
+  function handleWorkshopAccountClick(ws: Workshop) {
+    const allowedSh = user?.allowedShifts;
+    const empsInWs = activeEmployees.filter((e) =>
+      e.workshopId === ws.id && (!allowedSh || allowedSh.includes(e.shift ?? "morning"))
+    );
+    const ruleId = empsInWs[0]?.workRuleId;
+    if (!ruleId) return;
+    const rule = workRules.find((r) => r.id === ruleId);
+    if (rule) { setSelectedRule(rule); setSelectedWorkshop(ws); }
   }
 
   const totalScore = useMemo(() => reportData.reduce((s, r) => s + (r.attendanceScore || 0), 0), [reportData]);
@@ -893,32 +940,42 @@ export default function Reports() {
         breadcrumb={
           breadcrumb ? (
             <>
-              <button
-                className="text-primary hover:underline"
-                onClick={() => { setSelectedWorkshop(null); setSelectedRule(null); }}
-              >
-                الفترات
-              </button>
-              {selectedRule && !selectedWorkshop && (
-                <span className="flex items-center gap-1">
-                  <span>←</span>
-                  <span className="text-foreground font-medium">{selectedRule.name}</span>
-                </span>
-              )}
-              {selectedWorkshop && (
-                <span className="flex items-center gap-1">
-                  <span>←</span>
-                  <button className="text-primary hover:underline" onClick={() => setSelectedWorkshop(null)}>
-                    {selectedRule?.name}
+              {isWorkshop ? (
+                selectedWorkshop && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-foreground font-medium">{selectedWorkshop.name}</span>
+                  </span>
+                )
+              ) : (
+                <>
+                  <button
+                    className="text-primary hover:underline"
+                    onClick={() => { setSelectedWorkshop(null); setSelectedRule(null); }}
+                  >
+                    الفترات
                   </button>
-                  <span>←</span>
-                  <span className="text-foreground font-medium">{selectedWorkshop.name}</span>
-                </span>
+                  {selectedRule && !selectedWorkshop && (
+                    <span className="flex items-center gap-1">
+                      <span>←</span>
+                      <span className="text-foreground font-medium">{selectedRule.name}</span>
+                    </span>
+                  )}
+                  {selectedWorkshop && (
+                    <span className="flex items-center gap-1">
+                      <span>←</span>
+                      <button className="text-primary hover:underline" onClick={() => setSelectedWorkshop(null)}>
+                        {selectedRule?.name}
+                      </button>
+                      <span>←</span>
+                      <span className="text-foreground font-medium">{selectedWorkshop.name}</span>
+                    </span>
+                  )}
+                </>
               )}
             </>
           ) : undefined
         }
-        subtitle={!breadcrumb ? "اختر فترة عمل لعرض التقرير" : undefined}
+        subtitle={!breadcrumb ? (isWorkshop ? "اختر ورشة لعرض التقرير" : "اختر فترة عمل لعرض التقرير") : undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -948,8 +1005,55 @@ export default function Reports() {
       />
       <div className="p-6 space-y-5 max-w-6xl mx-auto">
 
+      {/* ======================== LEVEL WORKSHOP: Workshop cards for workshop accounts ======================== */}
+      {isWorkshop && !selectedWorkshop && (
+        rulesLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" />
+          </div>
+        ) : (() => {
+          const allowedWsIds = user?.allowedWorkshopIds;
+          const visibleWorkshops = allowedWsIds
+            ? workshops.filter((w) => allowedWsIds.includes(w.id))
+            : workshops;
+          return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {visibleWorkshops.map((ws) => {
+                const allowedSh = user?.allowedShifts;
+                const count = activeEmployees.filter((e) =>
+                  e.workshopId === ws.id && (!allowedSh || allowedSh.includes(e.shift ?? "morning"))
+                ).length;
+                return (
+                  <Card
+                    key={ws.id}
+                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+                    onClick={() => handleWorkshopAccountClick(ws)}
+                    data-testid={`card-ws-${ws.id}`}
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                          <Wrench className="h-4 w-4 text-primary" />
+                        </div>
+                        {ws.name}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Users className="h-4 w-4" />
+                        <span>{count} موظف</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()
+      )}
+
       {/* ======================== LEVEL 1: Work Rule Cards ======================== */}
-      {!selectedRule && viewMode === "shifts" && (
+      {!isWorkshop && !selectedRule && viewMode === "shifts" && (
         rulesLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Skeleton className="h-44 w-full" /><Skeleton className="h-44 w-full" />
@@ -1535,10 +1639,19 @@ export default function Reports() {
       {/* ======================== LEVEL 3: Employee Report ======================== */}
       {selectedRule && selectedWorkshop && (
         <div className="space-y-4">
-          <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setSelectedWorkshop(null)} data-testid="button-back-to-workshops">
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-            العودة للورشات
-          </Button>
+          {isWorkshop ? (
+            (user?.allowedWorkshopIds?.length ?? 0) !== 1 && (
+              <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => { setSelectedWorkshop(null); setSelectedRule(null); }} data-testid="button-back-to-workshops">
+                <ChevronLeft className="h-4 w-4 rotate-180" />
+                العودة للورشات
+              </Button>
+            )
+          ) : (
+            <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setSelectedWorkshop(null)} data-testid="button-back-to-workshops">
+              <ChevronLeft className="h-4 w-4 rotate-180" />
+              العودة للورشات
+            </Button>
+          )}
 
           {/* Summary cards */}
           {!reportLoading && reportData.length > 0 && (
@@ -1588,6 +1701,74 @@ export default function Reports() {
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {/* Payroll summary for workshop accounts */}
+          {isWorkshop && !reportLoading && payrollMap.size > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-indigo-500" />
+                  ملخص الرواتب والساعات الإضافية
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">الموظف</TableHead>
+                      <TableHead className="text-center">الساعات الإضافية</TableHead>
+                      <TableHead className="text-center">تعويض الإضافي</TableHead>
+                      <TableHead className="text-center">الراتب الصافي</TableHead>
+                      <TableHead className="text-center">المبلغ المقترح</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reportData.map((r) => {
+                      const p = payrollMap.get(r.employeeId);
+                      if (!p) return null;
+                      const suggested = p.netSalary > 0 ? Math.round(p.netSalary / 500) * 500 : 0;
+                      return (
+                        <TableRow key={r.employeeId}>
+                          <TableCell className="font-medium text-sm">{r.employeeName}</TableCell>
+                          <TableCell className="text-center text-sm">
+                            {p.overtimeHours > 0 ? (
+                              <span className="text-indigo-600 dark:text-indigo-400 font-medium">{p.overtimeHours}س</span>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-center text-sm">
+                            {p.overtimePay > 0 ? (
+                              <span className="text-indigo-600 dark:text-indigo-400 font-medium">{fmtDZD(p.overtimePay)}</span>
+                            ) : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                          <TableCell className="text-center text-sm font-medium">{fmtDZD(p.netSalary)}</TableCell>
+                          <TableCell className="text-center text-sm">
+                            <span className="font-bold text-green-600 dark:text-green-400">{fmtDZD(suggested)}</span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+                <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-sm font-medium">
+                  <span>الإجمالي</span>
+                  <div className="flex items-center gap-6">
+                    {(() => {
+                      const totalOT = Array.from(payrollMap.values()).reduce((s, p) => s + p.overtimePay, 0);
+                      const totalNet = Array.from(payrollMap.values()).reduce((s, p) => s + p.netSalary, 0);
+                      const totalSuggested = Array.from(payrollMap.values()).reduce((s, p) => s + (p.netSalary > 0 ? Math.round(p.netSalary / 500) * 500 : 0), 0);
+                      return (
+                        <>
+                          {totalOT > 0 && <span className="text-indigo-600 dark:text-indigo-400">{fmtDZD(totalOT)} إضافي</span>}
+                          <span>{fmtDZD(totalNet)} صافي</span>
+                          <span className="text-green-600 dark:text-green-400">{fmtDZD(totalSuggested)} مقترح</span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           )}
 
           {/* Legend */}
