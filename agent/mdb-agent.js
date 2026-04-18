@@ -481,7 +481,13 @@ if (autoMode) {
   // ── وضع التوقيت: مزامنة دورية كل N دقيقة ──
   log(`⏱️  وضع المراقبة: مزامنة كل ${INTERVAL_MINUTES} دقيقة`);
   runSync();
-  setInterval(runSync, INTERVAL_MINUTES * 60 * 1000);
+  setInterval(() => {
+    // ─── إصلاح: نعيد الفحص الكامل (آخر DAYS_BACK يوم) عند كل دورة ───
+    // السبب: البصمات التي تظهر في MDB بعد تأخير (مزامنة الجهاز→PC) قد تكون
+    //        تواريخها أقدم من lastSync فتُفوّتها النافذة الضيقة.
+    isFirstRun = true;
+    runSync();
+  }, INTERVAL_MINUTES * 60 * 1000);
 
 } else {
   // ── تشغيل مرة واحدة ──
