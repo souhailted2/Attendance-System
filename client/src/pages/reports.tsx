@@ -1709,7 +1709,7 @@ export default function Reports() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Clock className="h-4 w-4 text-indigo-500" />
-                  ملخص الرواتب والساعات الإضافية
+                  ملخص الساعات الإضافية
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
@@ -1719,15 +1719,12 @@ export default function Reports() {
                       <TableHead className="text-right">الموظف</TableHead>
                       <TableHead className="text-center">الساعات الإضافية</TableHead>
                       <TableHead className="text-center">تعويض الإضافي</TableHead>
-                      <TableHead className="text-center">الراتب الصافي</TableHead>
-                      <TableHead className="text-center">المبلغ المقترح</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {reportData.map((r) => {
                       const p = payrollMap.get(r.employeeId);
                       if (!p) return null;
-                      const suggested = p.netSalary > 0 ? Math.round(p.netSalary / 500) * 500 : 0;
                       return (
                         <TableRow key={r.employeeId}>
                           <TableCell className="font-medium text-sm">{r.employeeName}</TableCell>
@@ -1741,10 +1738,6 @@ export default function Reports() {
                               <span className="text-indigo-600 dark:text-indigo-400 font-medium">{fmtDZD(p.overtimePay)}</span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </TableCell>
-                          <TableCell className="text-center text-sm font-medium">{fmtDZD(p.netSalary)}</TableCell>
-                          <TableCell className="text-center text-sm">
-                            <span className="font-bold text-green-600 dark:text-green-400">{fmtDZD(suggested)}</span>
-                          </TableCell>
                         </TableRow>
                       );
                     })}
@@ -1754,14 +1747,12 @@ export default function Reports() {
                   <span>الإجمالي</span>
                   <div className="flex items-center gap-6">
                     {(() => {
+                      const totalOTHours = Array.from(payrollMap.values()).reduce((s, p) => s + p.overtimeHours, 0);
                       const totalOT = Array.from(payrollMap.values()).reduce((s, p) => s + p.overtimePay, 0);
-                      const totalNet = Array.from(payrollMap.values()).reduce((s, p) => s + p.netSalary, 0);
-                      const totalSuggested = Array.from(payrollMap.values()).reduce((s, p) => s + (p.netSalary > 0 ? Math.round(p.netSalary / 500) * 500 : 0), 0);
                       return (
                         <>
-                          {totalOT > 0 && <span className="text-indigo-600 dark:text-indigo-400">{fmtDZD(totalOT)} إضافي</span>}
-                          <span>{fmtDZD(totalNet)} صافي</span>
-                          <span className="text-green-600 dark:text-green-400">{fmtDZD(totalSuggested)} مقترح</span>
+                          <span className="text-indigo-600 dark:text-indigo-400">{totalOTHours}س</span>
+                          <span className="text-indigo-600 dark:text-indigo-400">{fmtDZD(totalOT)} إضافي</span>
                         </>
                       );
                     })()}
