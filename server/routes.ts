@@ -1612,7 +1612,8 @@ export async function registerRoutes(
         if (allowedWsIds) filteredEmployees = filteredEmployees.filter(e => e.workshopId && allowedWsIds.includes(e.workshopId));
         if (allowedShifts) filteredEmployees = filteredEmployees.filter(e => {
           const empShift = e.shift || "morning";
-          return allowedShifts.includes(empShift) || (allowedShifts.includes("morning") && (e as any).is24hShift);
+          const empWorkRule = allWorkRules.find(r => r.id === e.workRuleId);
+          return allowedShifts.includes(empShift) || (allowedShifts.includes("morning") && (empWorkRule?.is24hShift ?? false));
         });
       }
 
@@ -5404,8 +5405,8 @@ export async function registerRoutes(
         const allowedShifts: string[] | null = req.session.allowedShifts ? JSON.parse(req.session.allowedShifts) : null;
         if (allowedWsIds) rows = rows.filter(r => r.workshopId && allowedWsIds.includes(r.workshopId));
         if (allowedShifts) rows = rows.filter(r => {
-          const empShift = (r as any).shift || "morning";
-          return allowedShifts.includes(empShift) || (allowedShifts.includes("morning") && (r as any).is24hShift);
+          const empShift = r.shift || "morning";
+          return allowedShifts.includes(empShift) || (allowedShifts.includes("morning") && r.is24hShift);
         });
       }
       return res.json({ year, month, rows });

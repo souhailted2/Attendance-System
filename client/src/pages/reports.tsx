@@ -152,6 +152,7 @@ export default function Reports() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isOwner = user?.username === "owner";
+  const isWorkshop = user?.role === "workshop";
   const now = new Date();
 
   const [selectedMonth, setSelectedMonth] = useState<string>(() => {
@@ -1014,22 +1015,24 @@ export default function Reports() {
                         <span>{rule.name}</span>
                         {rule.isDefault && <Badge variant="secondary" className="text-xs">افتراضية</Badge>}
                       </CardTitle>
-                      <div className="flex gap-1">
-                        {isEditing ? (
-                          <>
-                            <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveGrace(rule.id)} disabled={updateRuleMutation.isPending} data-testid={`button-save-grace-${rule.id}`}>
-                              <Check className="h-3.5 w-3.5" />
+                      {!isWorkshop && (
+                        <div className="flex gap-1">
+                          {isEditing ? (
+                            <>
+                              <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveGrace(rule.id)} disabled={updateRuleMutation.isPending} data-testid={`button-save-grace-${rule.id}`}>
+                                <Check className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => setEditingRuleId(null)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); startEditGrace(rule); }} data-testid={`button-edit-grace-${rule.id}`}>
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => setEditingRuleId(null)}>
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        ) : (
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); startEditGrace(rule); }} data-testid={`button-edit-grace-${rule.id}`}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center justify-between mt-1.5">
@@ -1665,8 +1668,8 @@ export default function Reports() {
                                 return (
                                   <TableCell key={d} className="p-0">
                                     <button
-                                      className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOwner && !frozenEmpty ? "cursor-pointer hover:bg-muted/40" : "cursor-default"}`}
-                                      onClick={() => openEditCell(r, d, syntheticRec)}
+                                      className={`w-full min-h-[52px] flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOwner && !frozenEmpty && !isWorkshop ? "cursor-pointer hover:bg-muted/40" : "cursor-default"}`}
+                                      onClick={() => { if (!isWorkshop) openEditCell(r, d, syntheticRec); }}
                                       data-testid={`button-edit-cell-${r.employeeId}-${d}`}
                                     >
                                       {frozenEmpty ? <Lock className="h-3 w-3 text-muted-foreground/40" /> : "—"}
@@ -1682,8 +1685,8 @@ export default function Reports() {
                               return (
                                 <TableCell key={d} className="p-0" data-testid={`cell-${r.employeeId}-${d}`}>
                                   <button
-                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${isOwner && !frozen ? "cursor-pointer" : "cursor-default"}`}
-                                    onClick={() => openEditCell(r, d, rec)}
+                                    className={`w-full min-h-[52px] px-1 py-1.5 flex flex-col items-center justify-center gap-0.5 transition-colors ${bgClass} ${isOwner && !frozen && !isWorkshop ? "cursor-pointer" : "cursor-default"}`}
+                                    onClick={() => { if (!isWorkshop) openEditCell(r, d, rec); }}
                                     title={frozen ? `${r.employeeName} — ${d}\nالشهر مجمّد في الأرشيف` : `${r.employeeName} — ${d}\nالحالة: ${rec.status}\nدخول: ${rec.checkIn ?? "—"} | خروج: ${rec.checkOut ?? "—"}`}
                                     data-testid={`button-edit-cell-${r.employeeId}-${d}`}
                                   >
