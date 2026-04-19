@@ -3774,7 +3774,7 @@ export async function registerRoutes(
             if (rec31) rec31.dailyScore = rec31.status === "absent" ? -1.00 : 0.00;
           }
 
-          // خصم العطلة الأسبوعية عند الغياب (نفس منطق التقرير الشهري)
+          // خصم العطلة الأسبوعية عند الغياب (مع إصلاح الأسابيع الحدودية بين شهرين)
           // أيام العطلة غير المدفوعة لا تُسبب هذا الخصم
           {
             const unpaidLeaveDatesMonth = new Set<string>();
@@ -3790,6 +3790,11 @@ export async function registerRoutes(
               d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
               return d.toISOString().slice(0, 10);
             }
+            // دالة عامة للتحقق من كون اليوم عطلة أسبوعية (تستخدم كل الـ overrides)
+            const isEmpHolidayAny = (date: string): boolean => {
+              const dow = new Date(date + "T00:00:00").getDay();
+              return getEffectiveWeeklyOffDays(date, emp.workRuleId, allScheduleOverridesDetailed, weeklyOffDays).includes(dow);
+            };
             const holidaysByWeek = new Map<string, DayRecord[]>();
             for (const rec of dayRecords) {
               if (rec.status === "holiday") {
@@ -3798,10 +3803,54 @@ export async function registerRoutes(
                 holidaysByWeek.get(wk)!.push(rec);
               }
             }
+
+            // غيابات الأسابيع الحدودية: الأيام خارج نطاق الشهر (من الشهر المجاور)
+            // نستفيد من أن empRecords تحتوي السنة المالية كاملة
+            const borderAbsencesByWeek = new Map<string, number>();
+            {
+              const empStatusMap = new Map(empRecords.map(r => [r.date, r.status]));
+              // أيام ما قبل بداية الشهر في الأسبوع الأول (ضمن السنة المالية)
+              const firstWkStart = getWeekStart(monthStart);
+              if (firstWkStart < monthStart && firstWkStart >= fiscalStart) {
+                let d = new Date(firstWkStart + "T00:00:00");
+                const fromD = new Date(monthStart + "T00:00:00");
+                while (d < fromD) {
+                  const ds = d.toISOString().slice(0, 10);
+                  if (!isEmpHolidayAny(ds) && !empLeaves.some(lv => !lv.isPaid && ds >= lv.startDate && ds <= lv.endDate)) {
+                    const st = empStatusMap.get(ds);
+                    if (!st || st === "absent") {
+                      borderAbsencesByWeek.set(firstWkStart, (borderAbsencesByWeek.get(firstWkStart) ?? 0) + 1);
+                    }
+                  }
+                  d.setDate(d.getDate() + 1);
+                }
+              }
+              // أيام ما بعد نهاية الشهر في الأسبوع الأخير (ضمن السنة المالية وقبل اليوم)
+              const lastWkStart = getWeekStart(monthEnd);
+              const lastWkFriday = new Date(lastWkStart + "T00:00:00");
+              lastWkFriday.setDate(lastWkFriday.getDate() + 6);
+              if (lastWkFriday.toISOString().slice(0, 10) > monthEnd) {
+                let d = new Date(monthEnd + "T00:00:00");
+                d.setDate(d.getDate() + 1);
+                while (d <= lastWkFriday) {
+                  const ds = d.toISOString().slice(0, 10);
+                  if (ds > todayStr || ds > fiscalEnd) break;
+                  if (!isEmpHolidayAny(ds) && !empLeaves.some(lv => !lv.isPaid && ds >= lv.startDate && ds <= lv.endDate)) {
+                    const st = empStatusMap.get(ds);
+                    if (!st || st === "absent") {
+                      borderAbsencesByWeek.set(lastWkStart, (borderAbsencesByWeek.get(lastWkStart) ?? 0) + 1);
+                    }
+                  }
+                  d.setDate(d.getDate() + 1);
+                }
+              }
+            }
+
             for (const [wk, holidays] of holidaysByWeek) {
-              const absenceCount = dayRecords.filter(
+              const inRangeAbsences = dayRecords.filter(
                 r => getWeekStart(r.date) === wk && r.status === "absent" && !unpaidLeaveDatesMonth.has(r.date)
               ).length;
+              const absenceCount = inRangeAbsences + (borderAbsencesByWeek.get(wk) ?? 0);
               if (absenceCount === 0) continue;
               let toDeduct = absenceCount * 0.5;
               for (const h of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
