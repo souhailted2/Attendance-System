@@ -1575,6 +1575,32 @@ export async function registerRoutes(
         storage.getScheduleOverrides(),
       ]);
 
+      // --- إصلاح الأسابيع الحدودية: جلب سجلات الأيام خارج النطاق التي تنتمي لنفس الأسبوع ---
+      // السبت = بداية الأسبوع، الجمعة = نهايته
+      function borderWkStart(ds: string): string {
+        const d = new Date(ds + "T00:00:00");
+        d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+        return d.toISOString().slice(0, 10);
+      }
+      function borderWkEnd(ds: string): string {
+        const d = new Date(ds + "T00:00:00");
+        d.setDate(d.getDate() - ((d.getDay() + 1) % 7) + 6);
+        return d.toISOString().slice(0, 10);
+      }
+      const extFrom = borderWkStart(from);
+      const extTo   = borderWkEnd(to);
+      const extRecords = (extFrom < from || extTo > to)
+        ? await storage.getAttendanceByDateRange(extFrom, extTo)
+        : [];
+      // نبني Map للسجلات الإضافية (خارج النطاق الأصلي فقط)
+      const extRecordsByEmp = new Map<string, { date: string; status: string }[]>();
+      for (const r of extRecords) {
+        if (r.date >= from && r.date <= to) continue;
+        const lst = extRecordsByEmp.get(r.employeeId);
+        if (lst) lst.push({ date: r.date, status: r.status });
+        else extRecordsByEmp.set(r.employeeId, [{ date: r.date, status: r.status }]);
+      }
+
       // فلترة الجداول الخاصة النشطة ضمن نطاق التاريخ المطلوب
       const activeOverrides = allOverrides.filter(
         ov => ov.dateFrom <= to && ov.dateTo >= from
@@ -1952,7 +1978,7 @@ export async function registerRoutes(
           }
         }
 
-        // --- خصم العطلة الأسبوعية عند الغياب ---
+        // --- خصم العطلة الأسبوعية عند الغياب (مع إصلاح الأسابيع الحدودية بين شهرين) ---
         // لكل يوم غياب في الأسبوع → خصم 0.5 من نقاط العطلة (الأخيرة أولاً)
         // أيام العطلة غير المدفوعة لا تُسبب هذا الخصم
         {
@@ -1970,10 +1996,55 @@ export async function registerRoutes(
               holidaysByWeek.get(wk)!.push(rec);
             }
           }
+
+          // غيابات الأسابيع الحدودية: الأيام خارج النطاق (من الشهر المجاور) التي تنتمي لنفس الأسبوع
+          const borderAbsencesByWeek = new Map<string, number>();
+          {
+            const empExtRecs = extRecordsByEmp.get(emp.id) ?? [];
+            const extStatusMap = new Map(empExtRecs.map(r => [r.date, r.status]));
+            // أيام ما قبل `from` في الأسبوع الأول
+            const firstWkStart = getWeekStart(from);
+            if (firstWkStart < from) {
+              let d = new Date(firstWkStart + "T00:00:00");
+              const fromD = new Date(from + "T00:00:00");
+              while (d < fromD) {
+                const ds = d.toISOString().slice(0, 10);
+                if (!isEmpHoliday(ds) && !empUnpaidLeaveDates.has(ds)) {
+                  const st = extStatusMap.get(ds);
+                  if (!st || st === "absent") {
+                    borderAbsencesByWeek.set(firstWkStart, (borderAbsencesByWeek.get(firstWkStart) ?? 0) + 1);
+                  }
+                }
+                d.setDate(d.getDate() + 1);
+              }
+            }
+            // أيام ما بعد `to` في الأسبوع الأخير (قبل اليوم)
+            const lastWkStart = getWeekStart(to);
+            const lastWkFriday = new Date(lastWkStart + "T00:00:00");
+            lastWkFriday.setDate(lastWkFriday.getDate() + 6);
+            const lastWkEnd = lastWkFriday.toISOString().slice(0, 10);
+            if (lastWkEnd > to) {
+              let d = new Date(to + "T00:00:00");
+              d.setDate(d.getDate() + 1);
+              while (d <= lastWkFriday) {
+                const ds = d.toISOString().slice(0, 10);
+                if (ds > todayStr) break;
+                if (!isEmpHoliday(ds) && !empUnpaidLeaveDates.has(ds)) {
+                  const st = extStatusMap.get(ds);
+                  if (!st || st === "absent") {
+                    borderAbsencesByWeek.set(lastWkStart, (borderAbsencesByWeek.get(lastWkStart) ?? 0) + 1);
+                  }
+                }
+                d.setDate(d.getDate() + 1);
+              }
+            }
+          }
+
           for (const [wk, holidays] of holidaysByWeek) {
-            const absenceCount = dailyRecords.filter(
+            const inRangeAbsences = dailyRecords.filter(
               r => getWeekStart(r.date) === wk && r.status === "absent" && !empUnpaidLeaveDates.has(r.date)
             ).length;
+            const absenceCount = inRangeAbsences + (borderAbsencesByWeek.get(wk) ?? 0);
             if (absenceCount === 0) continue;
             let toDeduct = absenceCount * 0.5;
             for (const holiday of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
@@ -4972,6 +5043,29 @@ export async function registerRoutes(
         ]);
       const debtSkipsSet = new Set<string>(debtSkipsList);
 
+      // --- إصلاح الأسابيع الحدودية: جلب سجلات الأيام خارج الشهر التي تنتمي لنفس الأسبوع ---
+      function payGetWeekStart2(ds: string): string {
+        const d = new Date(ds + "T00:00:00");
+        d.setDate(d.getDate() - ((d.getDay() + 1) % 7));
+        return d.toISOString().slice(0, 10);
+      }
+      const payExtFrom = payGetWeekStart2(startDate);
+      // نهاية الجمعة لآخر أسبوع في الشهر
+      const _lastD = new Date(endDate + "T00:00:00");
+      const _daysToFri = (5 - _lastD.getDay() + 7) % 7;
+      const _payExtToObj = new Date(_lastD); _payExtToObj.setDate(_payExtToObj.getDate() + _daysToFri);
+      const payExtTo = _payExtToObj.toISOString().slice(0, 10);
+      const extPayRecords = (payExtFrom < startDate || payExtTo > endDate)
+        ? await storage.getAttendanceByDateRange(payExtFrom, payExtTo)
+        : [];
+      const extPayByEmp = new Map<string, { date: string; status: string }[]>();
+      for (const r of extPayRecords) {
+        if (r.date >= startDate && r.date <= endDate) continue;
+        const lst = extPayByEmp.get(r.employeeId);
+        if (lst) lst.push({ date: r.date, status: r.status });
+        else extPayByEmp.set(r.employeeId, [{ date: r.date, status: r.status }]);
+      }
+
       const activeEmployees = employees.filter(e => e.isActive);
       const workRulesMap = new Map(workRules.map(r => [r.id, r]));
       const defaultRule = workRules.find(r => r.isDefault) ?? workRules[0];
@@ -5172,7 +5266,7 @@ export async function registerRoutes(
           if (rec31) rec31.dailyScore = rec31.status === "absent" ? -1.00 : 0.00;
         }
 
-        // خصم نقطة العطلة الأسبوعية عند الغياب (بدون أيام الإجازة غير المدفوعة)
+        // خصم نقطة العطلة الأسبوعية عند الغياب (مع إصلاح الأسابيع الحدودية بين شهرين)
         const empUnpaidLeaveDates = new Set<string>();
         for (const lv of allLeaves) {
           if (lv.isPaid || !payLeaveApplies(lv, emp)) continue;
@@ -5190,10 +5284,54 @@ export async function registerRoutes(
             holidaysByWeek.get(wk)!.push(rec);
           }
         }
+
+        // غيابات الأسابيع الحدودية من الشهر المجاور
+        const payBorderAbsByWeek = new Map<string, number>();
+        {
+          const empExtRecs = extPayByEmp.get(emp.id) ?? [];
+          const extStatusMap = new Map(empExtRecs.map(r => [r.date, r.status]));
+          // أيام ما قبل بداية الشهر في الأسبوع الأول
+          const firstWkStart = payGetWeekStart(startDate);
+          if (firstWkStart < startDate) {
+            let d = new Date(firstWkStart + "T00:00:00");
+            const fromD = new Date(startDate + "T00:00:00");
+            while (d < fromD) {
+              const ds = d.toISOString().slice(0, 10);
+              if (!isEmpHolidayPay(ds) && !empUnpaidLeaveDates.has(ds)) {
+                const st = extStatusMap.get(ds);
+                if (!st || st === "absent") {
+                  payBorderAbsByWeek.set(firstWkStart, (payBorderAbsByWeek.get(firstWkStart) ?? 0) + 1);
+                }
+              }
+              d.setDate(d.getDate() + 1);
+            }
+          }
+          // أيام ما بعد نهاية الشهر في الأسبوع الأخير (قبل اليوم)
+          const lastWkStart = payGetWeekStart(endDate);
+          const lastWkFriday = new Date(lastWkStart + "T00:00:00");
+          lastWkFriday.setDate(lastWkFriday.getDate() + 6);
+          if (lastWkFriday.toISOString().slice(0, 10) > endDate) {
+            let d = new Date(endDate + "T00:00:00");
+            d.setDate(d.getDate() + 1);
+            while (d <= lastWkFriday) {
+              const ds = d.toISOString().slice(0, 10);
+              if (ds > todayStr) break;
+              if (!isEmpHolidayPay(ds) && !empUnpaidLeaveDates.has(ds)) {
+                const st = extStatusMap.get(ds);
+                if (!st || st === "absent") {
+                  payBorderAbsByWeek.set(lastWkStart, (payBorderAbsByWeek.get(lastWkStart) ?? 0) + 1);
+                }
+              }
+              d.setDate(d.getDate() + 1);
+            }
+          }
+        }
+
         for (const [wk, holidays] of holidaysByWeek) {
-          const absenceCount = dailyRecords.filter(
+          const inRangeAbsences = dailyRecords.filter(
             r => payGetWeekStart(r.date) === wk && r.status === "absent" && !empUnpaidLeaveDates.has(r.date)
           ).length;
+          const absenceCount = inRangeAbsences + (payBorderAbsByWeek.get(wk) ?? 0);
           if (absenceCount === 0) continue;
           let toDeduct = absenceCount * 0.5;
           for (const holiday of [...holidays].sort((a, b) => b.date.localeCompare(a.date))) {
