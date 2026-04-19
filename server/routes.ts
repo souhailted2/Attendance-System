@@ -1150,6 +1150,51 @@ export async function registerRoutes(
     res.json(fixed);
   });
 
+  // إعادة حساب وتحديث middle_absence_minutes لجميع السجلات القديمة التي تحتوي على rawPunches
+  app.post("/api/admin/recalculate-middle-absence", async (req, res) => {
+    if (req.session.username !== "owner") {
+      return res.status(403).json({ message: "صلاحية إعادة الحساب متاحة للمالك فقط" });
+    }
+    try {
+      const [allRecords, allEmployees, allWorkRules] = await Promise.all([
+        storage.getAttendanceByDateRange("2000-01-01", "2099-12-31"),
+        storage.getEmployees(),
+        storage.getWorkRules(),
+      ]);
+
+      const empMap = new Map((allEmployees as any[]).map((e: any) => [e.id, e]));
+      const ruleMap = new Map((allWorkRules as any[]).map((r: any) => [r.id, r]));
+      const defaultRule = (allWorkRules as any[]).find((r: any) => r.isDefault) ?? null;
+
+      let updated = 0;
+      let skipped = 0;
+
+      for (const rec of allRecords as any[]) {
+        let punches: string[] = [];
+        try { if (rec.rawPunches) punches = JSON.parse(rec.rawPunches); } catch {}
+
+        const correctValue = (() => {
+          if (punches.length <= 2) return 0;
+          const emp = empMap.get(rec.employeeId) as any;
+          const rule: any = (emp?.workRuleId ? ruleMap.get(emp.workRuleId) : null) ?? defaultRule;
+          const shiftStartMin = rule?.workStartTime ? timeToMinGlobal(rule.workStartTime) : null;
+          const shiftEndMin   = rule?.workEndTime   ? timeToMinGlobal(rule.workEndTime)   : null;
+          return calculateMiddleAbsenceMinutes(punches, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMin, shiftEndMin);
+        })();
+
+        const storedValue = rec.middleAbsenceMinutes ?? 0;
+        if (storedValue === correctValue) { skipped++; continue; }
+
+        await storage.updateAttendance(rec.id, { middleAbsenceMinutes: correctValue });
+        updated++;
+      }
+
+      res.json({ message: "تمت إعادة الحساب بنجاح", updated, skipped, total: allRecords.length });
+    } catch (err: any) {
+      res.status(500).json({ message: "خطأ أثناء إعادة الحساب", error: err.message });
+    }
+  });
+
   // دالة مساعدة: هل الشهر مجمّد لهذا الموظف؟
   async function isMonthFrozenForEmployee(employeeId: string, date: string): Promise<boolean> {
     const employee = await storage.getEmployee(employeeId);
