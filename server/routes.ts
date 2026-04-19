@@ -3551,12 +3551,14 @@ export async function registerRoutes(
 
           let absentDays = 0;
           let lateDays = 0;
+          let earlyLeaveDays = 0;
           let totalLateMinutes = 0;
           let totalEarlyLeaveMinutes = 0;
           const weekdayAbsences: Record<number, number> = {};
 
-          // حد دقائق التأخير لاحتساب اليوم مخالفة (من شرط late في المنحة، أو 0 إن لم يوجد)
+          // حد دقائق التأخير والخروج المبكر لاحتساب اليوم مخالفة
           const lateMinThreshold = conditions.find((c: any) => c.conditionType === "late")?.minutesThreshold ?? 0;
+          const earlyMinThreshold = conditions.find((c: any) => c.conditionType === "early_leave")?.minutesThreshold ?? 0;
 
           // أيام العطلة غير المدفوعة للموظف في هذا الشهر
           const empUnpaidLeaveDatesGrants = buildAllLeaveDatesGrants(emp);
@@ -3601,19 +3603,36 @@ export async function registerRoutes(
               if (checkOutMin !== null) {
                 const rawEarly = Math.max(0, effEarlyLeaveRefMin - checkOutMin);
                 const effEarly = Math.max(0, rawEarly - earlyLeaveGrace);
-                if (effEarly > 0) totalEarlyLeaveMinutes += effEarly;
+                if (effEarly > 0) {
+                  totalEarlyLeaveMinutes += effEarly;
+                  if (effEarly >= earlyMinThreshold) earlyLeaveDays++;
+                }
               }
             }
           }
 
+          // أيام الغياب المغطاة بشروط يوم محدد — تُستبعد من شرط الغياب العام لمنع الازدواج
+          const weekdayClaimedDows = new Set<number>();
+          for (const cond of conditions) {
+            if (cond.conditionType === "absence" && cond.absenceMode === "weekday") {
+              let wds: string[] = []; try { wds = JSON.parse(cond.weekdays ?? "[]"); } catch { wds = []; }
+              for (const wd of wds) {
+                const d = typeof wd === "number" ? wd : (WEEKDAY_TO_DOW[String(wd)] ?? -1);
+                if (d >= 0) weekdayClaimedDows.add(d);
+              }
+            }
+          }
+          const weekdayClaimedAbsences = [...weekdayClaimedDows].reduce((s, d) => s + (weekdayAbsences[d] ?? 0), 0);
+          const unclaimedAbsences = Math.max(0, absentDays - weekdayClaimedAbsences);
+
           let finalAmount = baseAmount;
           let cancelled = false;
 
-          // 1) تجاوز العقوبات أولاً
+          // 1) تجاوز العقوبات أولاً (>= threshold: غياب + تأخير + خروج مبكر)
           for (const cond of conditions) {
             if (cond.conditionType !== "violations_exceed") continue;
             const threshold = cond.violationsThreshold ?? 0;
-            if ((absentDays + lateDays) > threshold) { cancelled = true; finalAmount = 0; break; }
+            if ((absentDays + lateDays + earlyLeaveDays) >= threshold) { cancelled = true; finalAmount = 0; break; }
           }
 
           if (!cancelled) {
@@ -3621,48 +3640,61 @@ export async function registerRoutes(
               if (cancelled) break;
               if (cond.conditionType === "violations_exceed") continue;
 
-              let triggered = false;
               const effAmt = parseFloat(cond.effectAmount ?? "0") || 0;
 
               if (cond.conditionType === "absence") {
                 if (cond.absenceMode === "count") {
-                  triggered = absenceThresholdMet(absentDays, cond.daysThreshold ?? null);
+                  // يُطبَّق على الأيام غير المغطاة بشرط يوم محدد، خصم مستقل لكل يوم
+                  if (absenceThresholdMet(unclaimedAbsences, cond.daysThreshold ?? null)) {
+                    if (cond.effectType === "cancel") { cancelled = true; finalAmount = 0; break; }
+                    else if (cond.effectType === "deduct") finalAmount = Math.max(0, finalAmount - effAmt * unclaimedAbsences);
+                    else if (cond.effectType === "add") finalAmount += effAmt * unclaimedAbsences;
+                  }
                 } else if (cond.absenceMode === "weekday") {
                   let weekdays: string[] = [];
                   try { weekdays = JSON.parse(cond.weekdays ?? "[]"); } catch { weekdays = []; }
-                  // weekdays مخزنة كأسماء عربية أو أرقام — نحوّل لرقم DOW
-                  triggered = weekdays.some(wd => {
-                    const dow = typeof wd === "number" ? wd : (WEEKDAY_TO_DOW[String(wd)] ?? -1);
-                    return dow >= 0 && (weekdayAbsences[dow] ?? 0) > 0;
-                  });
+                  // خصم لكل غياب على الأيام المستهدفة
+                  const absOnDows = weekdays.reduce((s: number, wd: any) => {
+                    const d = typeof wd === "number" ? wd : (WEEKDAY_TO_DOW[String(wd)] ?? -1);
+                    return s + (d >= 0 ? (weekdayAbsences[d] ?? 0) : 0);
+                  }, 0);
+                  if (absOnDows > 0) {
+                    if (cond.effectType === "cancel") { cancelled = true; finalAmount = 0; break; }
+                    else if (cond.effectType === "deduct") finalAmount = Math.max(0, finalAmount - effAmt * absOnDows);
+                    else if (cond.effectType === "add") finalAmount += effAmt * absOnDows;
+                  }
                 }
-              } else if (cond.conditionType === "late") {
-                triggered = totalLateMinutes >= (cond.minutesThreshold ?? 0);
-              } else if (cond.conditionType === "early_leave") {
-                triggered = totalEarlyLeaveMinutes >= (cond.minutesThreshold ?? 0);
-              } else if (cond.conditionType === "attendance") {
-                // شرط الحضور الكامل: يُفعَّل عند وجود غياب (حضور غير كامل)
-                // أي: المنحة تُلغى/تُخصم إذا لم يكن الحضور كاملاً
-                const periodType = cond.attendancePeriodType ?? "month";
-                if (periodType === "month" || !periodType) {
-                  triggered = absentDays > 0;
-                } else if (periodType === "week") {
-                  // آخر أسبوع: نتحقق من آخر 7 أيام عمل في الفترة (باستثناء أيام العطلة غير المدفوعة)
-                  const recentDates = allDates
-                    .filter(d => d <= todayStr && !(!is24h && isEmpHolidayGrants(d)) && !empUnpaidLeaveDatesGrants.has(d))
-                    .slice(-7);
-                  const recentAbsent = recentDates.filter(d =>
-                    !empRecordsByDate.has(d) || empRecordsByDate.get(d)!.status === "absent"
-                  ).length;
-                  triggered = recentAbsent > 0;
-                }
-                // باقي أنواع الفترة (specific_month/week/day/year/months) تُهمل في التقرير الشهري
-              }
+              } else {
+                let triggered = false;
+                let multiplier = 1;
 
-              if (triggered) {
-                if (cond.effectType === "cancel") { cancelled = true; finalAmount = 0; break; }
-                else if (cond.effectType === "deduct") finalAmount = Math.max(0, finalAmount - effAmt);
-                else if (cond.effectType === "add") finalAmount += effAmt;
+                if (cond.conditionType === "late") {
+                  triggered = lateDays > 0;
+                  multiplier = lateDays;
+                } else if (cond.conditionType === "early_leave") {
+                  triggered = earlyLeaveDays > 0;
+                  multiplier = earlyLeaveDays;
+                } else if (cond.conditionType === "attendance") {
+                  const periodType = cond.attendancePeriodType ?? "month";
+                  if (periodType === "month" || !periodType) {
+                    triggered = absentDays > 0;
+                  } else if (periodType === "week") {
+                    const recentDates = allDates
+                      .filter(d => d <= todayStr && !(!is24h && isEmpHolidayGrants(d)) && !empUnpaidLeaveDatesGrants.has(d))
+                      .slice(-7);
+                    const recentAbsent = recentDates.filter(d =>
+                      !empRecordsByDate.has(d) || empRecordsByDate.get(d)!.status === "absent"
+                    ).length;
+                    triggered = recentAbsent > 0;
+                  }
+                  // باقي أنواع الفترة تُهمل في التقرير الشهري
+                }
+
+                if (triggered) {
+                  if (cond.effectType === "cancel") { cancelled = true; finalAmount = 0; break; }
+                  else if (cond.effectType === "deduct") finalAmount = Math.max(0, finalAmount - effAmt * multiplier);
+                  else if (cond.effectType === "add") finalAmount += effAmt * multiplier;
+                }
               }
             }
           }
@@ -5597,11 +5629,12 @@ export async function registerRoutes(
           let gFinal = baseGrant;
           let gCancelled = false;
 
-          let absDays = 0, lateDays = 0, totalLateMin = 0, totalEarlyLeaveMin = 0;
+          let absDays = 0, lateDays = 0, earlyLvDays = 0, totalLateMin = 0, totalEarlyLeaveMin = 0;
           const wdAbs: Record<number, number> = {};
           const is24h = workRule?.is24hShift ?? false;
-          // حد دقائق التأخير لاحتساب اليوم مخالفة (من شرط late في المنحة، أو 0 إن لم يوجد)
+          // حد دقائق التأخير والخروج المبكر لاحتساب اليوم مخالفة
           const lateMinThresholdG = conds.find((c: any) => c.conditionType === "late")?.minutesThreshold ?? 0;
+          const earlyMinThresholdG = conds.find((c: any) => c.conditionType === "early_leave")?.minutesThreshold ?? 0;
           for (const date of allDatesInMonth) {
             if (date > todayStr) continue;
             const dow = new Date(date + "T00:00:00").getDay();
@@ -5621,34 +5654,68 @@ export async function registerRoutes(
               const coMin = payTimeToMin(rec.checkOut ?? null);
               if (coMin !== null) {
                 const effEarly = Math.max(0, (workRule ? payTimeToMin(workRule.workEndTime)! : 960) - coMin - (workRule?.earlyLeaveGraceMinutes ?? 0));
-                if (effEarly > 0) totalEarlyLeaveMin += effEarly;
+                if (effEarly > 0) {
+                  totalEarlyLeaveMin += effEarly;
+                  if (effEarly >= earlyMinThresholdG) earlyLvDays++;
+                }
               }
             }
           }
 
+          // أيام الغياب المغطاة بشروط يوم محدد — تُستبعد من شرط الغياب العام
+          const wdClaimedDows = new Set<number>();
+          for (const cond of conds) {
+            if (cond.conditionType === "absence" && cond.absenceMode === "weekday") {
+              let wds: string[] = []; try { wds = JSON.parse(cond.weekdays ?? "[]"); } catch { wds = []; }
+              for (const wd of wds) {
+                const d = WEEKDAY_TO_DOW_PAY[String(wd)] ?? -1;
+                if (d >= 0) wdClaimedDows.add(d);
+              }
+            }
+          }
+          const wdClaimedAbs = [...wdClaimedDows].reduce((s, d) => s + (wdAbs[d] ?? 0), 0);
+          const unclaimedAbs = Math.max(0, absDays - wdClaimedAbs);
+
           for (const cond of conds) {
             if (cond.conditionType === "violations_exceed") {
-              if ((absDays + lateDays) > (cond.violationsThreshold ?? 0)) { gCancelled = true; gFinal = 0; break; }
+              if ((absDays + lateDays + earlyLvDays) >= (cond.violationsThreshold ?? 0)) { gCancelled = true; gFinal = 0; break; }
             }
           }
           if (!gCancelled) {
             for (const cond of conds) {
               if (gCancelled || cond.conditionType === "violations_exceed") continue;
               const effAmt = parseFloat(cond.effectAmount ?? "0") || 0;
-              let triggered = false;
               if (cond.conditionType === "absence") {
-                if (cond.absenceMode === "count") triggered = absenceThresholdMetPay(absDays, cond.daysThreshold ?? null);
-                else if (cond.absenceMode === "weekday") {
+                if (cond.absenceMode === "count") {
+                  // يُطبَّق على الأيام غير المغطاة، خصم مستقل لكل يوم
+                  if (absenceThresholdMetPay(unclaimedAbs, cond.daysThreshold ?? null)) {
+                    if (cond.effectType === "cancel") { gCancelled = true; gFinal = 0; break; }
+                    else if (cond.effectType === "deduct") gFinal = Math.max(0, gFinal - effAmt * unclaimedAbs);
+                    else if (cond.effectType === "add") gFinal += effAmt * unclaimedAbs;
+                  }
+                } else if (cond.absenceMode === "weekday") {
                   let wds: string[] = []; try { wds = JSON.parse(cond.weekdays ?? "[]"); } catch { wds = []; }
-                  triggered = wds.some(wd => { const dow = WEEKDAY_TO_DOW_PAY[String(wd)] ?? -1; return dow >= 0 && (wdAbs[dow] ?? 0) > 0; });
+                  const absOnDows = wds.reduce((s: number, wd: any) => {
+                    const d = WEEKDAY_TO_DOW_PAY[String(wd)] ?? -1;
+                    return s + (d >= 0 ? (wdAbs[d] ?? 0) : 0);
+                  }, 0);
+                  if (absOnDows > 0) {
+                    if (cond.effectType === "cancel") { gCancelled = true; gFinal = 0; break; }
+                    else if (cond.effectType === "deduct") gFinal = Math.max(0, gFinal - effAmt * absOnDows);
+                    else if (cond.effectType === "add") gFinal += effAmt * absOnDows;
+                  }
                 }
-              } else if (cond.conditionType === "late") triggered = totalLateMin >= (cond.minutesThreshold ?? 0);
-              else if (cond.conditionType === "early_leave") triggered = totalEarlyLeaveMin >= (cond.minutesThreshold ?? 0);
-              else if (cond.conditionType === "attendance") triggered = absDays > 0;
-              if (triggered) {
-                if (cond.effectType === "cancel") { gCancelled = true; gFinal = 0; break; }
-                else if (cond.effectType === "deduct") gFinal = Math.max(0, gFinal - effAmt);
-                else if (cond.effectType === "add") gFinal += effAmt;
+              } else {
+                let triggered = false;
+                let multiplier = 1;
+                if (cond.conditionType === "late") { triggered = lateDays > 0; multiplier = lateDays; }
+                else if (cond.conditionType === "early_leave") { triggered = earlyLvDays > 0; multiplier = earlyLvDays; }
+                else if (cond.conditionType === "attendance") triggered = absDays > 0;
+                if (triggered) {
+                  if (cond.effectType === "cancel") { gCancelled = true; gFinal = 0; break; }
+                  else if (cond.effectType === "deduct") gFinal = Math.max(0, gFinal - effAmt * multiplier);
+                  else if (cond.effectType === "add") gFinal += effAmt * multiplier;
+                }
               }
             }
           }
