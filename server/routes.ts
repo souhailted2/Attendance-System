@@ -128,7 +128,8 @@ const MIDDLE_ABSENCE_GRACE_MINUTES = 15;
 function calculateMiddleAbsenceMinutes(
   filteredTimes: string[],
   graceMinutes: number = MIDDLE_ABSENCE_GRACE_MINUTES,
-  shiftStartMin: number | null = null
+  shiftStartMin: number | null = null,
+  shiftEndMin: number | null = null
 ): number {
   if (filteredTimes.length <= 2) return 0;
   let totalAbsence = 0;
@@ -144,6 +145,9 @@ function calculateMiddleAbsenceMinutes(
     // إذا كانت الفجوة تنتهي قبل أو عند بداية الوردية → ساعات إضافية قبل الوردية → لا تُحسب غياباً
     if (shiftStartMin !== null && inMin <= shiftStartMin) continue;
 
+    // إذا بدأت الفجوة عند نهاية الوردية أو بعدها → ساعات إضافية بعد الوردية → لا تُحسب غياباً
+    if (shiftEndMin !== null && outMin >= shiftEndMin) continue;
+
     // إذا بدأت الفجوة عند نافذة بداية الوردية (±5/+15 دقيقة) → بصمة تأكيد إلزامية ZKTeco وليست خروجاً
     // مثال: [14:21, 15:47, 23:45] وردية 15:45 → 15:47 هي مسح التأكيد الإلزامي عند بداية الوردية
     // قياسات حقيقية: بصمات التأكيد بفارق [0, +13 دقيقة]؛ الغيابات الحقيقية بفارق ≤ -74 دقيقة
@@ -156,7 +160,10 @@ function calculateMiddleAbsenceMinutes(
     // إذا بدأت الفجوة قبل الوردية لكنها تمتد داخلها → نقلّص البداية لوقت الوردية
     const effectiveOutMin = (shiftStartMin !== null && outMin < shiftStartMin) ? shiftStartMin : outMin;
 
-    const gapMin = inMin - effectiveOutMin;
+    // إذا امتدت الفجوة إلى ما بعد نهاية الوردية → نقلّص النهاية لوقت نهاية الوردية
+    const effectiveInMin = (shiftEndMin !== null && inMin > shiftEndMin) ? shiftEndMin : inMin;
+
+    const gapMin = effectiveInMin - effectiveOutMin;
     if (gapMin > graceMinutes) {
       totalAbsence += gapMin;
     }
@@ -247,9 +254,10 @@ async function processAttendanceLogs(
     const checkIn = filteredTimes[0] || null;
     const checkOut = filteredTimes.length > 1 ? filteredTimes[filteredTimes.length - 1] : null;
 
-    // تحويل وقت بداية الوردية إلى دقائق لتجاهل الفجوات الواقعة قبلها
+    // تحويل وقت بداية ونهاية الوردية إلى دقائق لتجاهل الفجوات خارج نافذة الوردية
     const shiftStartMinForCalc = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
-    const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc);
+    const shiftEndMinForCalc   = workRule?.workEndTime   ? timeToMinGlobal(workRule.workEndTime)   : null;
+    const middleAbsenceMinutes = calculateMiddleAbsenceMinutes(filteredTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc, shiftEndMinForCalc);
 
     // ===== معالجة خاصة لنظام المناوبة 24 ساعة =====
     if (workRule?.is24hShift) {
@@ -415,7 +423,7 @@ async function processAttendanceLogs(
 
       const newCheckIn  = allTimes[0] || null;
       const newCheckOut = allTimes.length > 1 ? allTimes[allTimes.length - 1] : null;
-      const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc);
+      const newMiddleAbsenceMinutes = calculateMiddleAbsenceMinutes(allTimes, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinForCalc, shiftEndMinForCalc);
       const newRawPunches = JSON.stringify(allTimes);
       const existingRaw = (existing as any).rawPunches ?? null;
 
@@ -1134,7 +1142,8 @@ export async function registerRoutes(
       const emp = empMap.get(rec.employeeId) as any;
       const rule: any = (emp?.workRuleId ? ruleMap.get(emp.workRuleId) : null) ?? defaultRule;
       const shiftStartMin = rule?.workStartTime ? timeToMinGlobal(rule.workStartTime) : null;
-      const recomputed = calculateMiddleAbsenceMinutes(punches, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMin);
+      const shiftEndMin   = rule?.workEndTime   ? timeToMinGlobal(rule.workEndTime)   : null;
+      const recomputed = calculateMiddleAbsenceMinutes(punches, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMin, shiftEndMin);
       return { ...rec, middleAbsenceMinutes: recomputed };
     });
 
@@ -1266,8 +1275,9 @@ export async function registerRoutes(
         const newCheckIn  = newRawArr[0] || null;
         const newCheckOut = newRawArr.length > 1 ? newRawArr[newRawArr.length - 1] : null;
         const shiftStartMinP = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
+        const shiftEndMinP   = workRule?.workEndTime   ? timeToMinGlobal(workRule.workEndTime)   : null;
         const newMiddleAbs = newRawArr.length >= 2
-          ? calculateMiddleAbsenceMinutes(newRawArr, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinP)
+          ? calculateMiddleAbsenceMinutes(newRawArr, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMinP, shiftEndMinP)
           : 0;
 
         // إضافة الوقت المحذوف لقائمة deletedPunches لمنع عودته عند المزامنة
@@ -1369,8 +1379,9 @@ export async function registerRoutes(
       } else if (timesChanged) {
         const punchesForCalc: string[] = newRawPunches ? (() => { try { return JSON.parse(newRawPunches); } catch { return []; } })() : [];
         const patchShiftStartMin = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
+        const patchShiftEndMin   = workRule?.workEndTime   ? timeToMinGlobal(workRule.workEndTime)   : null;
         finalMiddleAbsenceMinutes = punchesForCalc.length >= 2
-          ? calculateMiddleAbsenceMinutes(punchesForCalc, MIDDLE_ABSENCE_GRACE_MINUTES, patchShiftStartMin)
+          ? calculateMiddleAbsenceMinutes(punchesForCalc, MIDDLE_ABSENCE_GRACE_MINUTES, patchShiftStartMin, patchShiftEndMin)
           : 0;
       }
 
@@ -1806,16 +1817,15 @@ export async function registerRoutes(
             effectiveEarlyLeaveMinutes = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
           }
 
-          // إعادة حساب الغياب الوسيطي من البصمات الخام مع مراعاة وقت بداية الوردية
-          // هذا يُصحح السجلات المُخزَّنة قبل تطبيق الإصلاح (الفجوات قبل الوردية لا تُحسب غياباً)
+          // إعادة حساب الغياب الوسيطي من البصمات الخام مع مراعاة نافذة الوردية كاملة
+          // هذا يُصحح السجلات المُخزَّنة (الفجوات خارج نافذة الوردية لا تُحسب غياباً)
+          let rawPunchArr: string[] | null = null;
+          try {
+            if ((rec as any).rawPunches) rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
+          } catch { rawPunchArr = null; }
           let middleAbsenceMin: number;
-          if ((rec as any).rawPunches) {
-            try {
-              const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
-              middleAbsenceMin = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, effectiveStartMin);
-            } catch {
-              middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
-            }
+          if (rawPunchArr) {
+            middleAbsenceMin = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, effectiveStartMin, effectiveEndMin);
           } else {
             middleAbsenceMin = rec.middleAbsenceMinutes ?? 0;
           }
@@ -1835,12 +1845,26 @@ export async function registerRoutes(
           const roundedScore = Math.round(dailyScore * 100) / 100;
           attendanceScore += roundedScore;
 
-          const earlyGraceCutoff = effectiveStartMin - earlyArrivalGrace;
-          const earlyOT = (checkInMin !== null && checkInMin < earlyGraceCutoff)
-            ? effectiveStartMin - checkInMin : 0;
-          const lateOT = (checkOutMin !== null && checkOutMin > effectiveEndMin + lateLeaveGrace)
-            ? checkOutMin - effectiveEndMin : 0;
-          const overtimeHours = Math.round((earlyOT + lateOT) / 60 * 10) / 10;
+          // حساب الساعات الإضافية بناءً على أزواج البصمات الفعلية لمعالجة الساعات الإضافية غير المتصلة
+          let overtimeMin = 0;
+          if (rawPunchArr && rawPunchArr.length >= 2) {
+            for (let pi = 0; pi + 1 < rawPunchArr.length; pi += 2) {
+              const pIn  = timeToMin(rawPunchArr[pi])     ?? 0;
+              const pOut = timeToMin(rawPunchArr[pi + 1]) ?? 0;
+              const earlyOT_p = pIn < (effectiveStartMin - earlyArrivalGrace)
+                ? Math.max(0, Math.min(pOut, effectiveStartMin) - pIn) : 0;
+              const lateOT_p  = pOut > (effectiveEndMin + lateLeaveGrace)
+                ? Math.max(0, pOut - Math.max(pIn, effectiveEndMin)) : 0;
+              overtimeMin += earlyOT_p + lateOT_p;
+            }
+          } else {
+            const earlyOT = (checkInMin !== null && checkInMin < effectiveStartMin - earlyArrivalGrace)
+              ? effectiveStartMin - checkInMin : 0;
+            const lateOT  = (checkOutMin !== null && checkOutMin > effectiveEndMin + lateLeaveGrace)
+              ? checkOutMin - effectiveEndMin : 0;
+            overtimeMin = earlyOT + lateOT;
+          }
+          const overtimeHours = Math.round(overtimeMin / 60 * 10) / 10;
 
           return {
             attendanceId: rec.id,
@@ -5280,7 +5304,7 @@ export async function registerRoutes(
             if ((rec as any).rawPunches) {
               try {
                 const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
-                midAbs = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, effStartMin);
+                midAbs = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, effStartMin, effEndMin);
               } catch { /* keep stored value */ }
             }
 
@@ -5292,11 +5316,12 @@ export async function registerRoutes(
             const effLate  = Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
             const effEarly = Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
             const baseShiftStartMin = payTimeToMin(workRule?.workStartTime ?? "08:00") ?? 480;
+            const baseShiftEndMin   = payTimeToMin(workRule?.workEndTime   ?? "16:00") ?? 960;
             let midAbs = rec.middleAbsenceMinutes ?? 0;
             if ((rec as any).rawPunches) {
               try {
                 const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
-                midAbs = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, baseShiftStartMin);
+                midAbs = calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, baseShiftStartMin, baseShiftEndMin);
               } catch { /* keep stored value */ }
             }
 
@@ -5468,11 +5493,30 @@ export async function registerRoutes(
             );
             const effStart = dayOvr ? (payTimeToMin(dayOvr.workStartTime) ?? 0) : (workRule ? payTimeToMin(workRule.workStartTime)! : 480);
             const effEnd   = dayOvr ? (payTimeToMin(dayOvr.workEndTime)   ?? 960) : (workRule ? payTimeToMin(workRule.workEndTime)!   : 960);
-            const ciMin = payTimeToMin(rec.checkIn);
-            const coMin = payTimeToMin(rec.checkOut);
-            const earlyOT = (ciMin !== null && ciMin < (effStart - earlyArrivalGrace)) ? (effStart - ciMin) : 0;
-            const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
-            totalOvertimeHours += Math.round((earlyOT + lateOT) / 60 * 10) / 10;
+            // حساب الساعات الإضافية من أزواج البصمات الفعلية
+            let rawPunchesOT: string[] | null = null;
+            try {
+              if ((rec as any).rawPunches) rawPunchesOT = JSON.parse((rec as any).rawPunches) as string[];
+            } catch { rawPunchesOT = null; }
+            let otMin = 0;
+            if (rawPunchesOT && rawPunchesOT.length >= 2) {
+              for (let pi = 0; pi + 1 < rawPunchesOT.length; pi += 2) {
+                const pIn  = payTimeToMin(rawPunchesOT[pi])     ?? 0;
+                const pOut = payTimeToMin(rawPunchesOT[pi + 1]) ?? 0;
+                const earlyOT_p = pIn < (effStart - earlyArrivalGrace)
+                  ? Math.max(0, Math.min(pOut, effStart) - pIn) : 0;
+                const lateOT_p  = pOut > (effEnd + lateLeaveGraceOT)
+                  ? Math.max(0, pOut - Math.max(pIn, effEnd)) : 0;
+                otMin += earlyOT_p + lateOT_p;
+              }
+            } else {
+              const ciMin = payTimeToMin(rec.checkIn);
+              const coMin = payTimeToMin(rec.checkOut);
+              const earlyOT = (ciMin !== null && ciMin < (effStart - earlyArrivalGrace)) ? (effStart - ciMin) : 0;
+              const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
+              otMin = earlyOT + lateOT;
+            }
+            totalOvertimeHours += Math.round(otMin / 60 * 10) / 10;
           }
         }
         const overtimeHours = Math.round(totalOvertimeHours * 10) / 10;
