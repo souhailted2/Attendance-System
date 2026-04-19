@@ -3555,6 +3555,9 @@ export async function registerRoutes(
           let totalEarlyLeaveMinutes = 0;
           const weekdayAbsences: Record<number, number> = {};
 
+          // حد دقائق التأخير لاحتساب اليوم مخالفة (من شرط late في المنحة، أو 0 إن لم يوجد)
+          const lateMinThreshold = conditions.find((c: any) => c.conditionType === "late")?.minutesThreshold ?? 0;
+
           // أيام العطلة غير المدفوعة للموظف في هذا الشهر
           const empUnpaidLeaveDatesGrants = buildAllLeaveDatesGrants(emp);
 
@@ -3589,7 +3592,10 @@ export async function registerRoutes(
               if (checkInMin !== null) {
                 const rawLate = Math.max(0, checkInMin - effWorkStartMin);
                 const effLate = Math.max(0, rawLate - lateGrace);
-                if (effLate > 0) { lateDays++; totalLateMinutes += effLate; }
+                if (effLate > 0) {
+                  totalLateMinutes += effLate;
+                  if (effLate >= lateMinThreshold) lateDays++;
+                }
               }
               const checkOutMin = timeToMinLocal(rec.checkOut ?? null);
               if (checkOutMin !== null) {
@@ -5594,6 +5600,8 @@ export async function registerRoutes(
           let absDays = 0, lateDays = 0, totalLateMin = 0, totalEarlyLeaveMin = 0;
           const wdAbs: Record<number, number> = {};
           const is24h = workRule?.is24hShift ?? false;
+          // حد دقائق التأخير لاحتساب اليوم مخالفة (من شرط late في المنحة، أو 0 إن لم يوجد)
+          const lateMinThresholdG = conds.find((c: any) => c.conditionType === "late")?.minutesThreshold ?? 0;
           for (const date of allDatesInMonth) {
             if (date > todayStr) continue;
             const dow = new Date(date + "T00:00:00").getDay();
@@ -5605,7 +5613,10 @@ export async function registerRoutes(
               const ciMin = payTimeToMin(rec.checkIn);
               if (ciMin !== null) {
                 const effLate = Math.max(0, ciMin - (workRule ? payTimeToMin(workRule.workStartTime)! : 480) - (workRule?.lateGraceMinutes ?? 0));
-                if (effLate > 0) { lateDays++; totalLateMin += effLate; }
+                if (effLate > 0) {
+                  totalLateMin += effLate;
+                  if (effLate >= lateMinThresholdG) lateDays++;
+                }
               }
               const coMin = payTimeToMin(rec.checkOut ?? null);
               if (coMin !== null) {
