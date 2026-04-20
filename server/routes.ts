@@ -3905,7 +3905,20 @@ export async function registerRoutes(
             else if (rec.status === "leave" || rec.status === "rest") score = 1;
             else if (workRule?.isFlexibleShift && (rec.status === "present" || rec.status === "late")) {
               const baseMinFS = (workRule.flexibleShiftHours ?? 8) * 60;
-              const workedMin = (checkInMin !== null && checkOutMin !== null) ? Math.max(0, checkOutMin - checkInMin) : 0;
+              let workedMin = 0;
+              const rawDataFS = (rec as any).rawPunches;
+              if (rawDataFS) {
+                try {
+                  const punches = JSON.parse(rawDataFS) as string[];
+                  for (let i = 0; i + 1 < punches.length; i += 2) {
+                    const inM = timeToMin(punches[i]), outM = timeToMin(punches[i + 1]);
+                    if (inM !== null && outM !== null && outM > inM) workedMin += outM - inM;
+                  }
+                } catch {}
+              }
+              if (workedMin === 0) {
+                workedMin = (checkInMin !== null && checkOutMin !== null) ? Math.max(0, checkOutMin - checkInMin) : 0;
+              }
               score = Math.min(1, workedMin / baseMinFS);
             }
             else if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;

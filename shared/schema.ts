@@ -244,6 +244,8 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
   checkoutEarliestTime: true,
   isFlexibleShift: true,
   flexibleShiftHours: true,
+}).extend({
+  flexibleShiftHours: z.number().int().min(1).max(24).optional().default(8),
 });
 
 export const insertEmployeeSchema = createInsertSchema(employees).pick({
