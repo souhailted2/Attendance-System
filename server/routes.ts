@@ -1896,15 +1896,17 @@ export async function registerRoutes(
             for (let pi = 0; pi + 1 < rawPunchArr.length; pi += 2) {
               const pIn  = timeToMin(rawPunchArr[pi])     ?? 0;
               const pOut = timeToMin(rawPunchArr[pi + 1]) ?? 0;
-              const earlyOT_p = pIn < (effectiveStartMin - earlyArrivalGrace)
+              const rawEarlyOT_p = pIn < (effectiveStartMin - earlyArrivalGrace)
                 ? Math.max(0, Math.min(pOut, effectiveStartMin - earlyArrivalGrace) - pIn) : 0;
+              const earlyOT_p = rawEarlyOT_p >= 15 ? rawEarlyOT_p : 0;
               const lateOT_p  = pOut > (effectiveEndMin + lateLeaveGrace)
                 ? Math.max(0, pOut - Math.max(pIn, effectiveEndMin)) : 0;
               overtimeMin += earlyOT_p + lateOT_p;
             }
           } else {
-            const earlyOT = (checkInMin !== null && checkInMin < effectiveStartMin - earlyArrivalGrace)
+            const rawEarlyOT = (checkInMin !== null && checkInMin < effectiveStartMin - earlyArrivalGrace)
               ? effectiveStartMin - checkInMin : 0;
+            const earlyOT = rawEarlyOT >= 15 ? rawEarlyOT : 0;
             const lateOT  = (checkOutMin !== null && checkOutMin > effectiveEndMin + lateLeaveGrace)
               ? checkOutMin - effectiveEndMin : 0;
             overtimeMin = earlyOT + lateOT;
@@ -5586,8 +5588,9 @@ export async function registerRoutes(
               for (let pi = 0; pi + 1 < rawPunchesOT.length; pi += 2) {
                 const pIn  = payTimeToMin(rawPunchesOT[pi])     ?? 0;
                 const pOut = payTimeToMin(rawPunchesOT[pi + 1]) ?? 0;
-                const earlyOT_p = pIn < (effStart - earlyArrivalGrace)
+                const rawEarlyOT_p = pIn < (effStart - earlyArrivalGrace)
                   ? Math.max(0, Math.min(pOut, effStart - earlyArrivalGrace) - pIn) : 0;
+                const earlyOT_p = rawEarlyOT_p >= 15 ? rawEarlyOT_p : 0;
                 const lateOT_p  = pOut > (effEnd + lateLeaveGraceOT)
                   ? Math.max(0, pOut - Math.max(pIn, effEnd)) : 0;
                 otMin += earlyOT_p + lateOT_p;
@@ -5595,7 +5598,8 @@ export async function registerRoutes(
             } else {
               const ciMin = payTimeToMin(rec.checkIn);
               const coMin = payTimeToMin(rec.checkOut);
-              const earlyOT = (ciMin !== null && ciMin < (effStart - earlyArrivalGrace)) ? (effStart - ciMin) : 0;
+              const rawEarlyOT = (ciMin !== null && ciMin < (effStart - earlyArrivalGrace)) ? (effStart - ciMin) : 0;
+              const earlyOT = rawEarlyOT >= 15 ? rawEarlyOT : 0;
               const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
               otMin = earlyOT + lateOT;
             }
