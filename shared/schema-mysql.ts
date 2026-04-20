@@ -105,6 +105,20 @@ export const deductions = mysqlTable("deductions", {
   createdBy: varchar("created_by", { length: 191 }),
 });
 
+export const deductionRequests = mysqlTable("deduction_requests", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  employeeId: varchar("employee_id", { length: 36 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull().default("0"),
+  reason: text("reason"),
+  deductionDate: text("deduction_date").notNull(),
+  deductionTime: text("deduction_time"),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  requestedBy: varchar("requested_by", { length: 191 }).notNull(),
+  reviewedBy: varchar("reviewed_by", { length: 191 }),
+  reviewedAt: text("reviewed_at"),
+  createdAt: text("created_at").notNull(),
+});
+
 export const attendanceRecords = mysqlTable("attendance_records", {
   id: varchar("id", { length: 36 }).primaryKey(),
   employeeId: varchar("employee_id", { length: 36 }).notNull(),
@@ -387,3 +401,9 @@ export const insertDeductionSchema = createInsertSchema(deductions).pick({
 });
 export type InsertDeduction = z.infer<typeof insertDeductionSchema>;
 export type Deduction = typeof deductions.$inferSelect;
+
+export const insertDeductionRequestSchema = createInsertSchema(deductionRequests).pick({
+  employeeId: true, amount: true, reason: true, deductionDate: true, deductionTime: true, requestedBy: true, createdAt: true,
+});
+export type InsertDeductionRequest = z.infer<typeof insertDeductionRequestSchema>;
+export type DeductionRequest = typeof deductionRequests.$inferSelect;

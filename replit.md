@@ -69,6 +69,7 @@ A comprehensive worker attendance management system built with React + Express +
 - POST /api/import/attendance (CSV file upload)
 
 ## Database Tables
+- **deduction_requests** - id, employeeId, amount, reason, deductionDate, deductionTime, status (pending/approved/rejected), requestedBy, reviewedBy, reviewedAt, createdAt
 - **companies** - id, name, description
 - **workshops** - id, name, description
 - **positions** - id, name, description

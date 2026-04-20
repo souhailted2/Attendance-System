@@ -19,6 +19,7 @@ import type {
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
   InsertDeduction, Deduction,
+  InsertDeductionRequest, DeductionRequest,
   SalaryPayment,
 } from "@shared/schema";
 
@@ -138,6 +139,16 @@ export interface IStorage {
   getDeductions(employeeId?: string, month?: number, year?: number): Promise<Deduction[]>;
   createDeduction(data: InsertDeduction): Promise<Deduction>;
   deleteDeduction(id: string): Promise<void>;
+  getDeductionsForPayroll(employeeId?: string, month?: number, year?: number): Promise<Deduction[]>;
+
+  getDeductionRequests(status?: string, requestedBy?: string): Promise<DeductionRequest[]>;
+  getDeductionRequestById(id: string): Promise<DeductionRequest | undefined>;
+  createDeductionRequest(data: InsertDeductionRequest, initialStatus?: string): Promise<DeductionRequest>;
+  updateDeductionRequest(id: string, data: Partial<{ amount: string; reason: string | null; deductionDate: string; deductionTime: string | null }>): Promise<DeductionRequest>;
+  approveDeductionRequest(id: string, reviewedBy: string): Promise<DeductionRequest>;
+  rejectDeductionRequest(id: string, reviewedBy: string): Promise<DeductionRequest>;
+  deleteDeductionRequest(id: string): Promise<void>;
+  getPendingDeductionRequestsCount(): Promise<number>;
 
   initPayrollTables(): Promise<void>;
 
@@ -283,6 +294,16 @@ class LazyStorage implements IStorage {
   getDeductions(employeeId?: string, month?: number, year?: number) { return this.impl().then(s => s.getDeductions(employeeId, month, year)); }
   createDeduction(d: InsertDeduction) { return this.impl().then(s => s.createDeduction(d)); }
   deleteDeduction(id: string) { return this.impl().then(s => s.deleteDeduction(id)); }
+  getDeductionsForPayroll(employeeId?: string, month?: number, year?: number) { return this.impl().then(s => s.getDeductionsForPayroll(employeeId, month, year)); }
+
+  getDeductionRequests(status?: string, requestedBy?: string) { return this.impl().then(s => s.getDeductionRequests(status, requestedBy)); }
+  getDeductionRequestById(id: string) { return this.impl().then(s => s.getDeductionRequestById(id)); }
+  createDeductionRequest(data: InsertDeductionRequest, initialStatus?: string) { return this.impl().then(s => s.createDeductionRequest(data, initialStatus)); }
+  updateDeductionRequest(id: string, data: Partial<{ amount: string; reason: string | null; deductionDate: string; deductionTime: string | null }>) { return this.impl().then(s => s.updateDeductionRequest(id, data)); }
+  approveDeductionRequest(id: string, reviewedBy: string) { return this.impl().then(s => s.approveDeductionRequest(id, reviewedBy)); }
+  rejectDeductionRequest(id: string, reviewedBy: string) { return this.impl().then(s => s.rejectDeductionRequest(id, reviewedBy)); }
+  deleteDeductionRequest(id: string) { return this.impl().then(s => s.deleteDeductionRequest(id)); }
+  getPendingDeductionRequestsCount() { return this.impl().then(s => s.getPendingDeductionRequestsCount()); }
 
   initPayrollTables() { return this.impl().then(s => s.initPayrollTables()); }
 

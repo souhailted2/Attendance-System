@@ -439,3 +439,27 @@ export type SalaryPayment = {
   remainingBalance: string;
   createdAt: string;
 };
+
+export const insertDeductionRequestSchema = z.object({
+  employeeId: z.string(),
+  amount: z.string(),
+  reason: z.string().nullable().optional(),
+  deductionDate: z.string(),
+  deductionTime: z.string().nullable().optional(),
+  requestedBy: z.string(),
+  createdAt: z.string(),
+});
+export type InsertDeductionRequest = z.infer<typeof insertDeductionRequestSchema>;
+export type DeductionRequest = {
+  id: string;
+  employeeId: string;
+  amount: string;
+  reason: string | null;
+  deductionDate: string;
+  deductionTime: string | null;
+  status: string;
+  requestedBy: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+};

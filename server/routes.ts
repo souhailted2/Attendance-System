@@ -5248,12 +5248,127 @@ export async function registerRoutes(
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
-  // DELETE /api/deductions/:id — حذف خصم
+  // DELETE /api/deductions/:id — حذف خصم (المالك فقط)
   app.delete("/api/deductions/:id", async (req, res) => {
-    if (!requireCaisseOrOwner(req, res)) return;
+    if (!requireOwner(req, res)) return;
     try {
       await storage.deleteDeduction(req.params.id);
       return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // ======= طلبات الخصم (deduction_requests) =======
+
+  // GET /api/deduction-requests/pending-count — عدد الطلبات المعلقة (المالك فقط)
+  app.get("/api/deduction-requests/pending-count", async (req, res) => {
+    if (!req.session.username) return res.status(401).json({ message: "غير مسجل" });
+    if (req.session.username !== "owner") return res.json({ count: 0 });
+    try {
+      const count = await storage.getPendingDeductionRequestsCount();
+      return res.json({ count });
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // GET /api/deduction-requests — قائمة الطلبات
+  app.get("/api/deduction-requests", async (req, res) => {
+    const user = req.session.username;
+    if (!user) return res.status(401).json({ message: "غير مسجل" });
+    if (!["owner", "observer", "caisse"].includes(user)) return res.status(403).json({ message: "غير مصرح" });
+    try {
+      if (user === "owner") {
+        const requests = await storage.getDeductionRequests();
+        return res.json(requests);
+      } else if (user === "observer") {
+        const requests = await storage.getDeductionRequests(undefined, "observer");
+        return res.json(requests);
+      } else {
+        const requests = await storage.getDeductionRequests("approved");
+        return res.json(requests);
+      }
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/deduction-requests — إنشاء طلب خصم
+  app.post("/api/deduction-requests", async (req, res) => {
+    const user = req.session.username;
+    if (!user) return res.status(401).json({ message: "غير مسجل" });
+    if (!["owner", "observer"].includes(user)) return res.status(403).json({ message: "غير مصرح" });
+    try {
+      const { employeeId, amount, reason, deductionDate, deductionTime } = req.body;
+      if (!employeeId || !amount || !deductionDate) return res.status(400).json({ message: "employeeId و amount و deductionDate مطلوبون" });
+      const initialStatus = user === "owner" ? "approved" : "pending";
+      const request = await storage.createDeductionRequest({
+        employeeId,
+        amount: String(parseFloat(amount)),
+        reason: reason ?? null,
+        deductionDate,
+        deductionTime: deductionTime ?? null,
+        requestedBy: user,
+        createdAt: new Date().toISOString(),
+      }, initialStatus);
+      return res.status(201).json(request);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // PUT /api/deduction-requests/:id — تعديل طلب خصم
+  app.put("/api/deduction-requests/:id", async (req, res) => {
+    const user = req.session.username;
+    if (!user) return res.status(401).json({ message: "غير مسجل" });
+    if (!["owner", "observer"].includes(user)) return res.status(403).json({ message: "غير مصرح" });
+    try {
+      const existing = await storage.getDeductionRequestById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "الطلب غير موجود" });
+      if (user === "observer") {
+        if (existing.requestedBy !== "observer") return res.status(403).json({ message: "غير مصرح — ليس طلبك" });
+        if (existing.status !== "pending") return res.status(403).json({ message: "لا يمكن تعديل طلب غير معلق" });
+      }
+      const { amount, reason, deductionDate, deductionTime } = req.body;
+      const updated = await storage.updateDeductionRequest(req.params.id, {
+        ...(amount !== undefined && { amount: String(parseFloat(amount)) }),
+        ...(reason !== undefined && { reason }),
+        ...(deductionDate !== undefined && { deductionDate }),
+        ...(deductionTime !== undefined && { deductionTime }),
+      });
+      return res.json(updated);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // DELETE /api/deduction-requests/:id — حذف طلب خصم
+  app.delete("/api/deduction-requests/:id", async (req, res) => {
+    const user = req.session.username;
+    if (!user) return res.status(401).json({ message: "غير مسجل" });
+    if (!["owner", "observer"].includes(user)) return res.status(403).json({ message: "غير مصرح" });
+    try {
+      const existing = await storage.getDeductionRequestById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "الطلب غير موجود" });
+      if (user === "observer") {
+        if (existing.requestedBy !== "observer") return res.status(403).json({ message: "غير مصرح — ليس طلبك" });
+        if (existing.status !== "pending") return res.status(403).json({ message: "لا يمكن حذف طلب غير معلق" });
+      }
+      await storage.deleteDeductionRequest(req.params.id);
+      return res.status(204).send();
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/deduction-requests/:id/approve — قبول طلب خصم (المالك فقط)
+  app.post("/api/deduction-requests/:id/approve", async (req, res) => {
+    if (!requireOwner(req, res)) return;
+    try {
+      const existing = await storage.getDeductionRequestById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "الطلب غير موجود" });
+      const updated = await storage.approveDeductionRequest(req.params.id, "owner");
+      return res.json(updated);
+    } catch (e: any) { return res.status(500).json({ message: e.message }); }
+  });
+
+  // POST /api/deduction-requests/:id/reject — رفض طلب خصم (المالك فقط)
+  app.post("/api/deduction-requests/:id/reject", async (req, res) => {
+    if (!requireOwner(req, res)) return;
+    try {
+      const existing = await storage.getDeductionRequestById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "الطلب غير موجود" });
+      const updated = await storage.rejectDeductionRequest(req.params.id, "owner");
+      return res.json(updated);
     } catch (e: any) { return res.status(500).json({ message: e.message }); }
   });
 
@@ -5297,7 +5412,7 @@ export async function registerRoutes(
           storage.getSalaryPayments(prevMonthStr),
           storage.getDebtSkips(currentMonthStr),
           storage.getAttendanceScoreOverrides(currentMonthStr),
-          storage.getDeductions(undefined, month, year),
+          storage.getDeductionsForPayroll(undefined, month, year),
           needsPayExt ? storage.getAttendanceByDateRange(payExtFrom, payExtTo) : Promise.resolve([] as Awaited<ReturnType<typeof storage.getAttendanceByDateRange>>),
         ]);
       const debtSkipsSet = new Set<string>(debtSkipsList);

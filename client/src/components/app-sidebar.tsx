@@ -24,6 +24,7 @@ import {
   Minus,
   FileSpreadsheet,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import {
@@ -96,6 +97,13 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const role = user ? (roleInfo[user.role] ?? roleInfo[user.username] ?? { label: "مستخدم", displayName: user.username, icon: Users }) : null;
   const isWorkshop = user?.role === "workshop";
+
+  const { data: pendingCountData } = useQuery<{ count: number }>({
+    queryKey: ["/api/deduction-requests/pending-count"],
+    enabled: user?.username === "owner",
+    refetchInterval: 30000,
+  });
+  const pendingCount = pendingCountData?.count ?? 0;
 
   return (
     <Sidebar side="right">
@@ -251,6 +259,37 @@ export function AppSidebar() {
                             <LayoutDashboard className="h-3.5 w-3.5" />
                           </span>
                           <span>الإدارة</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {/* Deductions link for owner with pending badge */}
+                  {user?.username === "owner" && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/deductions"} data-testid="link-nav-deductions">
+                        <Link href="/deductions">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/deductions" ? "bg-primary/20" : ""}`}>
+                            <Minus className="h-3.5 w-3.5" />
+                          </span>
+                          <span>الخصومات</span>
+                          {pendingCount > 0 && (
+                            <span className="mr-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white animate-pulse" data-testid="badge-pending-deductions">
+                              {pendingCount}
+                            </span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                  {/* Deductions link for observer */}
+                  {user?.username === "observer" && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location === "/deductions"} data-testid="link-nav-deductions">
+                        <Link href="/deductions">
+                          <span className={`flex h-5 w-5 items-center justify-center rounded-full transition-colors ${location === "/deductions" ? "bg-primary/20" : ""}`}>
+                            <Minus className="h-3.5 w-3.5" />
+                          </span>
+                          <span>الخصومات</span>
                         </Link>
                       </SidebarMenuButton>
                     </SidebarMenuItem>

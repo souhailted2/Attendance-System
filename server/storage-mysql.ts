@@ -22,6 +22,7 @@ import type {
   InsertEmployeeDebt, EmployeeDebt,
   InsertAdvance, Advance,
   InsertDeduction, Deduction,
+  InsertDeductionRequest, DeductionRequest,
   SalaryPayment,
   SyncLock,
 } from "@shared/schema";
@@ -1021,6 +1022,113 @@ export class MysqlStorage implements IStorage {
 
   async deleteDeduction(id: string): Promise<void> {
     await mysqlDb.delete(schema.deductions).where(eq(schema.deductions.id, id));
+  }
+
+  async getDeductionsForPayroll(employeeId?: string, month?: number, year?: number): Promise<Deduction[]> {
+    const legacyConditions: any[] = [];
+    if (employeeId) legacyConditions.push(eq(schema.deductions.employeeId, employeeId));
+    if (month !== undefined) legacyConditions.push(eq(schema.deductions.month, month));
+    if (year !== undefined) legacyConditions.push(eq(schema.deductions.year, year));
+    const legacyRows = legacyConditions.length > 0
+      ? await mysqlDb.select().from(schema.deductions).where(and(...legacyConditions))
+      : await mysqlDb.select().from(schema.deductions);
+
+    const reqConditions: any[] = [eq(schema.deductionRequests.status, "approved")];
+    if (employeeId) reqConditions.push(eq(schema.deductionRequests.employeeId, employeeId));
+    const approvedRequests = await mysqlDb.select().from(schema.deductionRequests).where(and(...reqConditions));
+
+    const normalized: Deduction[] = approvedRequests
+      .filter(r => {
+        const d = new Date(r.deductionDate);
+        if (isNaN(d.getTime())) return false;
+        if (month !== undefined && d.getMonth() + 1 !== month) return false;
+        if (year !== undefined && d.getFullYear() !== year) return false;
+        return true;
+      })
+      .map(r => {
+        const d = new Date(r.deductionDate);
+        return {
+          id: r.id,
+          employeeId: r.employeeId,
+          amount: r.amount,
+          month: d.getMonth() + 1,
+          year: d.getFullYear(),
+          reason: r.reason ?? null,
+          createdAt: r.createdAt,
+          createdBy: r.requestedBy,
+        } as Deduction;
+      });
+
+    return [...(legacyRows as Deduction[]), ...normalized];
+  }
+
+  async getDeductionRequests(status?: string, requestedBy?: string): Promise<DeductionRequest[]> {
+    const conditions: any[] = [];
+    if (status) conditions.push(eq(schema.deductionRequests.status, status));
+    if (requestedBy) conditions.push(eq(schema.deductionRequests.requestedBy, requestedBy));
+    const rows = conditions.length > 0
+      ? await mysqlDb.select().from(schema.deductionRequests).where(and(...conditions))
+      : await mysqlDb.select().from(schema.deductionRequests);
+    return rows as DeductionRequest[];
+  }
+
+  async getDeductionRequestById(id: string): Promise<DeductionRequest | undefined> {
+    const [row] = await mysqlDb.select().from(schema.deductionRequests).where(eq(schema.deductionRequests.id, id));
+    return row as DeductionRequest | undefined;
+  }
+
+  async createDeductionRequest(data: InsertDeductionRequest, initialStatus: string = "pending"): Promise<DeductionRequest> {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    await mysqlDb.insert(schema.deductionRequests).values({
+      id,
+      employeeId: data.employeeId,
+      amount: data.amount,
+      reason: data.reason ?? null,
+      deductionDate: data.deductionDate,
+      deductionTime: data.deductionTime ?? null,
+      status: initialStatus,
+      requestedBy: data.requestedBy,
+      reviewedBy: initialStatus === "approved" ? data.requestedBy : null,
+      reviewedAt: initialStatus === "approved" ? now : null,
+      createdAt: data.createdAt,
+    });
+    const [row] = await mysqlDb.select().from(schema.deductionRequests).where(eq(schema.deductionRequests.id, id));
+    return row as DeductionRequest;
+  }
+
+  async updateDeductionRequest(id: string, data: Partial<{ amount: string; reason: string | null; deductionDate: string; deductionTime: string | null }>): Promise<DeductionRequest> {
+    await mysqlDb.update(schema.deductionRequests).set(data).where(eq(schema.deductionRequests.id, id));
+    const [row] = await mysqlDb.select().from(schema.deductionRequests).where(eq(schema.deductionRequests.id, id));
+    return row as DeductionRequest;
+  }
+
+  async approveDeductionRequest(id: string, reviewedBy: string): Promise<DeductionRequest> {
+    const now = new Date().toISOString();
+    await mysqlDb.update(schema.deductionRequests)
+      .set({ status: "approved", reviewedBy, reviewedAt: now })
+      .where(eq(schema.deductionRequests.id, id));
+    const [row] = await mysqlDb.select().from(schema.deductionRequests).where(eq(schema.deductionRequests.id, id));
+    return row as DeductionRequest;
+  }
+
+  async rejectDeductionRequest(id: string, reviewedBy: string): Promise<DeductionRequest> {
+    const now = new Date().toISOString();
+    await mysqlDb.update(schema.deductionRequests)
+      .set({ status: "rejected", reviewedBy, reviewedAt: now })
+      .where(eq(schema.deductionRequests.id, id));
+    const [row] = await mysqlDb.select().from(schema.deductionRequests).where(eq(schema.deductionRequests.id, id));
+    return row as DeductionRequest;
+  }
+
+  async deleteDeductionRequest(id: string): Promise<void> {
+    await mysqlDb.delete(schema.deductionRequests).where(eq(schema.deductionRequests.id, id));
+  }
+
+  async getPendingDeductionRequestsCount(): Promise<number> {
+    const rows = await mysqlDb.select().from(schema.deductionRequests)
+      .where(eq(schema.deductionRequests.status, "pending"));
+    return rows.length;
   }
 
   async getSalaryPayments(month: string): Promise<SalaryPayment[]> {
