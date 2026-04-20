@@ -164,7 +164,12 @@
 @layer base {
   * {
     @apply border-border;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+    transition:
+      background-color 0.25s ease,
+      background 0.25s ease,
+      border-color 0.25s ease,
+      color 0.2s ease,
+      box-shadow 0.25s ease;
   }
   body {
     @apply font-sans antialiased bg-background text-foreground;
@@ -316,9 +321,12 @@
   background: hsl(0 0% 100%);
   border: 1px solid hsl(215 18% 90%) !important;
   border-radius: calc(var(--radius) + 2px);
-  transition: transform 0.20s cubic-bezier(0.4, 0, 0.2, 1),
+  transition: background 0.25s ease,
+              background-color 0.25s ease,
+              color 0.2s ease,
+              transform 0.20s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.20s cubic-bezier(0.4, 0, 0.2, 1),
-              border-color 0.20s ease;
+              border-color 0.25s ease;
 }
 
 .dark .shadcn-card {
