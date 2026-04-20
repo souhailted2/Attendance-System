@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/components/theme-provider";
 import {
   Users, ClipboardCheck, AlertTriangle, Clock, Building2,
   TrendingUp, TrendingDown, UserCheck, CalendarClock,
@@ -43,7 +44,9 @@ const statCards = [
     sublabel: "موظف نشط",
     icon: Users,
     gradient: "linear-gradient(145deg, hsl(262 76% 40%), hsl(275 72% 54%))",
+    gradientDark: "linear-gradient(145deg, hsl(262 60% 18%), hsl(275 55% 28%))",
     glow: "262 76% 45%",
+    glowDark: "262 60% 25%",
     testId: "text-total-employees",
   },
   {
@@ -52,7 +55,9 @@ const statCards = [
     sublabel: "سجل حضور",
     icon: UserCheck,
     gradient: "linear-gradient(145deg, hsl(160 70% 30%), hsl(155 65% 44%))",
+    gradientDark: "linear-gradient(145deg, hsl(160 55% 15%), hsl(155 50% 25%))",
     glow: "160 70% 38%",
+    glowDark: "160 55% 20%",
     testId: "text-present-today",
   },
   {
@@ -61,7 +66,9 @@ const statCards = [
     sublabel: "تأخر عن الدوام",
     icon: Clock,
     gradient: "linear-gradient(145deg, hsl(43 96% 36%), hsl(36 92% 50%))",
+    gradientDark: "linear-gradient(145deg, hsl(43 75% 20%), hsl(36 70% 30%))",
     glow: "43 96% 42%",
+    glowDark: "43 75% 25%",
     testId: "text-late-today",
   },
   {
@@ -70,7 +77,9 @@ const statCards = [
     sublabel: "وحدة تنظيمية",
     icon: Building2,
     gradient: "linear-gradient(145deg, hsl(220 80% 38%), hsl(230 75% 52%))",
+    gradientDark: "linear-gradient(145deg, hsl(220 65% 20%), hsl(230 60% 30%))",
     glow: "220 80% 50%",
+    glowDark: "220 65% 25%",
     testId: "text-companies-count",
   },
 ];
@@ -119,6 +128,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function Dashboard() {
   const [absentExpanded, setAbsentExpanded] = useState(false);
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   const { data: employees, isLoading: loadingEmp } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: companies } = useQuery<Company[]>({ queryKey: ["/api/companies"] });
@@ -221,9 +232,9 @@ export default function Dashboard() {
           boxShadow: "0 8px 32px hsl(262 76% 20% / 0.35), 0 2px 8px hsl(262 76% 20% / 0.20)",
         }}
       >
-        <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: "hsl(280 70% 60% / 0.10)", transform: "translate(-40%, -40%)" }} />
-        <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: "hsl(250 80% 50% / 0.10)", transform: "translate(35%, 35%)" }} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.08) 0%, transparent 60%)" }} />
+        <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: isDark ? "hsl(280 70% 60% / 0.06)" : "hsl(280 70% 60% / 0.10)", transform: "translate(-40%, -40%)" }} />
+        <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: isDark ? "hsl(250 80% 50% / 0.06)" : "hsl(250 80% 50% / 0.10)", transform: "translate(35%, 35%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: isDark ? "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.05) 0%, transparent 60%)" : "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.08) 0%, transparent 60%)" }} />
         {/* Curved bottom transition */}
         <div
           className="absolute bottom-0 left-0 right-0 pointer-events-none"
@@ -319,18 +330,20 @@ export default function Dashboard() {
             key={card.key}
             className="rounded-2xl p-4 sm:p-5 relative overflow-hidden"
             style={{
-              background: card.gradient,
-              boxShadow: `0 6px 20px hsl(${card.glow} / 0.28), 0 2px 6px hsl(${card.glow} / 0.14)`,
-              borderRight: "4px solid rgba(255,255,255,0.22)",
+              background: isDark ? card.gradientDark : card.gradient,
+              boxShadow: isDark
+                ? `0 6px 20px hsl(${card.glowDark} / 0.40), 0 2px 6px hsl(${card.glowDark} / 0.20)`
+                : `0 6px 20px hsl(${card.glow} / 0.28), 0 2px 6px hsl(${card.glow} / 0.14)`,
+              borderRight: isDark ? "4px solid rgba(255,255,255,0.10)" : "4px solid rgba(255,255,255,0.22)",
             }}
           >
             <div
               className="absolute top-0 right-0 rounded-full pointer-events-none"
-              style={{ width: 88, height: 88, background: "rgba(255,255,255,0.12)", transform: "translate(30%, -30%)" }}
+              style={{ width: 88, height: 88, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.12)", transform: "translate(30%, -30%)" }}
             />
             <div
               className="absolute bottom-0 left-0 rounded-full pointer-events-none"
-              style={{ width: 60, height: 60, background: "rgba(255,255,255,0.07)", transform: "translate(-30%, 30%)" }}
+              style={{ width: 60, height: 60, background: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.07)", transform: "translate(-30%, 30%)" }}
             />
             <div className="relative z-10">
               <div className="mb-3">
@@ -371,7 +384,7 @@ export default function Dashboard() {
             <CardContent className="px-5 pb-4 space-y-4">
               <div
                 className="h-3 w-full rounded-full overflow-hidden"
-                style={{ background: "hsl(215 15% 91%)" }}
+                style={{ background: isDark ? "hsl(215 15% 18%)" : "hsl(215 15% 91%)" }}
               >
                 <div
                   className="h-full rounded-full transition-all duration-700"
@@ -429,7 +442,7 @@ export default function Dashboard() {
                             ? "hsl(43 96% 52% / 0.15)"
                             : idx === 2
                             ? "hsl(0 72% 51% / 0.10)"
-                            : "hsl(215 15% 91%)",
+                            : isDark ? "hsl(215 15% 22%)" : "hsl(215 15% 91%)",
                           color: idx === 0
                             ? "hsl(160 70% 38%)"
                             : idx === 1
@@ -458,7 +471,7 @@ export default function Dashboard() {
                         </span>
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: "hsl(215 15% 91%)" }}>
+                    <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: isDark ? "hsl(215 15% 18%)" : "hsl(215 15% 91%)" }}>
                       <div
                         className="h-full rounded-full transition-all duration-700"
                         style={{
@@ -636,9 +649,9 @@ export default function Dashboard() {
                     <Badge
                       className="text-[10px] px-1.5"
                       style={{
-                        background: "hsl(0 72% 51% / 0.12)",
-                        color: "hsl(0 72% 45%)",
-                        border: "1px solid hsl(0 72% 51% / 0.25)",
+                        background: isDark ? "hsl(0 60% 20% / 0.45)" : "hsl(0 72% 51% / 0.12)",
+                        color: isDark ? "hsl(0 72% 70%)" : "hsl(0 72% 45%)",
+                        border: isDark ? "1px solid hsl(0 60% 40% / 0.35)" : "1px solid hsl(0 72% 51% / 0.25)",
                       }}
                       data-testid="text-absent-count"
                     >
@@ -732,7 +745,7 @@ export default function Dashboard() {
                           <div
                             className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                             style={{
-                              background: idx === 0 ? "hsl(0 72% 51% / 0.15)" : idx === 1 ? "hsl(43 96% 52% / 0.15)" : "hsl(271 20% 92%)",
+                              background: idx === 0 ? "hsl(0 72% 51% / 0.15)" : idx === 1 ? "hsl(43 96% 52% / 0.15)" : isDark ? "hsl(271 20% 22%)" : "hsl(271 20% 92%)",
                               color: idx === 0 ? "hsl(0 72% 51%)" : idx === 1 ? "hsl(43 96% 42%)" : "hsl(var(--muted-foreground))",
                             }}
                           >
@@ -748,9 +761,9 @@ export default function Dashboard() {
                           <Badge
                             className="text-[10px] shrink-0"
                             style={{
-                              background: "hsl(43 96% 52% / 0.12)",
-                              color: "hsl(43 96% 32%)",
-                              border: "1px solid hsl(43 96% 52% / 0.25)",
+                              background: isDark ? "hsl(43 75% 20% / 0.35)" : "hsl(43 96% 52% / 0.12)",
+                              color: isDark ? "hsl(43 90% 68%)" : "hsl(43 96% 32%)",
+                              border: isDark ? "1px solid hsl(43 75% 40% / 0.35)" : "1px solid hsl(43 96% 52% / 0.25)",
                             }}
                           >
                             {emp.lateDays} يوم
