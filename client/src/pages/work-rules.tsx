@@ -31,6 +31,9 @@ export default function WorkRules() {
   const [isDefault, setIsDefault] = useState(false);
   const [isFlexibleShift, setIsFlexibleShift] = useState(false);
   const [flexibleShiftHours, setFlexibleShiftHours] = useState("8");
+  const [earlyArrivalGraceMinutes, setEarlyArrivalGraceMinutes] = useState("0");
+  const [earlyLeaveGraceMinutes, setEarlyLeaveGraceMinutes] = useState("0");
+  const [lateLeaveGraceMinutes, setLateLeaveGraceMinutes] = useState("0");
 
   const { data: rules, isLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
 
@@ -72,6 +75,9 @@ export default function WorkRules() {
     setEarlyLeavePenaltyPerMinute("0"); setAbsencePenalty("0");
     setIsDefault(false); setEditingRule(null);
     setIsFlexibleShift(false); setFlexibleShiftHours("8");
+    setEarlyArrivalGraceMinutes("0");
+    setEarlyLeaveGraceMinutes("0");
+    setLateLeaveGraceMinutes("0");
   }
 
   function openEdit(rule: WorkRule) {
@@ -87,6 +93,9 @@ export default function WorkRules() {
     setIsDefault(rule.isDefault);
     setIsFlexibleShift(!!rule.isFlexibleShift);
     setFlexibleShiftHours(String(rule.flexibleShiftHours ?? 8));
+    setEarlyArrivalGraceMinutes(String(rule.earlyArrivalGraceMinutes ?? 0));
+    setEarlyLeaveGraceMinutes(String(rule.earlyLeaveGraceMinutes ?? 0));
+    setLateLeaveGraceMinutes(String(rule.lateLeaveGraceMinutes ?? 0));
     setOpen(true);
   }
 
@@ -98,6 +107,9 @@ export default function WorkRules() {
       workEndTime: isFlexibleShift ? "16:00" : workEndTime,
       checkoutEarliestTime: isFlexibleShift ? null : (checkoutEarliestTime || null),
       lateGraceMinutes: isFlexibleShift ? 0 : (parseInt(lateGraceMinutes) || 0),
+      earlyArrivalGraceMinutes: parseInt(earlyArrivalGraceMinutes) || 0,
+      earlyLeaveGraceMinutes: parseInt(earlyLeaveGraceMinutes) || 0,
+      lateLeaveGraceMinutes: parseInt(lateLeaveGraceMinutes) || 0,
       latePenaltyPerMinute: isFlexibleShift ? "0" : latePenaltyPerMinute,
       earlyLeavePenaltyPerMinute: isFlexibleShift ? "0" : earlyLeavePenaltyPerMinute,
       absencePenalty,
@@ -181,9 +193,27 @@ export default function WorkRules() {
                     <Label>أقرب وقت مسموح للخروج <span className="text-muted-foreground text-xs">(اختياري — للسماح بنطاق مرن)</span></Label>
                     <Input type="time" value={checkoutEarliestTime} onChange={(e) => setCheckoutEarliestTime(e.target.value)} data-testid="input-checkout-earliest" placeholder="اتركه فارغاً إذا لم يكن لازماً" />
                   </div>
+                  {/* نافذة المهلة — 4 حقول */}
                   <div className="space-y-2">
-                    <Label>فترة السماح للتأخير (دقيقة)</Label>
-                    <Input type="number" value={lateGraceMinutes} onChange={(e) => setLateGraceMinutes(e.target.value)} data-testid="input-grace" />
+                    <Label className="text-sm font-semibold">نافذة المهلة (دقائق)</Label>
+                    <div className="grid grid-cols-2 gap-3 p-3 rounded-lg border bg-muted/20">
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">وصول مبكر مقبول</Label>
+                        <Input type="number" min="0" value={earlyArrivalGraceMinutes} onChange={(e) => setEarlyArrivalGraceMinutes(e.target.value)} data-testid="input-early-arrival-grace" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">تأخر وصول مقبول</Label>
+                        <Input type="number" min="0" value={lateGraceMinutes} onChange={(e) => setLateGraceMinutes(e.target.value)} data-testid="input-grace" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">خروج مبكر مقبول</Label>
+                        <Input type="number" min="0" value={earlyLeaveGraceMinutes} onChange={(e) => setEarlyLeaveGraceMinutes(e.target.value)} data-testid="input-early-leave-grace" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">تأخر خروج مقبول</Label>
+                        <Input type="number" min="0" value={lateLeaveGraceMinutes} onChange={(e) => setLateLeaveGraceMinutes(e.target.value)} data-testid="input-late-leave-grace" />
+                      </div>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -256,7 +286,7 @@ export default function WorkRules() {
                             <>
                               {rule.workStartTime} - {rule.workEndTime}
                               {rule.checkoutEarliestTime && <span className="text-primary"> | خروج: {rule.checkoutEarliestTime}→{rule.workEndTime}</span>}
-                              {" "}| سماح: {rule.lateGraceMinutes} دقيقة | خصم تأخير: {rule.latePenaltyPerMinute}/دقيقة | خصم غياب: {rule.absencePenalty}
+                              {" "}| وصول مبكر: {rule.earlyArrivalGraceMinutes ?? 0}د | تأخر مقبول: {rule.lateGraceMinutes}د | خروج مبكر: {rule.earlyLeaveGraceMinutes ?? 0}د | تأخر خروج: {rule.lateLeaveGraceMinutes ?? 0}د | خصم غياب: {rule.absencePenalty}
                             </>
                           )
                         }

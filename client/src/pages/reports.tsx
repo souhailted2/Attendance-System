@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { fmtDZD } from "@/lib/utils";
@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/use-auth";
 import {
   BarChart3, Clock, Users, ChevronLeft, ChevronRight, Pencil, Check, X,
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
-  FileSpreadsheet, TrendingUp,
+  FileSpreadsheet, TrendingUp, Search,
 } from "lucide-react";
 import * as XLSXStyle from "xlsx-js-style";
 import {
@@ -56,6 +56,7 @@ interface EmployeeReport {
   workshopId: string;
   workshopName: string;
   workRuleId: string;
+  shift?: string;
   hourlyRate?: string;
   totalDays: number;
   presentDays: number;
@@ -172,6 +173,8 @@ export default function Reports() {
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"shifts" | "overtime">("shifts");
+  const [shiftFilter, setShiftFilter] = useState<"all" | "morning" | "evening">("all");
+  const [workshopSearch, setWorkshopSearch] = useState("");
 
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
   const [graceForm, setGraceForm] = useState({
@@ -261,34 +264,26 @@ export default function Reports() {
 
   // للورشات ذات ورشة واحدة: تحديد تلقائي
   useEffect(() => {
-    if (!isWorkshop || selectedRule || selectedWorkshop) return;
-    if (workRules.length === 0 || workshops.length === 0 || activeEmployees.length === 0) return;
+    if (!isWorkshop || selectedWorkshop) return;
+    if (workshops.length === 0 || activeEmployees.length === 0) return;
     const allowedWsIds = user?.allowedWorkshopIds;
     if (!allowedWsIds || allowedWsIds.length !== 1) return;
     const ws = workshops.find((w) => allowedWsIds.includes(w.id));
-    if (!ws) return;
-    const allowedSh = user?.allowedShifts;
-    const empsInWs = activeEmployees.filter((e) =>
-      e.workshopId === ws.id && (!allowedSh || allowedSh.includes(e.shift ?? "morning"))
-    );
-    const ruleId = empsInWs[0]?.workRuleId;
-    if (!ruleId) return;
-    const rule = workRules.find((r) => r.id === ruleId);
-    if (rule) { setSelectedRule(rule); setSelectedWorkshop(ws); }
-  }, [isWorkshop, workRules.length, workshops.length, activeEmployees.length]);
+    if (ws) setSelectedWorkshop(ws);
+  }, [isWorkshop, workshops.length, activeEmployees.length]);
 
   const isValidDate = (d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d);
   const datesValid =
     isValidDate(dateFrom) && isValidDate(dateTo) && dateFrom <= dateTo;
 
   const reportKey =
-    selectedRule && datesValid
-      ? `/api/reports/range?from=${dateFrom}&to=${dateTo}&workRuleId=${selectedRule.id}${selectedWorkshop ? `&workshopId=${selectedWorkshop.id}` : ""}`
+    selectedWorkshop && datesValid
+      ? `/api/reports/range?from=${dateFrom}&to=${dateTo}&workshopId=${selectedWorkshop.id}`
       : null;
 
   const { data: reportData = [], isLoading: reportLoading, isError: reportIsError } = useQuery<EmployeeReport[]>({
-    queryKey: reportKey ? ["/api/reports/range", dateFrom, dateTo, selectedRule?.id, selectedWorkshop?.id] : ["noop"],
-    enabled: !!reportKey && !!selectedRule,
+    queryKey: reportKey ? ["/api/reports/range", dateFrom, dateTo, selectedWorkshop?.id] : ["noop"],
+    enabled: !!reportKey,
     retry: false,
     queryFn: async () => {
       if (!reportKey) return [];
@@ -299,15 +294,13 @@ export default function Reports() {
   });
 
   const trendQueryKey = selectedWorkshop
-    ? `/api/stats/monthly-trend?workshopId=${selectedWorkshop.id}&workRuleId=${selectedRule?.id || ""}&months=6`
-    : selectedRule
-    ? `/api/stats/monthly-trend?workRuleId=${selectedRule.id}&months=6`
+    ? `/api/stats/monthly-trend?workshopId=${selectedWorkshop.id}&months=6`
     : null;
 
   interface MonthlyTrendPoint { label: string; presentRate: number; absentRate: number; }
   const { data: trendData = [], isLoading: trendLoading } = useQuery<MonthlyTrendPoint[]>({
-    queryKey: trendQueryKey ? ["/api/stats/monthly-trend", selectedWorkshop?.id, selectedRule?.id] : ["noop-trend"],
-    enabled: !!trendQueryKey && !!selectedRule,
+    queryKey: trendQueryKey ? ["/api/stats/monthly-trend", selectedWorkshop?.id] : ["noop-trend"],
+    enabled: !!trendQueryKey,
     queryFn: async () => {
       if (!trendQueryKey) return [];
       const res = await fetch(trendQueryKey);
@@ -687,7 +680,7 @@ export default function Reports() {
 
     for (const [workshopName, emps] of groups) {
       const totalCols = dates.length + 3; // name + code + dates + total
-      const titleText = `${workshopName} — ${selectedRule?.name ?? ""} — ${dateFrom} إلى ${dateTo}`;
+      const titleText = `${workshopName} — ${selectedWorkshop?.name ?? ""} — ${dateFrom} إلى ${dateTo}`;
 
       // Build plain value AOA first
       const plainAoa: (string | number)[][] = [];
@@ -928,11 +921,7 @@ export default function Reports() {
     XLSXStyle.writeFile(wb, `تقرير_المنح_${grantsMonth}.xlsx`);
   }
 
-  const breadcrumb = selectedWorkshop
-    ? `${selectedRule?.name} ← ${selectedWorkshop.name}`
-    : selectedRule
-    ? selectedRule.name
-    : null;
+  const breadcrumb = selectedWorkshop ? selectedWorkshop.name : null;
 
   return (
     <div dir="rtl">
@@ -953,20 +942,10 @@ export default function Reports() {
                     className="text-primary hover:underline"
                     onClick={() => { setSelectedWorkshop(null); setSelectedRule(null); }}
                   >
-                    الفترات
+                    الورشات
                   </button>
-                  {selectedRule && !selectedWorkshop && (
-                    <span className="flex items-center gap-1">
-                      <span>←</span>
-                      <span className="text-foreground font-medium">{selectedRule.name}</span>
-                    </span>
-                  )}
                   {selectedWorkshop && (
                     <span className="flex items-center gap-1">
-                      <span>←</span>
-                      <button className="text-primary hover:underline" onClick={() => setSelectedWorkshop(null)}>
-                        {selectedRule?.name}
-                      </button>
                       <span>←</span>
                       <span className="text-foreground font-medium">{selectedWorkshop.name}</span>
                     </span>
@@ -976,7 +955,7 @@ export default function Reports() {
             </>
           ) : undefined
         }
-        subtitle={!breadcrumb ? (isWorkshop ? "اختر ورشة لعرض التقرير" : "اختر فترة عمل لعرض التقرير") : undefined}
+        subtitle={!breadcrumb ? "اختر ورشة لعرض التقرير" : undefined}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
@@ -989,7 +968,21 @@ export default function Reports() {
                 ))}
               </SelectContent>
             </Select>
-            {selectedRule && reportData.length > 0 && (
+            {!selectedWorkshop && viewMode === "shifts" && (
+              <div className="flex rounded-md border overflow-hidden h-8">
+                {([["all", "الكل"], ["morning", "صباحي"], ["evening", "مسائي"]] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setShiftFilter(val)}
+                    className={`px-3 text-xs font-medium transition-colors ${shiftFilter === val ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted text-muted-foreground"}`}
+                    data-testid={`button-shift-filter-${val}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedWorkshop && reportData.length > 0 && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1006,235 +999,105 @@ export default function Reports() {
       />
       <div className="p-6 space-y-5 max-w-6xl mx-auto">
 
-      {/* ======================== LEVEL WORKSHOP: Workshop cards for workshop accounts ======================== */}
-      {isWorkshop && !selectedWorkshop && (
-        rulesLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" />
-          </div>
-        ) : (() => {
-          const allowedWsIds = user?.allowedWorkshopIds;
-          const visibleWorkshops = allowedWsIds
-            ? workshops.filter((w) => allowedWsIds.includes(w.id))
-            : workshops;
-          return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {visibleWorkshops.map((ws) => {
-                const allowedSh = user?.allowedShifts;
-                const count = activeEmployees.filter((e) =>
-                  e.workshopId === ws.id && (!allowedSh || allowedSh.includes(e.shift ?? "morning"))
-                ).length;
-                return (
-                  <Card
-                    key={ws.id}
-                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-                    onClick={() => handleWorkshopAccountClick(ws)}
-                    data-testid={`card-ws-${ws.id}`}
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                          <Wrench className="h-4 w-4 text-primary" />
-                        </div>
-                        {ws.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{count} موظف</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+      {/* ======================== Unified Workshop Cards ======================== */}
+      {!selectedWorkshop && viewMode === "shifts" && (
+        <div className="space-y-4">
+          {!isWorkshop && (
+            <div className="relative max-w-xs">
+              <Search className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                placeholder="ابحث عن ورشة..."
+                value={workshopSearch}
+                onChange={(e) => setWorkshopSearch(e.target.value)}
+                className="h-8 text-xs pr-8"
+                data-testid="input-workshop-search"
+              />
             </div>
-          );
-        })()
-      )}
-
-      {/* ======================== LEVEL 1: Work Rule Cards ======================== */}
-      {!isWorkshop && !selectedRule && viewMode === "shifts" && (
-        rulesLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Skeleton className="h-44 w-full" /><Skeleton className="h-44 w-full" />
-          </div>
-        ) : workRules.length === 0 ? (
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
-                <BarChart3 className="h-12 w-12 mb-3 opacity-30" />
-                <p>لا توجد فترات عمل مُعرَّفة. أضف فترات من صفحة قواعد العمل.</p>
-              </CardContent>
-            </Card>
-            <Card
-              className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all bg-indigo-50/40 dark:bg-indigo-950/20"
-              onClick={() => { setViewMode("overtime"); setSelectedRule(null); setSelectedWorkshop(null); }}
-              data-testid="card-overtime-empty"
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
-                  <Clock className="h-4 w-4" />
-                  الساعات الإضافية
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">عرض تقرير الساعات الإضافية لجميع الموظفين.</p>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {workRules.map((rule) => {
-              const isEditing = editingRuleId === rule.id;
-              const earlyArr = isEditing ? graceForm.earlyArrivalGraceMinutes : (rule.earlyArrivalGraceMinutes ?? 0);
-              const lateArr = isEditing ? graceForm.lateGraceMinutes : (rule.lateGraceMinutes ?? 0);
-              const earlyLv = isEditing ? graceForm.earlyLeaveGraceMinutes : (rule.earlyLeaveGraceMinutes ?? 0);
-              const lateLv = isEditing ? graceForm.lateLeaveGraceMinutes : (rule.lateLeaveGraceMinutes ?? 0);
-
-              const arrivalFrom = addMinutesToTime(rule.workStartTime, -earlyArr);
-              const arrivalTo = addMinutesToTime(rule.workStartTime, lateArr);
-              const departureFrom = addMinutesToTime(rule.workEndTime, -earlyLv);
-              const departureTo = addMinutesToTime(rule.workEndTime, lateLv);
-
-              const empCount = getEmpCountForRule(rule);
-
+          )}
+          {rulesLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" />
+            </div>
+          ) : (() => {
+            const allowedWsIds = user?.allowedWorkshopIds;
+            const allowedSh = user?.allowedShifts;
+            let visibleWorkshops = allowedWsIds
+              ? workshops.filter((w) => allowedWsIds.includes(w.id))
+              : workshops;
+            if (!isWorkshop && workshopSearch.trim()) {
+              visibleWorkshops = visibleWorkshops.filter((w) =>
+                w.name.includes(workshopSearch.trim())
+              );
+            }
+            if (visibleWorkshops.length === 0) {
               return (
-                <Card
-                  key={rule.id}
-                  className={`border-2 transition-all ${isEditing ? "border-primary shadow-md" : "hover:border-primary/50 hover:shadow-md"}`}
-                  data-testid={`card-rule-${rule.id}`}
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <div className={`p-1.5 rounded-md ${rule.name.includes("صباح") ? "bg-amber-100 dark:bg-amber-950/50" : rule.name.includes("مساء") ? "bg-indigo-100 dark:bg-indigo-950/50" : "bg-primary/10"}`}>
-                          {rule.name.includes("صباح") ? (
-                            <Sun className="h-4 w-4 text-amber-500" />
-                          ) : rule.name.includes("مساء") ? (
-                            <Moon className="h-4 w-4 text-indigo-500" />
-                          ) : (
-                            <Star className="h-4 w-4 text-primary" />
-                          )}
-                        </div>
-                        <span>{rule.name}</span>
-                        {rule.isDefault && <Badge variant="secondary" className="text-xs">افتراضية</Badge>}
-                      </CardTitle>
-                      {!isWorkshop && (
-                        <div className="flex gap-1">
-                          {isEditing ? (
-                            <>
-                              <Button size="sm" className="h-7 w-7 p-0" onClick={() => saveGrace(rule.id)} disabled={updateRuleMutation.isPending} data-testid={`button-save-grace-${rule.id}`}>
-                                <Check className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => setEditingRuleId(null)}>
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </>
-                          ) : (
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); startEditGrace(rule); }} data-testid={`button-edit-grace-${rule.id}`}>
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-1.5">
-                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                        <Clock className="h-3.5 w-3.5" />
-                        <span className="font-mono">{rule.workStartTime} — {rule.workEndTime}</span>
-                      </div>
-                      <Badge variant="outline" className="gap-1 text-xs">
-                        <Users className="h-3 w-3" />{empCount} موظف
-                      </Badge>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-3 pt-0">
-                    {/* Grace windows */}
-                    <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground">نافذة المهلة</p>
-                      {isEditing ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-0.5">
-                            <Label className="text-xs">وصول مبكر (دق)</Label>
-                            <Input type="number" min="0" className="h-7 text-xs" value={graceForm.earlyArrivalGraceMinutes}
-                              onChange={(e) => setGraceForm(f => ({ ...f, earlyArrivalGraceMinutes: parseInt(e.target.value) || 0 }))}
-                              data-testid={`input-early-arrival-${rule.id}`} />
-                          </div>
-                          <div className="space-y-0.5">
-                            <Label className="text-xs">تأخر وصول مقبول (دق)</Label>
-                            <Input type="number" min="0" className="h-7 text-xs" value={graceForm.lateGraceMinutes}
-                              onChange={(e) => setGraceForm(f => ({ ...f, lateGraceMinutes: parseInt(e.target.value) || 0 }))}
-                              data-testid={`input-late-grace-${rule.id}`} />
-                          </div>
-                          <div className="space-y-0.5">
-                            <Label className="text-xs">خروج مبكر مقبول (دق)</Label>
-                            <Input type="number" min="0" className="h-7 text-xs" value={graceForm.earlyLeaveGraceMinutes}
-                              onChange={(e) => setGraceForm(f => ({ ...f, earlyLeaveGraceMinutes: parseInt(e.target.value) || 0 }))}
-                              data-testid={`input-early-leave-${rule.id}`} />
-                          </div>
-                          <div className="space-y-0.5">
-                            <Label className="text-xs">تأخر خروج مقبول (دق)</Label>
-                            <Input type="number" min="0" className="h-7 text-xs" value={graceForm.lateLeaveGraceMinutes}
-                              onChange={(e) => setGraceForm(f => ({ ...f, lateLeaveGraceMinutes: parseInt(e.target.value) || 0 }))}
-                              data-testid={`input-late-leave-${rule.id}`} />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">الوصول:</span>
-                            <span className="font-mono text-foreground">{arrivalFrom} ← {arrivalTo}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">المغادرة:</span>
-                            <span className="font-mono text-foreground">{departureFrom} ← {departureTo}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {!isEditing && (
-                      <Button
-                        variant="outline"
-                        className="w-full gap-2 border-primary/30 hover:border-primary hover:bg-primary/5"
-                        onClick={() => { setSelectedRule(rule); setSelectedWorkshop(null); }}
-                        data-testid={`button-open-rule-${rule.id}`}
-                      >
-                        <span>عرض الورشات والتقرير</span>
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                    )}
+                <Card>
+                  <CardContent className="flex flex-col items-center py-16 text-muted-foreground">
+                    <Wrench className="h-10 w-10 mb-2 opacity-30" />
+                    <p>لا توجد ورشات</p>
                   </CardContent>
                 </Card>
               );
-            })}
-            {/* Overtime card */}
-            <Card
-              className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all bg-indigo-50/40 dark:bg-indigo-950/20"
-              onClick={() => { setViewMode("overtime"); setSelectedRule(null); setSelectedWorkshop(null); }}
-              data-testid="card-overtime"
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
-                  <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/50">
-                    <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  الساعات الإضافية
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">عرض العمال الذين عملوا ساعات إضافية خارج فترتهم في النطاق الزمني المحدد.</p>
-              </CardContent>
-            </Card>
-          </div>
-        )
+            }
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {visibleWorkshops.map((ws) => {
+                  const count = activeEmployees.filter((e) =>
+                    e.workshopId === ws.id &&
+                    (!allowedSh || allowedSh.includes(e.shift ?? "morning")) &&
+                    (shiftFilter === "all" || (e.shift ?? "morning") === shiftFilter)
+                  ).length;
+                  return (
+                    <Card
+                      key={ws.id}
+                      className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+                      onClick={() => setSelectedWorkshop(ws)}
+                      data-testid={`card-ws-${ws.id}`}
+                    >
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                            <Wrench className="h-4 w-4 text-primary" />
+                          </div>
+                          {ws.name}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          <span>{count} موظف</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                {!isWorkshop && (
+                  <Card
+                    className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all bg-indigo-50/40 dark:bg-indigo-950/20"
+                    onClick={() => { setViewMode("overtime"); setSelectedWorkshop(null); }}
+                    data-testid="card-overtime"
+                  >
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
+                        <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/50">
+                          <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        الساعات الإضافية
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">عرض العمال الذين عملوا ساعات إضافية خارج فترتهم في النطاق الزمني المحدد.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            );
+          })()}
+        </div>
       )}
 
       {/* ======================== OVERTIME VIEW ======================== */}
-      {!selectedRule && viewMode === "overtime" && (
+      {!selectedWorkshop && viewMode === "overtime" && (
         <div className="space-y-4">
           {/* Header row */}
           <div className="flex items-center justify-between print:hidden">
@@ -1567,87 +1430,11 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ======================== LEVEL 2: Workshops in a Rule ======================== */}
-      {selectedRule && !selectedWorkshop && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => { setSelectedRule(null); setSelectedCompanyId("all"); }} data-testid="button-back-to-rules">
-              <ChevronLeft className="h-4 w-4 rotate-180" />
-              العودة للفترات
-            </Button>
-
-            {companies.length > 1 && (
-              <div className="flex items-center gap-2 -mt-2">
-                <span className="text-xs text-muted-foreground">تصفية بالشركة:</span>
-                <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
-                  <SelectTrigger className="h-8 w-44 text-xs" data-testid="select-company-filter">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">كل الشركات</SelectItem>
-                    {companies.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-          </div>
-
-          {(() => {
-            const ruleWorkshops = getWorkshopsForRule(selectedRule, selectedCompanyId);
-            if (ruleWorkshops.length === 0) {
-              return (
-                <Card>
-                  <CardContent className="flex flex-col items-center py-12 text-muted-foreground">
-                    <Wrench className="h-10 w-10 mb-2 opacity-30" />
-                    <p>لا توجد ورشات مرتبطة بهذه الفترة</p>
-                  </CardContent>
-                </Card>
-              );
-            }
-            return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {ruleWorkshops.map(({ workshop, count }) => (
-                  <Card
-                    key={workshop!.id}
-                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-                    onClick={() => setSelectedWorkshop(workshop!)}
-                    data-testid={`card-workshop-${workshop!.id}`}
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <div className="p-1.5 rounded-md bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                          <Wrench className="h-4 w-4 text-primary" />
-                        </div>
-                        {workshop!.name}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{count} موظف</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            );
-          })()}
-        </div>
-      )}
 
       {/* ======================== LEVEL 3: Employee Report ======================== */}
-      {selectedRule && selectedWorkshop && (
+      {selectedWorkshop && (
         <div className="space-y-4">
-          {isWorkshop ? (
-            (user?.allowedWorkshopIds?.length ?? 0) !== 1 && (
-              <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => { setSelectedWorkshop(null); setSelectedRule(null); }} data-testid="button-back-to-workshops">
-                <ChevronLeft className="h-4 w-4 rotate-180" />
-                العودة للورشات
-              </Button>
-            )
-          ) : (
+          {(!isWorkshop || (user?.allowedWorkshopIds?.length ?? 0) !== 1) && (
             <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setSelectedWorkshop(null)} data-testid="button-back-to-workshops">
               <ChevronLeft className="h-4 w-4 rotate-180" />
               العودة للورشات
@@ -1821,9 +1608,24 @@ export default function Reports() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {reportData.map((r) => {
+                      {[
+                        ...reportData.filter(r => (r.shift || "morning") === "morning"),
+                        ...reportData.filter(r => (r.shift || "morning") === "evening"),
+                      ].filter(r => shiftFilter === "all" || (r.shift || "morning") === shiftFilter)
+                      .map((r, idx, arr) => {
                         const byDate = empDayMap.get(r.employeeId);
+                        const shift = r.shift || "morning";
+                        const prevShift = idx > 0 ? (arr[idx - 1].shift || "morning") : null;
+                        const showHeader = shiftFilter === "all" && shift !== prevShift;
                         return (
+                          <Fragment key={r.employeeId}>
+                            {showHeader && (
+                              <TableRow>
+                                <TableCell colSpan={allDates.length + 3} className={`py-1.5 text-xs font-semibold ${shift === "morning" ? "bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400" : "bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400"}`}>
+                                  {shift === "morning" ? <><Sun className="h-3 w-3 inline ml-1" /> الوردية الصباحية</> : <><Moon className="h-3 w-3 inline ml-1" /> الوردية المسائية</>}
+                                </TableCell>
+                              </TableRow>
+                            )}
                           <TableRow key={r.employeeId} data-testid={`row-report-${r.employeeId}`} className="hover:bg-transparent">
                             <TableCell className="font-medium sticky right-0 bg-background z-10 border-l">{r.employeeName}</TableCell>
                             <TableCell className="text-muted-foreground text-xs text-center">{r.employeeCode}</TableCell>
@@ -1978,6 +1780,7 @@ export default function Reports() {
                               })()}
                             </TableCell>
                           </TableRow>
+                          </Fragment>
                         );
                       })}
                       {/* Totals row */}
@@ -2010,7 +1813,7 @@ export default function Reports() {
 
 
           {/* Monthly Trend Chart */}
-          {selectedRule && selectedWorkshop && (
+          {selectedWorkshop && (
             <Card>
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
