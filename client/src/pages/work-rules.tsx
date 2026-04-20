@@ -137,11 +137,12 @@ export default function WorkRules() {
                 إضافة قاعدة
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
+          <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>{editingRule ? "تعديل القاعدة" : "إضافة قاعدة جديدة"}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+            <div className="space-y-4 overflow-y-auto flex-1 px-1 pb-2">
               <div className="space-y-2">
                 <Label>اسم القاعدة *</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} required data-testid="input-rule-name" />
@@ -236,7 +237,8 @@ export default function WorkRules() {
                 <Switch checked={isDefault} onCheckedChange={setIsDefault} data-testid="switch-default" />
                 <Label>القاعدة الافتراضية</Label>
               </div>
-              <div className="flex justify-end gap-2">
+            </div>
+              <div className="flex justify-end gap-2 flex-shrink-0 pt-3 border-t mt-2">
                 <Button type="button" variant="secondary" onClick={() => { setOpen(false); resetForm(); }}>إلغاء</Button>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending} data-testid="button-submit-rule">
                   {editingRule ? "تحديث" : "إضافة"}
