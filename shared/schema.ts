@@ -45,6 +45,8 @@ export const workRules = pgTable("work_rules", {
   isDefault: boolean("is_default").notNull().default(false),
   is24hShift: boolean("is_24h_shift").notNull().default(false),
   checkoutEarliestTime: text("checkout_earliest_time"),
+  isFlexibleShift: boolean("is_flexible_shift").notNull().default(false),
+  flexibleShiftHours: integer("flexible_shift_hours").notNull().default(8),
 });
 
 export const employees = pgTable("employees", {
@@ -240,6 +242,8 @@ export const insertWorkRuleSchema = createInsertSchema(workRules).pick({
   isDefault: true,
   is24hShift: true,
   checkoutEarliestTime: true,
+  isFlexibleShift: true,
+  flexibleShiftHours: true,
 });
 
 export const insertEmployeeSchema = createInsertSchema(employees).pick({

@@ -29,6 +29,8 @@ export default function WorkRules() {
   const [earlyLeavePenaltyPerMinute, setEarlyLeavePenaltyPerMinute] = useState("0");
   const [absencePenalty, setAbsencePenalty] = useState("0");
   const [isDefault, setIsDefault] = useState(false);
+  const [isFlexibleShift, setIsFlexibleShift] = useState(false);
+  const [flexibleShiftHours, setFlexibleShiftHours] = useState("8");
 
   const { data: rules, isLoading } = useQuery<WorkRule[]>({ queryKey: ["/api/work-rules"] });
 
@@ -69,6 +71,7 @@ export default function WorkRules() {
     setLateGraceMinutes("0"); setLatePenaltyPerMinute("0");
     setEarlyLeavePenaltyPerMinute("0"); setAbsencePenalty("0");
     setIsDefault(false); setEditingRule(null);
+    setIsFlexibleShift(false); setFlexibleShiftHours("8");
   }
 
   function openEdit(rule: WorkRule) {
@@ -82,6 +85,8 @@ export default function WorkRules() {
     setEarlyLeavePenaltyPerMinute(rule.earlyLeavePenaltyPerMinute);
     setAbsencePenalty(rule.absencePenalty);
     setIsDefault(rule.isDefault);
+    setIsFlexibleShift(!!(rule as any).isFlexibleShift);
+    setFlexibleShiftHours(String((rule as any).flexibleShiftHours ?? 8));
     setOpen(true);
   }
 
@@ -89,14 +94,16 @@ export default function WorkRules() {
     e.preventDefault();
     const data = {
       name,
-      workStartTime,
-      workEndTime,
-      checkoutEarliestTime: checkoutEarliestTime || null,
-      lateGraceMinutes: parseInt(lateGraceMinutes) || 0,
-      latePenaltyPerMinute,
-      earlyLeavePenaltyPerMinute,
+      workStartTime: isFlexibleShift ? "08:00" : workStartTime,
+      workEndTime: isFlexibleShift ? "16:00" : workEndTime,
+      checkoutEarliestTime: isFlexibleShift ? null : (checkoutEarliestTime || null),
+      lateGraceMinutes: isFlexibleShift ? 0 : (parseInt(lateGraceMinutes) || 0),
+      latePenaltyPerMinute: isFlexibleShift ? "0" : latePenaltyPerMinute,
+      earlyLeavePenaltyPerMinute: isFlexibleShift ? "0" : earlyLeavePenaltyPerMinute,
       absencePenalty,
       isDefault,
+      isFlexibleShift,
+      flexibleShiftHours: parseInt(flexibleShiftHours) || 8,
     };
     if (editingRule) {
       updateMutation.mutate({ id: editingRule.id, data });
@@ -127,34 +134,70 @@ export default function WorkRules() {
                 <Label>اسم القاعدة *</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} required data-testid="input-rule-name" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>بداية الدوام</Label>
-                  <Input type="time" value={workStartTime} onChange={(e) => setWorkStartTime(e.target.value)} data-testid="input-start-time" />
-                </div>
-                <div className="space-y-2">
-                  <Label>نهاية الدوام</Label>
-                  <Input type="time" value={workEndTime} onChange={(e) => setWorkEndTime(e.target.value)} data-testid="input-end-time" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>أقرب وقت مسموح للخروج <span className="text-muted-foreground text-xs">(اختياري — للسماح بنطاق مرن)</span></Label>
-                <Input type="time" value={checkoutEarliestTime} onChange={(e) => setCheckoutEarliestTime(e.target.value)} data-testid="input-checkout-earliest" placeholder="اتركه فارغاً إذا لم يكن لازماً" />
-              </div>
-              <div className="space-y-2">
-                <Label>فترة السماح للتأخير (دقيقة)</Label>
-                <Input type="number" value={lateGraceMinutes} onChange={(e) => setLateGraceMinutes(e.target.value)} data-testid="input-grace" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>خصم التأخير / دقيقة</Label>
-                  <Input type="number" step="0.01" value={latePenaltyPerMinute} onChange={(e) => setLatePenaltyPerMinute(e.target.value)} data-testid="input-late-penalty" />
-                </div>
-                <div className="space-y-2">
-                  <Label>خصم الخروج المبكر / دقيقة</Label>
-                  <Input type="number" step="0.01" value={earlyLeavePenaltyPerMinute} onChange={(e) => setEarlyLeavePenaltyPerMinute(e.target.value)} data-testid="input-early-penalty" />
+
+              {/* سويتش الوردية المرنة */}
+              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30">
+                <Switch
+                  checked={isFlexibleShift}
+                  onCheckedChange={(v) => setIsFlexibleShift(v)}
+                  data-testid="switch-flexible-shift"
+                />
+                <div>
+                  <Label className="cursor-pointer">وردية مرنة (بدون وقت محدد)</Label>
+                  <p className="text-xs text-muted-foreground">الإضافي يُحسب بعد X ساعة من الدخول</p>
                 </div>
               </div>
+
+              {/* حقول الوردية المرنة */}
+              {isFlexibleShift && (
+                <div className="space-y-2">
+                  <Label>ساعات العمل الأساسية في اليوم</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="24"
+                    value={flexibleShiftHours}
+                    onChange={(e) => setFlexibleShiftHours(e.target.value)}
+                    data-testid="input-flexible-hours"
+                  />
+                  <p className="text-xs text-muted-foreground">الساعات الزائدة عن هذا العدد تُحتسب إضافياً</p>
+                </div>
+              )}
+
+              {/* حقول الوردية الثابتة — تُخفى عند الوردية المرنة */}
+              {!isFlexibleShift && (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>بداية الدوام</Label>
+                      <Input type="time" value={workStartTime} onChange={(e) => setWorkStartTime(e.target.value)} data-testid="input-start-time" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>نهاية الدوام</Label>
+                      <Input type="time" value={workEndTime} onChange={(e) => setWorkEndTime(e.target.value)} data-testid="input-end-time" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>أقرب وقت مسموح للخروج <span className="text-muted-foreground text-xs">(اختياري — للسماح بنطاق مرن)</span></Label>
+                    <Input type="time" value={checkoutEarliestTime} onChange={(e) => setCheckoutEarliestTime(e.target.value)} data-testid="input-checkout-earliest" placeholder="اتركه فارغاً إذا لم يكن لازماً" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>فترة السماح للتأخير (دقيقة)</Label>
+                    <Input type="number" value={lateGraceMinutes} onChange={(e) => setLateGraceMinutes(e.target.value)} data-testid="input-grace" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>خصم التأخير / دقيقة</Label>
+                      <Input type="number" step="0.01" value={latePenaltyPerMinute} onChange={(e) => setLatePenaltyPerMinute(e.target.value)} data-testid="input-late-penalty" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>خصم الخروج المبكر / دقيقة</Label>
+                      <Input type="number" step="0.01" value={earlyLeavePenaltyPerMinute} onChange={(e) => setEarlyLeavePenaltyPerMinute(e.target.value)} data-testid="input-early-penalty" />
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div className="space-y-2">
                 <Label>خصم الغياب</Label>
                 <Input type="number" step="0.01" value={absencePenalty} onChange={(e) => setAbsencePenalty(e.target.value)} data-testid="input-absence-penalty" />
@@ -200,11 +243,23 @@ export default function WorkRules() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm">{rule.name}</p>
                         {rule.isDefault && <Badge variant="default" className="text-xs">افتراضي</Badge>}
+                        {(rule as any).isFlexibleShift && (
+                          <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-400">
+                            مرنة · {(rule as any).flexibleShiftHours ?? 8}س
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {rule.workStartTime} - {rule.workEndTime}
-                        {rule.checkoutEarliestTime && <span className="text-primary"> | خروج: {rule.checkoutEarliestTime}→{rule.workEndTime}</span>}
-                        {" "}| سماح: {rule.lateGraceMinutes} دقيقة | خصم تأخير: {rule.latePenaltyPerMinute}/دقيقة | خصم غياب: {rule.absencePenalty}
+                        {(rule as any).isFlexibleShift
+                          ? `وردية مرنة — إضافي بعد ${(rule as any).flexibleShiftHours ?? 8} ساعات`
+                          : (
+                            <>
+                              {rule.workStartTime} - {rule.workEndTime}
+                              {rule.checkoutEarliestTime && <span className="text-primary"> | خروج: {rule.checkoutEarliestTime}→{rule.workEndTime}</span>}
+                              {" "}| سماح: {rule.lateGraceMinutes} دقيقة | خصم تأخير: {rule.latePenaltyPerMinute}/دقيقة | خصم غياب: {rule.absencePenalty}
+                            </>
+                          )
+                        }
                       </p>
                     </div>
                   </div>
