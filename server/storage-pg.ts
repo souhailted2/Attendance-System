@@ -25,6 +25,7 @@ import type {
   InsertAdvance, Advance,
   InsertDeduction, Deduction,
   SalaryPayment,
+  InsertDeductionRequest, DeductionRequest,
 } from "@shared/schema";
 import type { IStorage } from "./storage";
 
@@ -534,6 +535,15 @@ export class PgStorage implements IStorage {
   async getDeductions(_employeeId?: string, _month?: number, _year?: number): Promise<Deduction[]> { return []; }
   async createDeduction(_data: InsertDeduction): Promise<Deduction> { throw new Error("Not implemented for Postgres"); }
   async deleteDeduction(_id: string): Promise<void> { /* no-op: MySQL only */ }
+
+  async getDeductionRequests(_filter?: { employeeId?: string; status?: string; requestedBy?: string }): Promise<DeductionRequest[]> { return []; }
+  async createDeductionRequest(_data: InsertDeductionRequest): Promise<DeductionRequest> { throw new Error("Not implemented for Postgres"); }
+  async updateDeductionRequest(_id: string, _data: Partial<InsertDeductionRequest>): Promise<DeductionRequest | undefined> { return undefined; }
+  async deleteDeductionRequest(_id: string): Promise<void> { /* no-op: MySQL only */ }
+  async approveDeductionRequest(_id: string, _reviewedBy: string): Promise<DeductionRequest | undefined> { return undefined; }
+  async rejectDeductionRequest(_id: string, _reviewedBy: string): Promise<DeductionRequest | undefined> { return undefined; }
+  async getPendingDeductionRequestsCount(): Promise<number> { return 0; }
+  async getDeductionsForPayroll(_employeeId: string, _month: number, _year: number): Promise<Array<{ id: string; amount: string; reason: string; deductionDate: string }>> { return []; }
 
   async addSyncLockAttendance(_employeeId: string, _date: string): Promise<void> { /* no-op: MySQL only */ }
   async hasSyncLockAttendance(_employeeId: string, _date: string): Promise<boolean> { return false; }
