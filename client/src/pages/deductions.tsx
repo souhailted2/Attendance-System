@@ -465,7 +465,7 @@ export default function Deductions() {
                   ) : filteredRequests.map(r => (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors" data-testid={`row-deduction-${r.id}`}>
                       <td className="px-4 py-3 font-medium" data-testid={`text-emp-name-${r.id}`}>{empName(r.employeeId)}</td>
-                      <td className="px-4 py-3" data-testid={`text-amount-${r.id}`}>{parseFloat(r.amount).toLocaleString("ar-MA")} د.م</td>
+                      <td className="px-4 py-3" data-testid={`text-amount-${r.id}`}>{parseFloat(r.amount).toFixed(2)} د.م</td>
                       <td className="px-4 py-3 whitespace-nowrap" data-testid={`text-date-${r.id}`}>
                         {formatDate(r.deductionDate)}
                         {r.deductionTime && <span className="text-muted-foreground ms-1 text-xs">({r.deductionTime})</span>}
@@ -482,6 +482,9 @@ export default function Deductions() {
                           )}
                           {isOwner && r.status === "rejected" && (
                             <Button size="sm" variant="outline" className="border-purple-400 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 h-7 px-2 text-xs" onClick={() => approveMut.mutate(r.id)} disabled={approveMut.isPending} data-testid={`button-approve-rejected-${r.id}`}>قبول</Button>
+                          )}
+                          {isOwner && r.status === "approved" && (
+                            <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 h-7 px-2 text-xs" onClick={() => rejectMut.mutate(r.id)} disabled={rejectMut.isPending} data-testid={`button-reject-approved-${r.id}`}>إلغاء</Button>
                           )}
                           {(isOwner || (isObserver && r.status === "pending" && r.requestedBy === "observer")) && (
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => setEditTarget(r)} data-testid={`button-edit-${r.id}`}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -501,7 +504,7 @@ export default function Deductions() {
           {filteredRequests.length > 0 && (
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <span data-testid="text-total-records">إجمالي السجلات: {filteredRequests.length}</span>
-              <span data-testid="text-total-amount">إجمالي المبالغ: <strong className="text-foreground">{filteredRequests.reduce((s, r) => s + parseFloat(r.amount ?? "0"), 0).toLocaleString("ar-MA")} د.م</strong></span>
+              <span data-testid="text-total-amount">إجمالي المبالغ: <strong className="text-foreground">{filteredRequests.reduce((s, r) => s + parseFloat(r.amount ?? "0"), 0).toFixed(2)} د.م</strong></span>
             </div>
           )}
         </>
@@ -531,7 +534,7 @@ export default function Deductions() {
                   ) : legacyDeductions.map(d => (
                     <tr key={d.id} className="hover:bg-muted/30 transition-colors" data-testid={`row-legacy-${d.id}`}>
                       <td className="px-4 py-3 font-medium">{empName(d.employeeId)}</td>
-                      <td className="px-4 py-3">{parseFloat(d.amount).toLocaleString("ar-MA")} د.م</td>
+                      <td className="px-4 py-3">{parseFloat(d.amount).toFixed(2)} د.م</td>
                       <td className="px-4 py-3">{MONTHS_AR[(d.month ?? 1) - 1]} {d.year}</td>
                       <td className="px-4 py-3 max-w-[160px] truncate">{d.reason ?? "—"}</td>
                       <td className="px-4 py-3">
@@ -579,7 +582,7 @@ export default function Deductions() {
                     }).map(r => (
                       <tr key={r.id} className="hover:bg-muted/30" data-testid={`row-caisse-req-${r.id}`}>
                         <td className="px-4 py-3 font-medium">{empName(r.employeeId)}</td>
-                        <td className="px-4 py-3">{parseFloat(r.amount).toLocaleString("ar-MA")} د.م</td>
+                        <td className="px-4 py-3">{parseFloat(r.amount).toFixed(2)} د.م</td>
                         <td className="px-4 py-3 whitespace-nowrap">{formatDate(r.deductionDate)}</td>
                         <td className="px-4 py-3 max-w-[160px] truncate">{r.reason ?? "—"}</td>
                       </tr>
@@ -609,7 +612,7 @@ export default function Deductions() {
                       {legacyDeductions.map(d => (
                         <tr key={d.id} className="hover:bg-muted/30" data-testid={`row-caisse-legacy-${d.id}`}>
                           <td className="px-4 py-3 font-medium">{empName(d.employeeId)}</td>
-                          <td className="px-4 py-3">{parseFloat(d.amount).toLocaleString("ar-MA")} د.م</td>
+                          <td className="px-4 py-3">{parseFloat(d.amount).toFixed(2)} د.م</td>
                           <td className="px-4 py-3">{MONTHS_AR[(d.month ?? 1) - 1]} {d.year}</td>
                           <td className="px-4 py-3 max-w-[160px] truncate">{d.reason ?? "—"}</td>
                         </tr>
