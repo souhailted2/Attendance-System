@@ -172,7 +172,7 @@ export default function Reports() {
   const [selectedRule, setSelectedRule] = useState<WorkRule | null>(null);
   const [selectedWorkshop, setSelectedWorkshop] = useState<Workshop | null>(null);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"shifts" | "overtime">("shifts");
+  const [viewMode, setViewMode] = useState<"shifts" | "overtime" | "grants">("shifts");
   const [shiftFilter, setShiftFilter] = useState<"all" | "morning" | "evening">("all");
   const [workshopSearch, setWorkshopSearch] = useState("");
 
@@ -982,6 +982,26 @@ export default function Reports() {
                 ))}
               </div>
             )}
+            {!selectedWorkshop && (
+              <button
+                onClick={() => { setViewMode(viewMode === "overtime" ? "shifts" : "overtime"); setSelectedWorkshop(null); }}
+                className={`h-8 px-3 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${viewMode === "overtime" ? "bg-indigo-600 text-white border-indigo-600" : "bg-background hover:bg-muted text-muted-foreground"}`}
+                data-testid="button-view-overtime"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                الإضافي
+              </button>
+            )}
+            {!selectedWorkshop && isOwnerOrAttendence && (
+              <button
+                onClick={() => { setViewMode(viewMode === "grants" ? "shifts" : "grants"); setSelectedWorkshop(null); }}
+                className={`h-8 px-3 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${viewMode === "grants" ? "bg-emerald-600 text-white border-emerald-600" : "bg-background hover:bg-muted text-muted-foreground"}`}
+                data-testid="button-view-grants"
+              >
+                <TrendingUp className="h-3.5 w-3.5" />
+                المنحة
+              </button>
+            )}
             {selectedWorkshop && reportData.length > 0 && (
               <Button
                 size="sm"
@@ -1080,25 +1100,6 @@ export default function Reports() {
                     </Card>
                   );
                 })}
-                {!isWorkshop && (
-                  <Card
-                    className="border-2 border-dashed border-indigo-300 dark:border-indigo-700 cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all bg-indigo-50/40 dark:bg-indigo-950/20"
-                    onClick={() => { setViewMode("overtime"); setSelectedWorkshop(null); }}
-                    data-testid="card-overtime"
-                  >
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center gap-2 text-base text-indigo-700 dark:text-indigo-400">
-                        <div className="p-1.5 rounded-md bg-indigo-100 dark:bg-indigo-950/50">
-                          <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        الساعات الإضافية
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">عرض العمال الذين عملوا ساعات إضافية خارج فترتهم في النطاق الزمني المحدد.</p>
-                    </CardContent>
-                  </Card>
-                )}
               </div>
             );
           })()}
@@ -1109,11 +1110,7 @@ export default function Reports() {
       {!selectedWorkshop && viewMode === "overtime" && (
         <div className="space-y-4">
           {/* Header row */}
-          <div className="flex items-center justify-between print:hidden">
-            <Button variant="ghost" size="sm" className="gap-1 -mt-2" onClick={() => setViewMode("shifts")} data-testid="button-back-to-shifts">
-              <ChevronLeft className="h-4 w-4 rotate-180" />
-              العودة للفترات
-            </Button>
+          <div className="flex items-center justify-end print:hidden">
             <Button
               variant="outline" size="sm"
               className="gap-1.5"
@@ -1898,7 +1895,7 @@ export default function Reports() {
       )}
 
       {/* ======================== GRANTS REPORT SECTION ======================== */}
-      {isOwnerOrAttendence && (
+      {viewMode === "grants" && isOwnerOrAttendence && (
         <div className="space-y-4 mt-6 mx-4 mb-6">
           <div className="flex items-center gap-3">
             <TrendingUp className="h-5 w-5 text-primary shrink-0" />
