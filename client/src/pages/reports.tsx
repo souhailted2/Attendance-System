@@ -1029,6 +1029,15 @@ export default function Reports() {
                 w.name.includes(workshopSearch.trim())
               );
             }
+            if (shiftFilter !== "all") {
+              visibleWorkshops = visibleWorkshops.filter((w) =>
+                activeEmployees.some((e) =>
+                  e.workshopId === w.id &&
+                  (!allowedSh || allowedSh.includes(e.shift ?? "morning")) &&
+                  (e.shift ?? "morning") === shiftFilter
+                )
+              );
+            }
             if (visibleWorkshops.length === 0) {
               return (
                 <Card>
