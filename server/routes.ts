@@ -1897,7 +1897,7 @@ export async function registerRoutes(
               const pIn  = timeToMin(rawPunchArr[pi])     ?? 0;
               const pOut = timeToMin(rawPunchArr[pi + 1]) ?? 0;
               const rawEarlyOT_p = pIn < (effectiveStartMin - earlyArrivalGrace)
-                ? Math.max(0, Math.min(pOut, effectiveStartMin - earlyArrivalGrace) - pIn) : 0;
+                ? Math.max(0, Math.min(pOut, effectiveStartMin) - pIn) : 0;
               const earlyOT_p = rawEarlyOT_p >= 15 ? rawEarlyOT_p : 0;
               const lateOT_p  = pOut > (effectiveEndMin + lateLeaveGrace)
                 ? Math.max(0, pOut - Math.max(pIn, effectiveEndMin)) : 0;
@@ -5589,7 +5589,7 @@ export async function registerRoutes(
                 const pIn  = payTimeToMin(rawPunchesOT[pi])     ?? 0;
                 const pOut = payTimeToMin(rawPunchesOT[pi + 1]) ?? 0;
                 const rawEarlyOT_p = pIn < (effStart - earlyArrivalGrace)
-                  ? Math.max(0, Math.min(pOut, effStart - earlyArrivalGrace) - pIn) : 0;
+                  ? Math.max(0, Math.min(pOut, effStart) - pIn) : 0;
                 const earlyOT_p = rawEarlyOT_p >= 15 ? rawEarlyOT_p : 0;
                 const lateOT_p  = pOut > (effEnd + lateLeaveGraceOT)
                   ? Math.max(0, pOut - Math.max(pIn, effEnd)) : 0;
