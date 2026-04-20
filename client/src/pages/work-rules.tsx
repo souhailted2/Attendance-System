@@ -279,7 +279,7 @@ export default function WorkRules() {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-1 truncate max-w-lg">
                         {rule.isFlexibleShift
                           ? `وردية مرنة — إضافي بعد ${rule.flexibleShiftHours ?? 8} ساعات`
                           : (
