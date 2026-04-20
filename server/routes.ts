@@ -1897,7 +1897,7 @@ export async function registerRoutes(
               const pIn  = timeToMin(rawPunchArr[pi])     ?? 0;
               const pOut = timeToMin(rawPunchArr[pi + 1]) ?? 0;
               const earlyOT_p = pIn < (effectiveStartMin - earlyArrivalGrace)
-                ? Math.max(0, Math.min(pOut, effectiveStartMin) - pIn) : 0;
+                ? Math.max(0, Math.min(pOut, effectiveStartMin - earlyArrivalGrace) - pIn) : 0;
               const lateOT_p  = pOut > (effectiveEndMin + lateLeaveGrace)
                 ? Math.max(0, pOut - Math.max(pIn, effectiveEndMin)) : 0;
               overtimeMin += earlyOT_p + lateOT_p;
@@ -1909,7 +1909,7 @@ export async function registerRoutes(
               ? checkOutMin - effectiveEndMin : 0;
             overtimeMin = earlyOT + lateOT;
           }
-          const overtimeHours = Math.round(overtimeMin / 60 * 10) / 10;
+          const overtimeHours = Math.floor(overtimeMin / 60 * 10) / 10;
 
           return {
             attendanceId: rec.id,
@@ -1949,7 +1949,7 @@ export async function registerRoutes(
               const [inH, inM] = existing.checkIn.split(":").map(Number);
               const [outH, outM] = existing.checkOut.split(":").map(Number);
               const workedMin = (outH * 60 + outM) - (inH * 60 + inM);
-              existing.overtimeHours = workedMin > 0 ? Math.round(workedMin / 60 * 10) / 10 : 0;
+              existing.overtimeHours = workedMin > 0 ? Math.floor(workedMin / 60 * 10) / 10 : 0;
             } else {
               existing.overtimeHours = 0;
             }
@@ -5567,7 +5567,7 @@ export async function registerRoutes(
             const ciMin = payTimeToMin(rec.checkIn);
             const coMin = payTimeToMin(rec.checkOut);
             if (ciMin !== null && coMin !== null && coMin > ciMin) {
-              totalOvertimeHours += Math.round((coMin - ciMin) / 60 * 10) / 10;
+              totalOvertimeHours += Math.floor((coMin - ciMin) / 60 * 10) / 10;
             }
           } else {
             const dayOvr = activeOverrides.find(ov =>
@@ -5587,7 +5587,7 @@ export async function registerRoutes(
                 const pIn  = payTimeToMin(rawPunchesOT[pi])     ?? 0;
                 const pOut = payTimeToMin(rawPunchesOT[pi + 1]) ?? 0;
                 const earlyOT_p = pIn < (effStart - earlyArrivalGrace)
-                  ? Math.max(0, Math.min(pOut, effStart) - pIn) : 0;
+                  ? Math.max(0, Math.min(pOut, effStart - earlyArrivalGrace) - pIn) : 0;
                 const lateOT_p  = pOut > (effEnd + lateLeaveGraceOT)
                   ? Math.max(0, pOut - Math.max(pIn, effEnd)) : 0;
                 otMin += earlyOT_p + lateOT_p;
@@ -5599,10 +5599,10 @@ export async function registerRoutes(
               const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
               otMin = earlyOT + lateOT;
             }
-            totalOvertimeHours += Math.round(otMin / 60 * 10) / 10;
+            totalOvertimeHours += Math.floor(otMin / 60 * 10) / 10;
           }
         }
-        const overtimeHours = Math.round(totalOvertimeHours * 10) / 10;
+        const overtimeHours = Math.floor(totalOvertimeHours * 10) / 10;
         const overtimePay   = Math.round(hourlyRate * overtimeHours * 100) / 100;
 
         // ---- حساب المنحة الشهرية ----
