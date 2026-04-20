@@ -1911,7 +1911,7 @@ export async function registerRoutes(
               ? checkOutMin - effectiveEndMin : 0;
             overtimeMin = earlyOT + lateOT;
           }
-          const overtimeHours = Math.floor(overtimeMin / 60 * 10) / 10;
+          const overtimeHours = Math.floor(overtimeMin * 100 / 60) / 100;
 
           return {
             attendanceId: rec.id,
@@ -1951,7 +1951,7 @@ export async function registerRoutes(
               const [inH, inM] = existing.checkIn.split(":").map(Number);
               const [outH, outM] = existing.checkOut.split(":").map(Number);
               const workedMin = (outH * 60 + outM) - (inH * 60 + inM);
-              existing.overtimeHours = workedMin > 0 ? Math.floor(workedMin / 60 * 10) / 10 : 0;
+              existing.overtimeHours = workedMin > 0 ? Math.floor(workedMin * 100 / 60) / 100 : 0;
             } else {
               existing.overtimeHours = 0;
             }
@@ -5569,7 +5569,7 @@ export async function registerRoutes(
             const ciMin = payTimeToMin(rec.checkIn);
             const coMin = payTimeToMin(rec.checkOut);
             if (ciMin !== null && coMin !== null && coMin > ciMin) {
-              totalOvertimeHours += Math.floor((coMin - ciMin) / 60 * 10) / 10;
+              totalOvertimeHours += Math.floor((coMin - ciMin) * 100 / 60) / 100;
             }
           } else {
             const dayOvr = activeOverrides.find(ov =>
@@ -5603,10 +5603,10 @@ export async function registerRoutes(
               const lateOT  = (coMin !== null && coMin > (effEnd + lateLeaveGraceOT)) ? (coMin - effEnd) : 0;
               otMin = earlyOT + lateOT;
             }
-            totalOvertimeHours += Math.floor(otMin / 60 * 10) / 10;
+            totalOvertimeHours += Math.floor(otMin * 100 / 60) / 100;
           }
         }
-        const overtimeHours = Math.floor(totalOvertimeHours * 10) / 10;
+        const overtimeHours = Math.floor(Math.round(totalOvertimeHours * 10000) / 100) / 100;
         const overtimePay   = Math.round(hourlyRate * overtimeHours * 100) / 100;
 
         // ---- حساب المنحة الشهرية ----

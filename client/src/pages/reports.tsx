@@ -1357,7 +1357,7 @@ export default function Reports() {
                                 );
                               })}
                               <TableCell className="text-center font-bold sticky left-0 bg-background z-10 border-r">
-                                <span className="text-sm text-indigo-700 dark:text-indigo-400">{Math.floor(totalOT * 10) / 10}</span>
+                                <span className="text-sm text-indigo-700 dark:text-indigo-400">{Math.floor(Math.round(totalOT * 10000) / 100) / 100}</span>
                               </TableCell>
                               <TableCell className="text-center text-xs p-1">
                                 {isOwner && editingRate?.employeeId === r.employeeId ? (
@@ -1413,12 +1413,12 @@ export default function Reports() {
                             }, 0);
                             return (
                               <TableCell key={d} className="text-center text-xs font-bold">
-                                {dayTotal > 0 ? <span className="text-indigo-600 dark:text-indigo-400">{Math.floor(dayTotal * 10) / 10}</span> : "—"}
+                                {dayTotal > 0 ? <span className="text-indigo-600 dark:text-indigo-400">{Math.floor(Math.round(dayTotal * 10000) / 100) / 100}</span> : "—"}
                               </TableCell>
                             );
                           })}
                           <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/30 z-10 border-r text-xs">
-                            {Math.floor(wsOT * 10) / 10}
+                            {Math.floor(Math.round(wsOT * 10000) / 100) / 100}
                           </TableCell>
                           <TableCell />
                           <TableCell className="text-center text-xs font-bold text-emerald-700 dark:text-emerald-400">
@@ -1439,12 +1439,12 @@ export default function Reports() {
                         }, 0);
                         return (
                           <TableCell key={d} className="text-center text-xs font-bold">
-                            {dayTotal > 0 ? <span className="text-indigo-700 dark:text-indigo-400">{Math.floor(dayTotal * 10) / 10}</span> : "—"}
+                            {dayTotal > 0 ? <span className="text-indigo-700 dark:text-indigo-400">{Math.floor(Math.round(dayTotal * 10000) / 100) / 100}</span> : "—"}
                           </TableCell>
                         );
                       })}
                       <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/50 z-10 border-r">
-                        {Math.floor(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                        {Math.floor(Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10000) / 100) / 100}
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-center font-bold text-emerald-700 dark:text-emerald-400 text-xs">
@@ -1516,7 +1516,7 @@ export default function Reports() {
                                   </TableCell>
                                 );
                               })}
-                              <TableCell className="text-center font-bold">{Math.floor(totalOT * 10) / 10}</TableCell>
+                              <TableCell className="text-center font-bold">{Math.floor(Math.round(totalOT * 10000) / 100) / 100}</TableCell>
                               <TableCell className="text-center">{rate > 0 ? rate.toFixed(2) : "—"}</TableCell>
                               <TableCell className="text-center font-bold">{rate > 0 && totalOT > 0 ? totalPay.toFixed(2) : "—"}</TableCell>
                             </TableRow>
@@ -1529,9 +1529,9 @@ export default function Reports() {
                               const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
                               return s + (rec?.overtimeHours ?? 0);
                             }, 0);
-                            return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.floor(dayTotal * 10) / 10 : "—"}</TableCell>;
+                            return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.floor(Math.round(dayTotal * 10000) / 100) / 100 : "—"}</TableCell>;
                           })}
-                          <TableCell className="text-center font-bold">{Math.floor(wsOT * 10) / 10}</TableCell>
+                          <TableCell className="text-center font-bold">{Math.floor(Math.round(wsOT * 10000) / 100) / 100}</TableCell>
                           <TableCell />
                           <TableCell className="text-center font-bold">{wsPay > 0 ? wsPay.toFixed(2) : "—"}</TableCell>
                         </TableRow>,
@@ -1545,10 +1545,10 @@ export default function Reports() {
                           const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
                           return s + (rec?.overtimeHours ?? 0);
                         }, 0);
-                        return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.floor(dayTotal * 10) / 10 : "—"}</TableCell>;
+                        return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.floor(Math.round(dayTotal * 10000) / 100) / 100 : "—"}</TableCell>;
                       })}
                       <TableCell className="text-center font-bold">
-                        {Math.floor(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10) / 10}
+                        {Math.floor(Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10000) / 100) / 100}
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-center font-bold">
