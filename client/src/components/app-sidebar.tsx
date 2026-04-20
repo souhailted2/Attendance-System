@@ -273,7 +273,7 @@ export function AppSidebar() {
                           </span>
                           <span>الخصومات</span>
                           {pendingCount > 0 && (
-                            <span className="mr-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white animate-pulse" data-testid="badge-pending-deductions">
+                            <span className="mr-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white animate-pulse" data-testid="badge-pending-deductions">
                               {pendingCount}
                             </span>
                           )}

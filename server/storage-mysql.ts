@@ -1067,8 +1067,8 @@ export class MysqlStorage implements IStorage {
     if (status) conditions.push(eq(schema.deductionRequests.status, status));
     if (requestedBy) conditions.push(eq(schema.deductionRequests.requestedBy, requestedBy));
     const rows = conditions.length > 0
-      ? await mysqlDb.select().from(schema.deductionRequests).where(and(...conditions))
-      : await mysqlDb.select().from(schema.deductionRequests);
+      ? await mysqlDb.select().from(schema.deductionRequests).where(and(...conditions)).orderBy(desc(schema.deductionRequests.createdAt))
+      : await mysqlDb.select().from(schema.deductionRequests).orderBy(desc(schema.deductionRequests.createdAt));
     return rows as DeductionRequest[];
   }
 

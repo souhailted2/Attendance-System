@@ -118,7 +118,7 @@ function RequestForm({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/deduction-requests"] });
       queryClient.invalidateQueries({ queryKey: ["/api/deduction-requests/pending-count"] });
-      toast({ title: selectedIds.length > 1 ? `تم إرسال ${selectedIds.length} طلبات خصم` : "تم إرسال طلب الخصم" });
+      toast({ title: selectedIds.length > 1 ? `تم إرسال ${selectedIds.length} طلبات خصم` : "تم إرسال طلب الخصم", description: isOwner ? undefined : "في انتظار موافقة المالك" });
       onClose();
     },
     onError: (e: any) => toast({ title: "خطأ", description: e.message, variant: "destructive" }),
