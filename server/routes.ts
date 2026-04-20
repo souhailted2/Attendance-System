@@ -1753,8 +1753,8 @@ export async function registerRoutes(
         if (workRule) {
           if (workRule.is24hShift) {
             totalWorkDayMinutes = 1440; // 24 ساعة
-          } else if ((workRule as any).isFlexibleShift) {
-            totalWorkDayMinutes = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+          } else if (workRule.isFlexibleShift) {
+            totalWorkDayMinutes = (workRule.flexibleShiftHours ?? 8) * 60;
           } else {
             const [startH, startM] = workRule.workStartTime.split(":").map(Number);
             const [endH, endM] = workRule.workEndTime.split(":").map(Number);
@@ -1856,7 +1856,7 @@ export async function registerRoutes(
           // عند وجود جدول خاص نحسب من الإحداثيات الزمنية (سلوك صحيح حالياً)
           let effectiveLateMinutes: number;
           let effectiveEarlyLeaveMinutes: number;
-          if ((workRule as any)?.isFlexibleShift) {
+          if (workRule?.isFlexibleShift) {
             // الوردية المرنة: لا تأخير ولا خروج مبكر
             effectiveLateMinutes = 0;
             effectiveEarlyLeaveMinutes = 0;
@@ -1888,9 +1888,9 @@ export async function registerRoutes(
             dailyScore = 1;
           } else if (rec.status === "rest") {
             dailyScore = 1;
-          } else if ((workRule as any)?.isFlexibleShift && (rec.status === "present" || rec.status === "late")) {
+          } else if (workRule?.isFlexibleShift && (rec.status === "present" || rec.status === "late")) {
             // الوردية المرنة: النقطة = min(1, ساعات العمل / ساعات الأساس)
-            const baseMin = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+            const baseMin = (workRule.flexibleShiftHours ?? 8) * 60;
             let totalWorkedMinScore = 0;
             if (rawPunchArr && rawPunchArr.length >= 2) {
               for (let pi = 0; pi + 1 < rawPunchArr.length; pi += 2) {
@@ -1910,9 +1910,9 @@ export async function registerRoutes(
 
           // حساب الساعات الإضافية بناءً على أزواج البصمات الفعلية لمعالجة الساعات الإضافية غير المتصلة
           let overtimeMin = 0;
-          if ((workRule as any)?.isFlexibleShift) {
+          if (workRule?.isFlexibleShift) {
             // الوردية المرنة: الإضافي = max(0, مجموع العمل الكلي - ساعات الأساس)
-            const baseMin = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+            const baseMin = (workRule.flexibleShiftHours ?? 8) * 60;
             let totalWorkedMinOT = 0;
             if (rawPunchArr && rawPunchArr.length >= 2) {
               for (let pi = 0; pi + 1 < rawPunchArr.length; pi += 2) {
@@ -3823,8 +3823,8 @@ export async function registerRoutes(
         if (workRule) {
           if (workRule.is24hShift) {
             totalWorkDayMinutes = 1440;
-          } else if ((workRule as any).isFlexibleShift) {
-            totalWorkDayMinutes = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+          } else if (workRule.isFlexibleShift) {
+            totalWorkDayMinutes = (workRule.flexibleShiftHours ?? 8) * 60;
           } else {
             const [sh, sm] = workRule.workStartTime.split(":").map(Number);
             const [eh, em] = workRule.workEndTime.split(":").map(Number);
@@ -3883,8 +3883,8 @@ export async function registerRoutes(
             let score = 0;
             if (rec.status === "absent") score = 0;
             else if (rec.status === "leave" || rec.status === "rest") score = 1;
-            else if ((workRule as any)?.isFlexibleShift && (rec.status === "present" || rec.status === "late")) {
-              const baseMinFS = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+            else if (workRule?.isFlexibleShift && (rec.status === "present" || rec.status === "late")) {
+              const baseMinFS = (workRule.flexibleShiftHours ?? 8) * 60;
               const workedMin = (checkInMin !== null && checkOutMin !== null) ? Math.max(0, checkOutMin - checkInMin) : 0;
               score = Math.min(1, workedMin / baseMinFS);
             }
@@ -5376,8 +5376,8 @@ export async function registerRoutes(
         let totalWorkDayMinutes = 480;
         if (workRule?.is24hShift) {
           totalWorkDayMinutes = 1440;
-        } else if ((workRule as any)?.isFlexibleShift) {
-          totalWorkDayMinutes = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+        } else if (workRule?.isFlexibleShift) {
+          totalWorkDayMinutes = (workRule.flexibleShiftHours ?? 8) * 60;
         } else if (workRule) {
           const [sh, sm] = workRule.workStartTime.split(":").map(Number);
           const [eh, em] = workRule.workEndTime.split(":").map(Number);
@@ -5434,8 +5434,8 @@ export async function registerRoutes(
               } catch { /* keep stored value */ }
             }
 
-            if ((workRule as any)?.isFlexibleShift) {
-              const baseMinFS2 = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+            if (workRule?.isFlexibleShift) {
+              const baseMinFS2 = (workRule.flexibleShiftHours ?? 8) * 60;
               const ciFS = payTimeToMin(rec.checkIn), coFS = payTimeToMin(rec.checkOut);
               const workedFS = (ciFS !== null && coFS !== null) ? Math.max(0, coFS - ciFS) : 0;
               score = Math.min(1, workedFS / baseMinFS2);
@@ -5444,20 +5444,20 @@ export async function registerRoutes(
           } else {
             // بدون جدول خاص: نُعيد حساب الغياب الوسيطي من البصمات الخام إن توفرت (كما تفعل صفحة التقارير)
             // وإلا نستخدم القيم المخزنة احتياطياً
-            const effLate  = (workRule as any)?.isFlexibleShift ? 0 : Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
-            const effEarly = (workRule as any)?.isFlexibleShift ? 0 : Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
+            const effLate  = workRule?.isFlexibleShift ? 0 : Math.max(0, (rec.lateMinutes ?? 0) - lateArrivalGrace);
+            const effEarly = workRule?.isFlexibleShift ? 0 : Math.max(0, (rec.earlyLeaveMinutes ?? 0) - earlyLeaveGrace);
             const baseShiftStartMin = payTimeToMin(workRule?.workStartTime ?? "08:00") ?? 480;
             const baseShiftEndMin   = payTimeToMin(workRule?.workEndTime   ?? "16:00") ?? 960;
             let midAbs = rec.middleAbsenceMinutes ?? 0;
             if ((rec as any).rawPunches) {
               try {
                 const rawPunchArr = JSON.parse((rec as any).rawPunches) as string[];
-                midAbs = (workRule as any)?.isFlexibleShift ? 0 : calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, baseShiftStartMin, baseShiftEndMin);
+                midAbs = workRule?.isFlexibleShift ? 0 : calculateMiddleAbsenceMinutes(rawPunchArr, MIDDLE_ABSENCE_GRACE_MINUTES, baseShiftStartMin, baseShiftEndMin);
               } catch { /* keep stored value */ }
             }
 
-            if ((workRule as any)?.isFlexibleShift) {
-              const baseMinFS3 = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+            if (workRule?.isFlexibleShift) {
+              const baseMinFS3 = (workRule.flexibleShiftHours ?? 8) * 60;
               const ciFS2 = payTimeToMin(rec.checkIn), coFS2 = payTimeToMin(rec.checkOut);
               const workedFS2 = (ciFS2 !== null && coFS2 !== null) ? Math.max(0, coFS2 - ciFS2) : 0;
               score = Math.min(1, workedFS2 / baseMinFS3);
@@ -5635,9 +5635,9 @@ export async function registerRoutes(
               if ((rec as any).rawPunches) rawPunchesOT = JSON.parse((rec as any).rawPunches) as string[];
             } catch { rawPunchesOT = null; }
             let otMin = 0;
-            if ((workRule as any)?.isFlexibleShift) {
+            if (workRule?.isFlexibleShift) {
               // الوردية المرنة: الإضافي = max(0, مجموع العمل الكلي - ساعات الأساس)
-              const baseMinPay = ((workRule as any).flexibleShiftHours ?? 8) * 60;
+              const baseMinPay = (workRule.flexibleShiftHours ?? 8) * 60;
               let totalWorkedMinPay = 0;
               if (rawPunchesOT && rawPunchesOT.length >= 2) {
                 for (let pi = 0; pi + 1 < rawPunchesOT.length; pi += 2) {

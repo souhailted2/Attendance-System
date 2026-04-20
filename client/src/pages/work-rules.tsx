@@ -85,8 +85,8 @@ export default function WorkRules() {
     setEarlyLeavePenaltyPerMinute(rule.earlyLeavePenaltyPerMinute);
     setAbsencePenalty(rule.absencePenalty);
     setIsDefault(rule.isDefault);
-    setIsFlexibleShift(!!(rule as any).isFlexibleShift);
-    setFlexibleShiftHours(String((rule as any).flexibleShiftHours ?? 8));
+    setIsFlexibleShift(!!rule.isFlexibleShift);
+    setFlexibleShiftHours(String(rule.flexibleShiftHours ?? 8));
     setOpen(true);
   }
 
@@ -243,15 +243,15 @@ export default function WorkRules() {
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm">{rule.name}</p>
                         {rule.isDefault && <Badge variant="default" className="text-xs">افتراضي</Badge>}
-                        {(rule as any).isFlexibleShift && (
+                        {rule.isFlexibleShift && (
                           <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-400">
-                            مرنة · {(rule as any).flexibleShiftHours ?? 8}س
+                            مرنة · {rule.flexibleShiftHours ?? 8}س
                           </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {(rule as any).isFlexibleShift
-                          ? `وردية مرنة — إضافي بعد ${(rule as any).flexibleShiftHours ?? 8} ساعات`
+                        {rule.isFlexibleShift
+                          ? `وردية مرنة — إضافي بعد ${rule.flexibleShiftHours ?? 8} ساعات`
                           : (
                             <>
                               {rule.workStartTime} - {rule.workEndTime}
