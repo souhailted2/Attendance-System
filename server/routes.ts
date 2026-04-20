@@ -46,7 +46,7 @@ function generateApiKey(): string {
   return randomBytes(32).toString("hex");
 }
 
-function calculateAttendanceDetails(checkIn: string | null, checkOut: string | null, workStartTime: string, workEndTime: string, lateGraceMinutes: number, latePenaltyPerMinute: string, earlyLeavePenaltyPerMinute: string, absencePenalty: string, status: string, checkoutEarliestTime?: string | null) {
+function calculateAttendanceDetails(checkIn: string | null, checkOut: string | null, workStartTime: string, workEndTime: string, lateGraceMinutes: number, latePenaltyPerMinute: string, earlyLeavePenaltyPerMinute: string, absencePenalty: string, status: string, checkoutEarliestTime?: string | null, isFlexibleShift?: boolean) {
   let lateMinutes = 0;
   let earlyLeaveMinutes = 0;
   let totalHours = 0;
@@ -63,6 +63,16 @@ function calculateAttendanceDetails(checkIn: string | null, checkOut: string | n
 
   if (status === "rest") {
     return { lateMinutes: 0, earlyLeaveMinutes: 0, totalHours: 0, penalty: 0, status };
+  }
+
+  // الوردية المرنة: لا تأخير ولا خروج مبكر — فقط احسب ساعات العمل
+  if (isFlexibleShift) {
+    if (checkIn && checkOut) {
+      const [inH, inM] = checkIn.split(":").map(Number);
+      const [outH, outM] = checkOut.split(":").map(Number);
+      totalHours = Math.max(0, Math.round(((outH * 60 + outM) - (inH * 60 + inM)) / 60 * 100) / 100);
+    }
+    return { lateMinutes: 0, earlyLeaveMinutes: 0, totalHours, penalty: 0, status: "present" };
   }
 
   if (checkIn && workStartTime) {
@@ -376,7 +386,8 @@ async function processAttendanceLogs(
         workRule.earlyLeavePenaltyPerMinute,
         workRule.absencePenalty,
         "present",
-        workRule.checkoutEarliestTime
+        workRule.checkoutEarliestTime,
+        workRule.isFlexibleShift ?? false
       );
       attendanceData.lateMinutes = calc.lateMinutes;
       attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -439,7 +450,8 @@ async function processAttendanceLogs(
             workRule.earlyLeavePenaltyPerMinute,
             workRule.absencePenalty,
             "present",
-            workRule.checkoutEarliestTime
+            workRule.checkoutEarliestTime,
+            workRule.isFlexibleShift ?? false
           );
           updateData.lateMinutes = calc.lateMinutes;
           updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -653,7 +665,8 @@ export async function registerRoutes(
           revertWorkRule.earlyLeavePenaltyPerMinute,
           revertWorkRule.absencePenalty,
           oldVals.status,
-          revertWorkRule.checkoutEarliestTime
+          revertWorkRule.checkoutEarliestTime,
+        revertWorkRule.isFlexibleShift ?? false
         );
         revertData.lateMinutes = calc.lateMinutes;
         revertData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -1247,7 +1260,8 @@ export async function registerRoutes(
           workRule.earlyLeavePenaltyPerMinute,
           workRule.absencePenalty,
           status || "present",
-          workRule.checkoutEarliestTime
+          workRule.checkoutEarliestTime,
+          workRule.isFlexibleShift ?? false
         );
         attendanceData.lateMinutes = calc.lateMinutes;
         attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -1353,7 +1367,8 @@ export async function registerRoutes(
             workRule.earlyLeavePenaltyPerMinute,
             workRule.absencePenalty,
             existingRecords.status ?? "present",
-            workRule.checkoutEarliestTime
+            workRule.checkoutEarliestTime,
+            workRule.isFlexibleShift ?? false
           );
           punchUpdateData.lateMinutes = calc.lateMinutes;
           punchUpdateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -1455,7 +1470,8 @@ export async function registerRoutes(
           workRule.earlyLeavePenaltyPerMinute,
           workRule.absencePenalty,
           finalStatus,
-          workRule.checkoutEarliestTime
+          workRule.checkoutEarliestTime,
+          workRule.isFlexibleShift ?? false
         );
         updateData.lateMinutes = calc.lateMinutes;
         updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -1801,9 +1817,11 @@ export async function registerRoutes(
           if (dayOverride?.isOvernight && effectiveEndMin <= effectiveStartMin) {
             effectiveEndMin += 24 * 60;
           }
-          const effectiveTotalWorkDayMin = dayOverride
-            ? Math.max(1, effectiveEndMin - effectiveStartMin)
-            : totalWorkDayMinutes;
+          const effectiveTotalWorkDayMin = workRule?.isFlexibleShift
+            ? (workRule.flexibleShiftHours ?? 8) * 60
+            : dayOverride
+              ? Math.max(1, effectiveEndMin - effectiveStartMin)
+              : totalWorkDayMinutes;
 
           const normalizedCheckIn = normalizeTime(
             rec.checkIn, effectiveStartTime, earlyArrivalGrace, lateArrivalGrace,
@@ -2920,7 +2938,8 @@ export async function registerRoutes(
             workRule.earlyLeavePenaltyPerMinute,
             workRule.absencePenalty,
             "present",
-            workRule.checkoutEarliestTime
+            workRule.checkoutEarliestTime,
+            workRule.isFlexibleShift ?? false
           );
           attendanceData.lateMinutes = calc.lateMinutes;
           attendanceData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
@@ -3117,7 +3136,8 @@ export async function registerRoutes(
               workRule.earlyLeavePenaltyPerMinute,
               workRule.absencePenalty,
               status,
-              workRule.checkoutEarliestTime
+              workRule.checkoutEarliestTime,
+              workRule.isFlexibleShift ?? false
             );
           }
 
