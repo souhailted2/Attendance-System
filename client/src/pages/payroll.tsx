@@ -469,7 +469,7 @@ export default function Payroll() {
                                 {row.overtimePay > 0 ? (
                                   <span className="text-purple-600 dark:text-purple-400">
                                     + {fmtDZD(row.overtimePay)}
-                                    <span className="text-muted-foreground text-xs mr-1">({row.overtimeHours}س)</span>
+                                    <span className="text-muted-foreground text-xs mr-1">({(Math.floor(Math.round(row.overtimeHours * 10000) / 100) / 100).toFixed(2)}س)</span>
                                   </span>
                                 ) : <span className="text-muted-foreground">—</span>}
                               </td>

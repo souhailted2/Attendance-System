@@ -1345,7 +1345,7 @@ export default function Reports() {
                                     {ot > 0 ? (
                                       <span className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold"
                                         title={`دخول: ${rec?.checkIn ?? "—"} | خروج: ${rec?.checkOut ?? "—"}`}>
-                                        {ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1)}
+                                        {(Math.floor(Math.round(ot * 10000) / 100) / 100).toFixed(2)}
                                       </span>
                                     ) : pendingHoliday ? (
                                       <span className="text-xs text-amber-500 font-semibold"
@@ -1357,7 +1357,7 @@ export default function Reports() {
                                 );
                               })}
                               <TableCell className="text-center font-bold sticky left-0 bg-background z-10 border-r">
-                                <span className="text-sm text-indigo-700 dark:text-indigo-400">{Math.floor(Math.round(totalOT * 10000) / 100) / 100}</span>
+                                <span className="text-sm text-indigo-700 dark:text-indigo-400">{(Math.floor(Math.round(totalOT * 10000) / 100) / 100).toFixed(2)}</span>
                               </TableCell>
                               <TableCell className="text-center text-xs p-1">
                                 {isOwner && editingRate?.employeeId === r.employeeId ? (
@@ -1413,12 +1413,12 @@ export default function Reports() {
                             }, 0);
                             return (
                               <TableCell key={d} className="text-center text-xs font-bold">
-                                {dayTotal > 0 ? <span className="text-indigo-600 dark:text-indigo-400">{Math.floor(Math.round(dayTotal * 10000) / 100) / 100}</span> : "—"}
+                                {dayTotal > 0 ? <span className="text-indigo-600 dark:text-indigo-400">{(Math.floor(Math.round(dayTotal * 10000) / 100) / 100).toFixed(2)}</span> : "—"}
                               </TableCell>
                             );
                           })}
                           <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/30 z-10 border-r text-xs">
-                            {Math.floor(Math.round(wsOT * 10000) / 100) / 100}
+                            {(Math.floor(Math.round(wsOT * 10000) / 100) / 100).toFixed(2)}
                           </TableCell>
                           <TableCell />
                           <TableCell className="text-center text-xs font-bold text-emerald-700 dark:text-emerald-400">
@@ -1439,12 +1439,12 @@ export default function Reports() {
                         }, 0);
                         return (
                           <TableCell key={d} className="text-center text-xs font-bold">
-                            {dayTotal > 0 ? <span className="text-indigo-700 dark:text-indigo-400">{Math.floor(Math.round(dayTotal * 10000) / 100) / 100}</span> : "—"}
+                            {dayTotal > 0 ? <span className="text-indigo-700 dark:text-indigo-400">{(Math.floor(Math.round(dayTotal * 10000) / 100) / 100).toFixed(2)}</span> : "—"}
                           </TableCell>
                         );
                       })}
                       <TableCell className="text-center font-bold text-indigo-700 dark:text-indigo-400 sticky left-0 bg-muted/50 z-10 border-r">
-                        {Math.floor(Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10000) / 100) / 100}
+                        {(Math.floor(Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10000) / 100) / 100).toFixed(2)}
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-center font-bold text-emerald-700 dark:text-emerald-400 text-xs">
@@ -1511,12 +1511,12 @@ export default function Reports() {
                                 const pendingHoliday = rec?.pending && rec?.status === "holiday" && !!rec?.checkIn;
                                 return (
                                   <TableCell key={d} className="text-center">
-                                    {ot > 0 ? (ot % 1 === 0 ? ot.toFixed(0) : ot.toFixed(1))
+                                    {ot > 0 ? (Math.floor(Math.round(ot * 10000) / 100) / 100).toFixed(2)
                                       : pendingHoliday ? "؟" : "—"}
                                   </TableCell>
                                 );
                               })}
-                              <TableCell className="text-center font-bold">{Math.floor(Math.round(totalOT * 10000) / 100) / 100}</TableCell>
+                              <TableCell className="text-center font-bold">{(Math.floor(Math.round(totalOT * 10000) / 100) / 100).toFixed(2)}</TableCell>
                               <TableCell className="text-center">{rate > 0 ? rate.toFixed(2) : "—"}</TableCell>
                               <TableCell className="text-center font-bold">{rate > 0 && totalOT > 0 ? totalPay.toFixed(2) : "—"}</TableCell>
                             </TableRow>
@@ -1529,9 +1529,9 @@ export default function Reports() {
                               const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
                               return s + (rec?.overtimeHours ?? 0);
                             }, 0);
-                            return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.floor(Math.round(dayTotal * 10000) / 100) / 100 : "—"}</TableCell>;
+                            return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? (Math.floor(Math.round(dayTotal * 10000) / 100) / 100).toFixed(2) : "—"}</TableCell>;
                           })}
-                          <TableCell className="text-center font-bold">{Math.floor(Math.round(wsOT * 10000) / 100) / 100}</TableCell>
+                          <TableCell className="text-center font-bold">{(Math.floor(Math.round(wsOT * 10000) / 100) / 100).toFixed(2)}</TableCell>
                           <TableCell />
                           <TableCell className="text-center font-bold">{wsPay > 0 ? wsPay.toFixed(2) : "—"}</TableCell>
                         </TableRow>,
@@ -1545,10 +1545,10 @@ export default function Reports() {
                           const rec = overtimeDayMap.get(emp.employeeId)?.get(d);
                           return s + (rec?.overtimeHours ?? 0);
                         }, 0);
-                        return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? Math.floor(Math.round(dayTotal * 10000) / 100) / 100 : "—"}</TableCell>;
+                        return <TableCell key={d} className="text-center font-bold">{dayTotal > 0 ? (Math.floor(Math.round(dayTotal * 10000) / 100) / 100).toFixed(2) : "—"}</TableCell>;
                       })}
                       <TableCell className="text-center font-bold">
-                        {Math.floor(Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10000) / 100) / 100}
+                        {(Math.floor(Math.round(employeesWithOvertime.reduce((s, r) => s + r.dailyRecords.reduce((rs, rec) => rs + (rec.overtimeHours || 0), 0), 0) * 10000) / 100) / 100).toFixed(2)}
                       </TableCell>
                       <TableCell />
                       <TableCell className="text-center font-bold">
@@ -1731,7 +1731,7 @@ export default function Reports() {
                           <TableCell className="font-medium text-sm">{r.employeeName}</TableCell>
                           <TableCell className="text-center text-sm">
                             {p.overtimeHours > 0 ? (
-                              <span className="text-indigo-600 dark:text-indigo-400 font-medium">{p.overtimeHours}س</span>
+                              <span className="text-indigo-600 dark:text-indigo-400 font-medium">{(Math.floor(Math.round(p.overtimeHours * 10000) / 100) / 100).toFixed(2)}س</span>
                             ) : <span className="text-muted-foreground">—</span>}
                           </TableCell>
                           <TableCell className="text-center text-sm">
