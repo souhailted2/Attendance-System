@@ -5456,9 +5456,22 @@ export async function registerRoutes(
 
             if (workRule?.isFlexibleShift) {
               const baseMinFS2 = (workRule.flexibleShiftHours ?? 8) * 60;
-              const ciFS = payTimeToMin(rec.checkIn), coFS = payTimeToMin(rec.checkOut);
-              const workedFS = (ciFS !== null && coFS !== null) ? Math.max(0, coFS - ciFS) : 0;
-              score = Math.min(1, workedFS / baseMinFS2);
+              let workedFS2 = 0;
+              const rawDataFS2 = (rec as any).rawPunches;
+              if (rawDataFS2) {
+                try {
+                  const punches = JSON.parse(rawDataFS2) as string[];
+                  for (let i = 0; i + 1 < punches.length; i += 2) {
+                    const inM = payTimeToMin(punches[i]), outM = payTimeToMin(punches[i + 1]);
+                    if (inM !== null && outM !== null && outM > inM) workedFS2 += outM - inM;
+                  }
+                } catch {}
+              }
+              if (workedFS2 === 0) {
+                const ciFS = payTimeToMin(rec.checkIn), coFS = payTimeToMin(rec.checkOut);
+                workedFS2 = (ciFS !== null && coFS !== null) ? Math.max(0, coFS - ciFS) : 0;
+              }
+              score = Math.min(1, workedFS2 / baseMinFS2);
             } else if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
             else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / effDayMin);
           } else {
@@ -5478,9 +5491,22 @@ export async function registerRoutes(
 
             if (workRule?.isFlexibleShift) {
               const baseMinFS3 = (workRule.flexibleShiftHours ?? 8) * 60;
-              const ciFS2 = payTimeToMin(rec.checkIn), coFS2 = payTimeToMin(rec.checkOut);
-              const workedFS2 = (ciFS2 !== null && coFS2 !== null) ? Math.max(0, coFS2 - ciFS2) : 0;
-              score = Math.min(1, workedFS2 / baseMinFS3);
+              let workedFS3 = 0;
+              const rawDataFS3 = (rec as any).rawPunches;
+              if (rawDataFS3) {
+                try {
+                  const punches = JSON.parse(rawDataFS3) as string[];
+                  for (let i = 0; i + 1 < punches.length; i += 2) {
+                    const inM = payTimeToMin(punches[i]), outM = payTimeToMin(punches[i + 1]);
+                    if (inM !== null && outM !== null && outM > inM) workedFS3 += outM - inM;
+                  }
+                } catch {}
+              }
+              if (workedFS3 === 0) {
+                const ciFS2 = payTimeToMin(rec.checkIn), coFS2 = payTimeToMin(rec.checkOut);
+                workedFS3 = (ciFS2 !== null && coFS2 !== null) ? Math.max(0, coFS2 - ciFS2) : 0;
+              }
+              score = Math.min(1, workedFS3 / baseMinFS3);
             } else if (workRule?.is24hShift && Number(rec.totalHours || 0) >= 20) score = 2;
             else score = Math.max(0, 1 - (effLate + effEarly + midAbs) / totalWorkDayMinutes);
           }
