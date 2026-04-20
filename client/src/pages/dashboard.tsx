@@ -224,6 +224,16 @@ export default function Dashboard() {
         <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: "hsl(280 70% 60% / 0.10)", transform: "translate(-40%, -40%)" }} />
         <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: "hsl(250 80% 50% / 0.10)", transform: "translate(35%, 35%)" }} />
         <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.08) 0%, transparent 60%)" }} />
+        {/* Curved bottom transition */}
+        <div
+          className="absolute bottom-0 left-0 right-0 pointer-events-none"
+          style={{
+            height: "28px",
+            background: "hsl(var(--background))",
+            borderRadius: "50% 50% 0 0 / 100% 100% 0 0",
+            transform: "translateY(50%)",
+          }}
+        />
 
         <div className="relative z-10 px-5 sm:px-7 py-5 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
@@ -311,6 +321,7 @@ export default function Dashboard() {
             style={{
               background: card.gradient,
               boxShadow: `0 6px 20px hsl(${card.glow} / 0.28), 0 2px 6px hsl(${card.glow} / 0.14)`,
+              borderRight: "4px solid rgba(255,255,255,0.22)",
             }}
           >
             <div
