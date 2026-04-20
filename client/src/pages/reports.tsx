@@ -983,24 +983,28 @@ export default function Reports() {
               </div>
             )}
             {!selectedWorkshop && (
-              <button
+              <Button
+                size="sm"
+                variant={viewMode === "overtime" ? "default" : "ghost"}
                 onClick={() => { setViewMode(viewMode === "overtime" ? "shifts" : "overtime"); setSelectedWorkshop(null); }}
-                className={`h-8 px-3 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${viewMode === "overtime" ? "bg-indigo-600 text-white border-indigo-600" : "bg-background hover:bg-muted text-muted-foreground"}`}
+                className="h-8 text-xs gap-1.5"
                 data-testid="button-view-overtime"
               >
                 <Clock className="h-3.5 w-3.5" />
                 الإضافي
-              </button>
+              </Button>
             )}
             {!selectedWorkshop && isOwnerOrAttendence && (
-              <button
+              <Button
+                size="sm"
+                variant={viewMode === "grants" ? "default" : "ghost"}
                 onClick={() => { setViewMode(viewMode === "grants" ? "shifts" : "grants"); setSelectedWorkshop(null); }}
-                className={`h-8 px-3 text-xs font-medium rounded-md border transition-colors flex items-center gap-1.5 ${viewMode === "grants" ? "bg-emerald-600 text-white border-emerald-600" : "bg-background hover:bg-muted text-muted-foreground"}`}
+                className="h-8 text-xs gap-1.5"
                 data-testid="button-view-grants"
               >
                 <TrendingUp className="h-3.5 w-3.5" />
                 المنحة
-              </button>
+              </Button>
             )}
             {selectedWorkshop && reportData.length > 0 && (
               <Button
