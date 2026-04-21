@@ -20,6 +20,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useFavorites } from "@/hooks/use-favorites";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/components/theme-provider";
 import {
   Star, Users as UsersIcon, ClipboardList, Hash, Building2,
   ChevronRight, ChevronLeft, Pencil, Trash2, Check, X,
@@ -112,6 +113,8 @@ export default function Favorites() {
   const { favorites, toggleFavorite } = useFavorites();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   const isOwner = user?.username === "owner";
   const isOwnerOrAttendence = isOwner || user?.username === "attendence";
@@ -294,7 +297,7 @@ export default function Favorites() {
           <div className="flex items-center gap-3">
             <div
               className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))" }}
+              style={{ background: isDark ? "linear-gradient(135deg, hsl(271 76% 60%), hsl(280 70% 68%))" : "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))" }}
             >
               {selectedEmp.name.charAt(0)}
             </div>
@@ -329,19 +332,19 @@ export default function Favorites() {
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card><CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-green-600" data-testid="text-present-days">{empReport?.presentDays ?? 0}</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-present-days">{empReport?.presentDays ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">حاضر</p>
               </CardContent></Card>
               <Card><CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-amber-600" data-testid="text-late-days">{empReport?.lateDays ?? 0}</p>
+                <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-late-days">{empReport?.lateDays ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">متأخر</p>
               </CardContent></Card>
               <Card><CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-red-600" data-testid="text-absent-days">{empReport?.absentDays ?? 0}</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-absent-days">{empReport?.absentDays ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">غائب</p>
               </CardContent></Card>
               <Card><CardContent className="p-3 text-center">
-                <p className="text-2xl font-bold text-purple-600" data-testid="text-leave-days">{empReport?.leaveDays ?? 0}</p>
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="text-leave-days">{empReport?.leaveDays ?? 0}</p>
                 <p className="text-xs text-muted-foreground mt-1">إجازة</p>
               </CardContent></Card>
             </div>

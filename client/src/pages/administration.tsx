@@ -1,11 +1,14 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard } from "lucide-react";
+import { useTheme } from "@/components/theme-provider";
 import Salaries from "./salaries";
 import Debts from "./debts";
 import Advances from "./advances";
 import Payroll from "./payroll";
 
 export default function Administration() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   return (
     <div className="p-6 max-w-6xl mx-auto" dir="rtl">
       <div className="flex items-center gap-3 mb-6">
@@ -13,7 +16,7 @@ export default function Administration() {
           className="h-10 w-10 rounded-xl flex items-center justify-center"
           style={{
             background: "linear-gradient(135deg,hsl(271 76% 45%),hsl(260 70% 55%))",
-            boxShadow: "0 3px 12px hsl(271 76% 45%/0.35)",
+            boxShadow: isDark ? "0 3px 12px hsl(271 76% 45%/0.15)" : "0 3px 12px hsl(271 76% 45%/0.35)",
           }}
         >
           <LayoutDashboard className="h-5 w-5 text-white" />

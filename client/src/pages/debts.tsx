@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/components/theme-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,8 @@ const emptyForm = { employeeId: "", description: "", totalAmount: "", monthlyDed
 
 export default function Debts() {
   const { toast } = useToast();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [open, setOpen] = useState(false);
   const [editDebt, setEditDebt] = useState<Debt | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -125,7 +128,7 @@ export default function Debts() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg,hsl(0 70% 50%),hsl(10 80% 58%))", boxShadow: "0 3px 12px hsl(0 70% 50%/0.35)" }}>
+            style={{ background: "linear-gradient(135deg,hsl(0 70% 50%),hsl(10 80% 58%))", boxShadow: isDark ? "0 3px 12px hsl(0 70% 50%/0.15)" : "0 3px 12px hsl(0 70% 50%/0.35)" }}>
             <CreditCard className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -192,8 +195,8 @@ export default function Debts() {
                   <td className="px-4 py-3 font-mono">{fmtDZD(debt.remainingAmount)}</td>
                   <td className="px-4 py-3">
                     {debt.isActive
-                      ? <Badge variant="outline" className="text-amber-600 border-amber-400">نشط</Badge>
-                      : <Badge variant="outline" className="text-green-600 border-green-400"><CheckCircle className="h-3 w-3 ml-1" />مسدد</Badge>
+                      ? <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-400 dark:border-amber-600">نشط</Badge>
+                      : <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-400 dark:border-green-600"><CheckCircle className="h-3 w-3 ml-1" />مسدد</Badge>
                     }
                   </td>
                   <td className="px-4 py-3">
@@ -305,7 +308,7 @@ export default function Debts() {
       <AlertDialog open={confirmOpen} onOpenChange={v => { if (!v) { setConfirmOpen(false); setExistingActiveDebt(null); } }}>
         <AlertDialogContent dir="rtl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
               <AlertTriangle className="h-5 w-5" />
               تحذير: دين نشط موجود
             </AlertDialogTitle>

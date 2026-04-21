@@ -556,7 +556,7 @@ export default function Deductions() {
 
           {/* Approved Requests */}
           <div>
-            <h2 className="text-base font-semibold mb-2 text-purple-600">طلبات الخصم المقبولة</h2>
+            <h2 className="text-base font-semibold mb-2 text-purple-600 dark:text-purple-400">طلبات الخصم المقبولة</h2>
             <div className="border rounded-xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">

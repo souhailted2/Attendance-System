@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/components/theme-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,8 @@ type Employee = {
 
 export default function Salaries() {
   const { toast } = useToast();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Record<string, string>>({});
 
@@ -57,7 +60,7 @@ export default function Salaries() {
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <div className="flex items-center gap-3 mb-6">
         <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg,hsl(43 96% 52%),hsl(36 90% 58%))", boxShadow: "0 3px 12px hsl(43 96% 52%/0.35)" }}>
+          style={{ background: "linear-gradient(135deg,hsl(43 96% 52%),hsl(36 90% 58%))", boxShadow: isDark ? "0 3px 12px hsl(43 96% 52%/0.15)" : "0 3px 12px hsl(43 96% 52%/0.35)" }}>
           <Banknote className="h-5 w-5 text-white" />
         </div>
         <div>

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/components/theme-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -187,12 +188,15 @@ export default function Advances() {
 
   const validImportRows = parseResult?.rows.filter(r => r.found && r.amount > 0) ?? [];
 
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   return (
     <div className="p-6 max-w-4xl mx-auto" dir="rtl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg,hsl(220 80% 50%),hsl(230 75% 60%))", boxShadow: "0 3px 12px hsl(220 80% 50%/0.35)" }}>
+            style={{ background: "linear-gradient(135deg,hsl(220 80% 50%),hsl(230 75% 60%))", boxShadow: isDark ? "0 3px 12px hsl(220 80% 50%/0.15)" : "0 3px 12px hsl(220 80% 50%/0.35)" }}>
             <Wallet className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -399,7 +403,7 @@ export default function Advances() {
         <DialogContent dir="rtl" className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Download className="h-5 w-5 text-blue-600" /> تصدير كشف التسبيقات
+              <Download className="h-5 w-5 text-blue-600 dark:text-blue-400" /> تصدير كشف التسبيقات
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -440,7 +444,7 @@ export default function Advances() {
         <DialogContent dir="rtl" className="max-w-2xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-green-600" /> استيراد التسبيقات من Excel
+              <Upload className="h-5 w-5 text-green-600 dark:text-green-400" /> استيراد التسبيقات من Excel
             </DialogTitle>
           </DialogHeader>
 

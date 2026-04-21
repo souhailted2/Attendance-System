@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { fmtDZD } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/components/theme-provider";
 
 const MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const now = new Date();
@@ -42,6 +43,8 @@ type Workshop = { id: string; name: string };
 export default function Payroll() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const isWorkshop = user?.role === "workshop";
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
@@ -198,7 +201,7 @@ export default function Payroll() {
     <div className="p-6 max-w-full mx-auto" dir="rtl">
       <div className="flex items-center gap-3 mb-6">
         <div className="h-10 w-10 rounded-xl flex items-center justify-center"
-          style={{ background: "linear-gradient(135deg,hsl(160 70% 38%),hsl(155 65% 48%))", boxShadow: "0 3px 12px hsl(160 70% 38%/0.35)" }}>
+          style={{ background: "linear-gradient(135deg,hsl(160 70% 38%),hsl(155 65% 48%))", boxShadow: isDark ? "0 3px 12px hsl(160 70% 38%/0.15)" : "0 3px 12px hsl(160 70% 38%/0.35)" }}>
           <FileSpreadsheet className="h-5 w-5 text-white" />
         </div>
         <div>
@@ -247,7 +250,7 @@ export default function Payroll() {
         </Button>
         {data && !isWorkshop && (
           <Button variant="outline" onClick={exportToExcel} data-testid="button-export-payroll-excel" className="gap-2 border-green-600/40 hover:border-green-600 hover:bg-green-50 dark:hover:bg-green-950/20">
-            <FileSpreadsheet className="h-4 w-4 text-green-600" />
+            <FileSpreadsheet className="h-4 w-4 text-green-600 dark:text-green-400" />
             <span className="text-green-700 dark:text-green-500">تصدير Excel</span>
           </Button>
         )}

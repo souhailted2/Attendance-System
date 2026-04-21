@@ -1024,9 +1024,9 @@ function GrantCard({ grant, workshops, employees, onDelete, onEdit }: {
           <div className="space-y-1 pt-1">
             {grant.conditions.map(c => (
               <div key={c.id} className="flex items-center gap-2 text-xs">
-                {c.effectType === "add" ? <TrendingUp className="h-3 w-3 text-green-600 shrink-0" /> :
-                  c.effectType === "deduct" ? <TrendingDown className="h-3 w-3 text-red-600 shrink-0" /> :
-                    <Ban className="h-3 w-3 text-orange-600 shrink-0" />}
+                {c.effectType === "add" ? <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400 shrink-0" /> :
+                  c.effectType === "deduct" ? <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400 shrink-0" /> :
+                    <Ban className="h-3 w-3 text-orange-600 dark:text-orange-400 shrink-0" />}
                 <span>{conditionSummary(c)}</span>
               </div>
             ))}
@@ -1186,7 +1186,7 @@ function GrantsTab() {
           {/* المنح */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-green-600" />
+              <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
               <h3 className="font-semibold text-green-700 dark:text-green-400">المنح ({grantsList.length})</h3>
             </div>
             {grantsList.length === 0 ? (
@@ -1202,7 +1202,7 @@ function GrantsTab() {
           {/* العقوبات */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <TrendingDown className="h-5 w-5 text-red-600" />
+              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
               <h3 className="font-semibold text-red-700 dark:text-red-400">العقوبات ({penaltiesList.length})</h3>
             </div>
             {penaltiesList.length === 0 ? (

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/components/theme-provider";
 import {
   BarChart3, Clock, Users, ChevronLeft, ChevronRight, Pencil, Check, X,
   Sun, Moon, Star, Wrench, AlertTriangle, Calendar, Trash2, Lock, Printer,
@@ -154,6 +155,8 @@ type WorkshopPayrollRow = { employeeId: string; employeeName: string; overtimeHo
 export default function Reports() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const isOwner = user?.username === "owner";
   const isWorkshop = user?.role === "workshop";
   const now = new Date();
@@ -1127,7 +1130,7 @@ export default function Reports() {
           </div>
 
           <h2 className="text-lg font-semibold flex items-center gap-2">
-            <Clock className="h-5 w-5 text-indigo-600" />
+            <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
             تقرير الساعات الإضافية
           </h2>
 
@@ -1468,7 +1471,7 @@ export default function Reports() {
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-md bg-green-500/10 flex items-center justify-center shrink-0">
-                    <Calendar className="h-4 w-4 text-green-600" />
+                    <Calendar className="h-4 w-4 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">أيام الحضور</p>
@@ -1479,7 +1482,7 @@ export default function Reports() {
               <Card>
                 <CardContent className="p-4 flex items-center gap-3">
                   <div className="h-9 w-9 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0">
-                    <Clock className="h-4 w-4 text-amber-600" />
+                    <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">أيام التأخير</p>
@@ -1827,7 +1830,7 @@ export default function Reports() {
             <Card>
               <CardHeader className="pb-2 pt-4 px-5">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" style={{ color: "hsl(271 76% 45%)" }} />
+                  <TrendingUp className="h-4 w-4 text-violet-700 dark:text-violet-400" />
                   تطور الحضور — آخر 6 أشهر
                   <span className="text-xs font-normal text-muted-foreground">({selectedWorkshop.name})</span>
                 </CardTitle>
@@ -1873,18 +1876,18 @@ export default function Reports() {
                         type="monotone"
                         dataKey="presentRate"
                         name="نسبة الحضور %"
-                        stroke="hsl(160 70% 38%)"
+                        stroke={isDark ? "hsl(160 70% 55%)" : "hsl(160 70% 38%)"}
                         strokeWidth={2}
-                        dot={{ r: 3, fill: "hsl(160 70% 38%)" }}
+                        dot={{ r: 3, fill: isDark ? "hsl(160 70% 55%)" : "hsl(160 70% 38%)" }}
                         activeDot={{ r: 5 }}
                       />
                       <Line
                         type="monotone"
                         dataKey="absentRate"
                         name="نسبة الغياب %"
-                        stroke="hsl(0 72% 51%)"
+                        stroke={isDark ? "hsl(0 72% 65%)" : "hsl(0 72% 51%)"}
                         strokeWidth={2}
-                        dot={{ r: 3, fill: "hsl(0 72% 51%)" }}
+                        dot={{ r: 3, fill: isDark ? "hsl(0 72% 65%)" : "hsl(0 72% 51%)" }}
                         activeDot={{ r: 5 }}
                       />
                     </LineChart>
