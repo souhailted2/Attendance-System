@@ -70,7 +70,7 @@ export default function Attendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
-      toast({ title: "تمت إضافة البصمة بنجاح" });
+      toast({ title: "تمت إضافة البصمة" });
       setPunchOpen(false);
       resetPunchForm();
     },
