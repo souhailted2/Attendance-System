@@ -12,15 +12,19 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut } from "lucide-react";
+import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut, Fingerprint, X } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
+import { useAuth } from "@/hooks/use-auth";
 
 const ATTENDANCE_PAGE_SIZE = 30;
 
 export default function Attendance() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isOwner = user?.username === "owner";
+
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,6 +40,45 @@ export default function Attendance() {
 
   const today = new Date().toISOString().split("T")[0];
   const isToday = date === today;
+
+  // --- إضافة بصمة يدوية (مالك فقط) ---
+  const [punchOpen, setPunchOpen] = useState(false);
+  const [punchSearch, setPunchSearch] = useState("");
+  const [punchEmpId, setPunchEmpId] = useState("");
+  const [punchEmpName, setPunchEmpName] = useState("");
+  const [punchDate, setPunchDate] = useState(today);
+  const [punchTime, setPunchTime] = useState(() => new Date().toTimeString().slice(0, 5));
+
+  function resetPunchForm() {
+    setPunchSearch(""); setPunchEmpId(""); setPunchEmpName("");
+    setPunchDate(today);
+    setPunchTime(new Date().toTimeString().slice(0, 5));
+  }
+
+  const punchMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/attendance?date=${punchDate}`, { credentials: "include" });
+      const records: AttendanceRecord[] = await res.json();
+      const existing = records.find((r) => r.employeeId === punchEmpId);
+      if (!existing) {
+        return apiRequest("POST", "/api/attendance", {
+          employeeId: punchEmpId, date: punchDate, checkIn: punchTime, status: "present",
+        });
+      }
+      // يوجد سجل: أضف checkOut (أو صحح وقت الخروج)
+      return apiRequest("PATCH", `/api/attendance/${existing.id}`, { checkOut: punchTime });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });
+      toast({ title: "تمت إضافة البصمة بنجاح" });
+      setPunchOpen(false);
+      resetPunchForm();
+    },
+    onError: (err: any) => {
+      const msg = err?.body?.message ?? err.message ?? "خطأ";
+      toast({ title: "خطأ في إضافة البصمة", description: msg, variant: "destructive" });
+    },
+  });
 
   const { data: employees } = useQuery<Employee[]>({ queryKey: ["/api/employees"] });
   const { data: attendance, isLoading, dataUpdatedAt } = useQuery<AttendanceRecord[]>({
@@ -297,6 +340,132 @@ export default function Attendance() {
               </form>
             </DialogContent>
             </Dialog>
+
+            {/* زر إضافة بصمة — للمالك فقط */}
+            {isOwner && (
+              <Dialog open={punchOpen} onOpenChange={(o) => { setPunchOpen(o); if (!o) resetPunchForm(); }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-add-punch">
+                    <Fingerprint className="h-4 w-4 ml-2" />
+                    إضافة بصمة
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>إضافة بصمة يدوية</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 pt-1">
+                    {/* البحث عن الموظف */}
+                    <div className="space-y-2">
+                      <Label>الموظف *</Label>
+                      {punchEmpId ? (
+                        <div className="flex items-center justify-between border rounded-md px-3 py-2 bg-muted/40">
+                          <span className="font-medium text-sm">{punchEmpName}</span>
+                          <Button
+                            type="button" variant="ghost" size="icon" className="h-6 w-6"
+                            onClick={() => { setPunchEmpId(""); setPunchEmpName(""); setPunchSearch(""); }}
+                            data-testid="button-punch-clear-emp"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <div className="relative">
+                            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                            <Input
+                              placeholder="ابحث بالاسم أو الرقم أو البطاقة..."
+                              value={punchSearch}
+                              onChange={(e) => setPunchSearch(e.target.value)}
+                              className="pr-9"
+                              autoFocus
+                              data-testid="input-punch-search"
+                            />
+                          </div>
+                          {punchSearch.trim().length > 0 && (
+                            <div className="border rounded-md max-h-48 overflow-y-auto bg-background shadow-sm">
+                              {activeEmployees
+                                .filter((e) => {
+                                  const q = punchSearch.trim().toLowerCase();
+                                  return (
+                                    e.name?.toLowerCase().includes(q) ||
+                                    e.employeeCode?.toLowerCase().includes(q) ||
+                                    (e.cardNumber ?? "").toLowerCase().includes(q)
+                                  );
+                                })
+                                .slice(0, 8)
+                                .map((e) => (
+                                  <button
+                                    key={e.id}
+                                    type="button"
+                                    className="w-full text-right px-3 py-2 text-sm hover:bg-muted/60 transition-colors flex items-center gap-2"
+                                    onClick={() => { setPunchEmpId(e.id); setPunchEmpName(`${e.name} (${e.employeeCode})`); setPunchSearch(""); }}
+                                    data-testid={`option-punch-emp-${e.id}`}
+                                  >
+                                    <span className="font-medium">{e.name}</span>
+                                    <span className="text-muted-foreground text-xs">{e.employeeCode}</span>
+                                    {e.cardNumber && <span className="text-muted-foreground text-xs mr-auto font-mono">{e.cardNumber}</span>}
+                                  </button>
+                                ))}
+                              {activeEmployees.filter((e) => {
+                                const q = punchSearch.trim().toLowerCase();
+                                return e.name?.toLowerCase().includes(q) || e.employeeCode?.toLowerCase().includes(q) || (e.cardNumber ?? "").toLowerCase().includes(q);
+                              }).length === 0 && (
+                                <p className="px-3 py-3 text-sm text-muted-foreground text-center">لا توجد نتائج</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* التاريخ والوقت */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>التاريخ *</Label>
+                        <Input
+                          type="date"
+                          value={punchDate}
+                          onChange={(e) => setPunchDate(e.target.value)}
+                          data-testid="input-punch-date"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>الوقت *</Label>
+                        <Input
+                          type="time"
+                          value={punchTime}
+                          onChange={(e) => setPunchTime(e.target.value)}
+                          data-testid="input-punch-time"
+                        />
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-muted-foreground bg-muted/40 rounded-md px-3 py-2">
+                      سيحدد النظام تلقائياً نوع البصمة: دخول إذا لم يُسجَّل للموظف في هذا اليوم، وخروج إذا كان الدخول مسجلاً.
+                    </p>
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button" variant="secondary"
+                        onClick={() => { setPunchOpen(false); resetPunchForm(); }}
+                      >
+                        إلغاء
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={!punchEmpId || !punchDate || !punchTime || punchMutation.isPending}
+                        onClick={() => punchMutation.mutate()}
+                        data-testid="button-submit-punch"
+                      >
+                        <Fingerprint className="h-4 w-4 ml-2" />
+                        {punchMutation.isPending ? "جاري الحفظ..." : "حفظ البصمة"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            )}
           </div>
         }
       />
