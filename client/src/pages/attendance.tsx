@@ -61,12 +61,17 @@ export default function Attendance() {
       const records: AttendanceRecord[] = await res.json();
       const existing = records.find((r) => r.employeeId === punchEmpId);
       if (!existing) {
+        // لا يوجد سجل: أنشئ سجلاً جديداً بـ checkIn
         return apiRequest("POST", "/api/attendance", {
           employeeId: punchEmpId, date: punchDate, checkIn: punchTime, status: "present",
         });
       }
-      // يوجد سجل: أضف checkOut (أو صحح وقت الخروج)
-      return apiRequest("PATCH", `/api/attendance/${existing.id}`, { checkOut: punchTime });
+      if (!existing.checkOut) {
+        // يوجد سجل بدخول فقط: أضف وقت الخروج
+        return apiRequest("PATCH", `/api/attendance/${existing.id}`, { checkOut: punchTime });
+      }
+      // يوجد سجل مكتمل: أدرج البصمة في المكان الصحيح دون حذف أي بصمة قائمة
+      return apiRequest("POST", `/api/attendance/${existing.id}/add-punch`, { time: punchTime });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/attendance"] });

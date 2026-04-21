@@ -1503,6 +1503,103 @@ export async function registerRoutes(
     }
   });
 
+  // ===== إدراج بصمة يدوية في rawPunches بترتيب صحيح =====
+  app.post("/api/attendance/:id/add-punch", async (req, res) => {
+    try {
+      const existing = await storage.getAttendanceById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Record not found" });
+
+      if (req.session.username !== "owner") {
+        return res.status(403).json({ message: "صلاحية تعديل التقارير متاحة للمالك فقط" });
+      }
+
+      const { time } = req.body;
+      if (!time || !/^\d{2}:\d{2}$/.test(time)) {
+        return res.status(400).json({ message: "الوقت مطلوب بصيغة HH:MM" });
+      }
+
+      if (await isMonthFrozenForEmployee(existing.employeeId, existing.date)) {
+        return res.status(423).json({ message: "هذا الشهر محفوظ في الأرشيف ولا يمكن التعديل عليه" });
+      }
+
+      // قراءة rawPunches الحالية
+      let rawArr: string[] = [];
+      try {
+        const rp = (existing as any).rawPunches;
+        if (rp) rawArr = JSON.parse(rp);
+      } catch { rawArr = []; }
+
+      // إذا كانت rawPunches فارغة أكمّلها من checkIn/checkOut
+      if (rawArr.length === 0) {
+        if (existing.checkIn) rawArr.push(existing.checkIn);
+        if (existing.checkOut && existing.checkOut !== existing.checkIn) rawArr.push(existing.checkOut);
+      }
+
+      // إدراج الوقت الجديد في المكان الصحيح (ترتيب تصاعدي)
+      rawArr.push(time);
+      rawArr.sort();
+
+      const newCheckIn  = rawArr[0];
+      const newCheckOut = rawArr[rawArr.length - 1];
+      const newRawPunches = JSON.stringify(rawArr);
+
+      const workRule = await getWorkRuleForEmployee(existing.employeeId);
+      const shiftStartMin = workRule?.workStartTime ? timeToMinGlobal(workRule.workStartTime) : null;
+      const shiftEndMin   = workRule?.workEndTime   ? timeToMinGlobal(workRule.workEndTime)   : null;
+      const newMiddleAbs = rawArr.length >= 2
+        ? calculateMiddleAbsenceMinutes(rawArr, MIDDLE_ABSENCE_GRACE_MINUTES, shiftStartMin, shiftEndMin)
+        : 0;
+
+      const updateData: Partial<InsertAttendance> = {
+        checkIn: newCheckIn,
+        checkOut: rawArr.length >= 2 ? newCheckOut : null,
+        rawPunches: newRawPunches,
+        middleAbsenceMinutes: newMiddleAbs,
+        isManualEdit: true,
+      };
+
+      if (workRule) {
+        const finalOut = rawArr.length >= 2 ? newCheckOut : null;
+        const calc = calculateAttendanceDetails(
+          newCheckIn, finalOut,
+          workRule.workStartTime, workRule.workEndTime,
+          workRule.lateGraceMinutes,
+          workRule.latePenaltyPerMinute,
+          workRule.earlyLeavePenaltyPerMinute,
+          workRule.absencePenalty,
+          existing.status ?? "present",
+          workRule.checkoutEarliestTime,
+          workRule.isFlexibleShift ?? false
+        );
+        updateData.lateMinutes = calc.lateMinutes;
+        updateData.earlyLeaveMinutes = calc.earlyLeaveMinutes;
+        updateData.totalHours = String(calc.totalHours);
+        updateData.penalty = String(calc.penalty);
+        updateData.status = calc.status;
+      }
+
+      const record = await storage.updateAttendance(req.params.id, updateData);
+      if (!record) return res.status(404).json({ message: "Not found" });
+
+      const employee = await storage.getEmployee(existing.employeeId);
+      const allWs = await storage.getWorkshops();
+      logAttendanceAction({
+        req, method: "POST", statusCode: 200, entityId: existing.id,
+        employeeId: existing.employeeId, employeeName: employee?.name ?? "—", employeeCode: employee?.employeeCode ?? "—",
+        workshopName: allWs.find(w => w.id === employee?.workshopId)?.name ?? "—",
+        workRuleName: workRule?.name ?? "—",
+        recordDate: existing.date,
+        oldValues: { checkIn: existing.checkIn, checkOut: existing.checkOut, status: existing.status },
+        newValues: { checkIn: newCheckIn, checkOut: rawArr.length >= 2 ? newCheckOut : null, status: record.status, notes: `إضافة بصمة يدوية: ${time}` },
+      });
+
+      notifyAttendanceUpdate();
+      res.json(record);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
   app.delete("/api/attendance/:id", async (req, res) => {
     try {
       const existing = await storage.getAttendanceById(req.params.id);
