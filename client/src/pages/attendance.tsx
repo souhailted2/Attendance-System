@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut, Fingerprint, X } from "lucide-react";
+import { Plus, ClipboardCheck, UserCheck, UserX, Clock, CalendarDays, Radio, Trash2, Search, LogIn, LogOut, Fingerprint, X, PenLine } from "lucide-react";
 import type { Employee, AttendanceRecord } from "@shared/schema";
 import { PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
@@ -179,11 +179,13 @@ export default function Attendance() {
     middleAbsenceMinutes?: number;
     canDelete: "in" | "out" | "punch" | "none" | "rest";
     punchIndex?: number;
+    isManualEdit?: boolean;
   }> = [];
 
   for (const record of attendance || []) {
     const emp = employees?.find((e) => e.id === record.employeeId);
     const recMiddle = record.middleAbsenceMinutes;
+    const isManualEdit = !!record.isManualEdit;
 
     // يوم الراحة (مناوبة 24 ساعة)
     if ((record as any).status === "rest") {
@@ -215,21 +217,22 @@ export default function Attendance() {
           middleAbsenceMinutes: isLast ? recMiddle : undefined,
           canDelete: isFirst ? "in" : isLast ? "out" : isMiddle ? "punch" : "none",
           punchIndex: idx,
+          isManualEdit,
         });
       });
     } else if (rawPunches.length === 1) {
       // دخول فقط بدون خروج
-      allMovements.push({ id: `${record.id}-p0`, recordId: record.id, emp, date: record.date, time: rawPunches[0], type: "in", canDelete: "in" });
+      allMovements.push({ id: `${record.id}-p0`, recordId: record.id, emp, date: record.date, time: rawPunches[0], type: "in", canDelete: "in", isManualEdit });
     } else {
       // لا توجد rawPunches — الطريقة القديمة
       if (record.checkIn) {
-        allMovements.push({ id: `${record.id}-in`, recordId: record.id, emp, date: record.date, time: record.checkIn, type: "in", canDelete: "in" });
+        allMovements.push({ id: `${record.id}-in`, recordId: record.id, emp, date: record.date, time: record.checkIn, type: "in", canDelete: "in", isManualEdit });
       }
       if (record.checkOut && record.checkOut !== record.checkIn) {
-        allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle, canDelete: "out" });
+        allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle, canDelete: "out", isManualEdit });
       }
       if (!record.checkIn && !record.checkOut) {
-        allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in", canDelete: "none" });
+        allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in", canDelete: "none", isManualEdit });
       }
     }
   }
@@ -616,13 +619,25 @@ export default function Attendance() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {mv.time ? (
-                          <span className="font-mono text-base font-semibold tabular-nums">
-                            {mv.time}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">-</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {mv.time ? (
+                            <span className="font-mono text-base font-semibold tabular-nums" data-testid={`time-value-${mv.id}`}>
+                              {mv.time}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                          {mv.isManualEdit && mv.time && (
+                            <span
+                              className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 px-1.5 py-0.5 rounded"
+                              title="أُدخل يدوياً من قِبل المالك"
+                              data-testid={`badge-manual-${mv.id}`}
+                            >
+                              <PenLine className="h-2.5 w-2.5" />
+                              يدوي
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {mv.canDelete !== "none" ? (

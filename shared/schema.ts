@@ -82,6 +82,7 @@ export const attendanceRecords = pgTable("attendance_records", {
   penalty: text("penalty").default("0"),
   notes: text("notes"),
   rawPunches: text("raw_punches"),
+  isManualEdit: boolean("is_manual_edit").notNull().default(false),
 }, (table) => [
   uniqueIndex("attendance_employee_date_idx").on(table.employeeId, table.date),
 ]);
