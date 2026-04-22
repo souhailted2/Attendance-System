@@ -3738,7 +3738,9 @@ export async function registerRoutes(
             const effEarlyLeaveRefMin = checkoutEarliestMin ?? effWorkEndMin;
 
             const rec = empRecordsByDate.get(date);
-            if (!rec || rec.status === "absent") {
+            // اليوم الحالي بدون سجل بعد → لا نعدّه غياباً (اليوم لم ينتهِ)
+            if (!rec && date === todayStr) { /* skip */ }
+            else if (!rec || rec.status === "absent") {
               absentDays++;
               weekdayAbsences[dow] = (weekdayAbsences[dow] || 0) + 1;
             } else if (rec.status === "present" || rec.status === "late") {
@@ -5981,7 +5983,9 @@ export async function registerRoutes(
             if (!is24h && isEmpHolidayPay(date)) continue;
             if (empLeaveDates.has(date)) continue;
             const rec = empRecsByDate.get(date);
-            if (!rec || rec.status === "absent") { absDays++; wdAbs[dow] = (wdAbs[dow] || 0) + 1; }
+            // اليوم الحالي بدون سجل بعد → لا نعدّه غياباً (اليوم لم ينتهِ)
+            if (!rec && date === todayStr) { /* skip */ }
+            else if (!rec || rec.status === "absent") { absDays++; wdAbs[dow] = (wdAbs[dow] || 0) + 1; }
             else if (rec.status === "present" || rec.status === "late") {
               const ciMin = payTimeToMin(rec.checkIn);
               if (ciMin !== null) {
