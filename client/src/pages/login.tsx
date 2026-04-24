@@ -51,52 +51,86 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex overflow-hidden" dir="rtl" style={{ fontFamily: "Tajawal, Cairo, sans-serif" }}>
+    <div
+      className="min-h-screen flex overflow-hidden"
+      dir="rtl"
+      style={{
+        fontFamily: "Tajawal, Cairo, sans-serif",
+        background: "linear-gradient(135deg, #020817 0%, #0D1321 35%, #102A43 70%, #1B2434 100%)",
+      }}
+    >
 
       {/* ===== RIGHT PANEL: Form ===== */}
       <div
-        className="relative z-10 flex items-center justify-center w-full lg:w-[45%] p-6 lg:p-10"
-        style={{ background: "#F8F9FC" }}
+        className="relative z-10 flex items-center justify-center w-full lg:w-[45%] p-5 lg:p-10 lg:bg-[#F8F9FC]"
       >
+        {/* Mobile background overlay — luxury particles */}
+        <div className="absolute inset-0 pointer-events-none lg:hidden">
+          {/* Gold glow top */}
+          <div style={{
+            position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
+            width: "300px", height: "200px",
+            background: "radial-gradient(ellipse at center, rgba(212,175,55,0.12) 0%, transparent 70%)",
+            filter: "blur(20px)",
+          }} />
+          {/* Gold dots */}
+          {[
+            { l: "10%", t: "15%", s: 2 }, { l: "88%", t: "8%", s: 2.5 },
+            { l: "5%", t: "70%", s: 1.5 }, { l: "92%", t: "65%", s: 2 },
+            { l: "50%", t: "92%", s: 1.5 }, { l: "75%", t: "30%", s: 1.5 },
+          ].map((d, i) => (
+            <div key={i} style={{
+              position: "absolute", left: d.l, top: d.t,
+              width: `${d.s}px`, height: `${d.s}px`,
+              background: "#D4AF37", borderRadius: "50%", opacity: 0.45,
+            }} />
+          ))}
+        </div>
+
         <div
-          className="w-full max-w-[380px]"
+          className="w-full max-w-[380px] relative"
           style={{
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateY(0)" : "translateY(16px)",
             transition: "opacity 0.45s ease, transform 0.45s cubic-bezier(0.4,0,0.2,1)",
           }}
         >
-          {/* Mobile only: logo */}
-          <div
-            className="flex items-center justify-center mb-6 lg:hidden rounded-2xl"
-            style={{ background: "#0D1321", padding: "16px 24px" }}
-          >
+          {/* Mobile only: logo + title */}
+          <div className="flex flex-col items-center mb-8 lg:hidden">
             <img
               src="/logo-matrix.png?v=1"
               alt="TEDJANI ATTENDIX"
-              style={{ maxWidth: "200px", width: "100%", height: "auto", mixBlendMode: "screen" }}
+              style={{
+                maxWidth: "240px", width: "100%", height: "auto",
+                mixBlendMode: "screen",
+                filter: "drop-shadow(0 4px 20px rgba(212,175,55,0.35))",
+                marginBottom: "12px",
+              }}
               draggable={false}
             />
+            <p style={{
+              fontSize: "13px", color: "rgba(255,255,255,0.45)",
+              fontFamily: "Tajawal, Cairo, sans-serif",
+              textAlign: "center", letterSpacing: "0.02em",
+            }}>
+              نظام الحضور والانصراف الذكي
+            </p>
+            {/* gold divider */}
+            <div style={{
+              width: "48px", height: "1.5px", marginTop: "12px",
+              background: "linear-gradient(90deg, transparent, #D4AF37, transparent)",
+              borderRadius: "2px",
+            }} />
           </div>
 
-          {/* Form card */}
-          <div
-            style={{
-              background: "#ffffff",
-              borderRadius: "24px",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)",
-              padding: "40px 36px",
-            }}
-          >
+          {/* Form card — glassmorphism on mobile, white on desktop */}
+          <div className="login-form-card-adaptive">
             {/* Header */}
             <div className="mb-7 text-right">
-              <h2
-                className="text-2xl font-bold mb-1"
-                style={{ color: "#0D1321" }}
-              >
+              <h2 className="text-2xl font-bold mb-1 login-title-adaptive">
                 أهلاً بك
               </h2>
-              <p className="text-sm" style={{ color: "#7a8494" }}>
+              <p className="text-sm login-subtitle-adaptive">
                 سجّل دخولك للمتابعة
               </p>
             </div>
@@ -106,27 +140,19 @@ export default function Login() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="username"
-                  className="text-sm font-medium block text-right"
-                  style={{ color: "#374151" }}
+                  className="text-sm font-medium block text-right login-label-adaptive"
                 >
                   اسم المستخدم
                 </Label>
                 <div className="relative">
-                  <User
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4"
-                    style={{ color: "#9ca3af" }}
-                  />
+                  <User className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 login-icon-adaptive" />
                   <Input
                     id="username"
                     data-testid="input-username"
                     type="text"
                     placeholder="أدخل اسم المستخدم"
-                    className="pr-9 h-11 text-sm rounded-xl text-right border-0"
-                    style={{
-                      background: "#F4F5F8",
-                      color: "#111827",
-                      boxShadow: "none",
-                    }}
+                    className="pr-9 h-11 text-sm rounded-xl text-right login-input-adaptive"
+                    style={{ boxShadow: "none" }}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoComplete="username"
@@ -139,27 +165,19 @@ export default function Login() {
               <div className="space-y-1.5">
                 <Label
                   htmlFor="password"
-                  className="text-sm font-medium block text-right"
-                  style={{ color: "#374151" }}
+                  className="text-sm font-medium block text-right login-label-adaptive"
                 >
                   كلمة المرور
                 </Label>
                 <div className="relative">
-                  <Lock
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4"
-                    style={{ color: "#9ca3af" }}
-                  />
+                  <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 login-icon-adaptive" />
                   <Input
                     id="password"
                     data-testid="input-password"
                     type="password"
                     placeholder="••••••••"
-                    className="pr-9 h-11 text-sm rounded-xl text-right border-0"
-                    style={{
-                      background: "#F4F5F8",
-                      color: "#111827",
-                      boxShadow: "none",
-                    }}
+                    className="pr-9 h-11 text-sm rounded-xl text-right login-input-adaptive"
+                    style={{ boxShadow: "none" }}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -222,7 +240,7 @@ export default function Login() {
           </div>
 
           {/* Footer */}
-          <p className="text-xs text-center mt-5" style={{ color: "#9ca3af" }}>
+          <p className="text-xs text-center mt-5 login-footer-text">
             جميع الحقوق محفوظة — TEDJANI ATTENDIX
           </p>
         </div>

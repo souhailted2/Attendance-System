@@ -228,14 +228,18 @@ export default function Dashboard() {
       <div
         className="rounded-2xl relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, hsl(262 76% 15%) 0%, hsl(262 76% 24%) 55%, hsl(250 72% 31%) 100%)",
-          boxShadow: "0 8px 32px hsl(262 76% 20% / 0.35), 0 2px 8px hsl(262 76% 20% / 0.20)",
+          background: "linear-gradient(135deg, #020817 0%, #0D1321 40%, #102A43 75%, #1B2434 100%)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(212,175,55,0.10)",
+          border: "1px solid rgba(212,175,55,0.12)",
         }}
       >
-        <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: isDark ? "hsl(280 70% 60% / 0.06)" : "hsl(280 70% 60% / 0.10)", transform: "translate(-40%, -40%)" }} />
-        <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: isDark ? "hsl(250 80% 50% / 0.06)" : "hsl(250 80% 50% / 0.10)", transform: "translate(35%, 35%)" }} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: isDark ? "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.05) 0%, transparent 60%)" : "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.08) 0%, transparent 60%)" }} />
-        {/* Curved bottom transition */}
+        {/* Gold glow orb top-left */}
+        <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: "radial-gradient(ellipse, rgba(212,175,55,0.08) 0%, transparent 70%)", transform: "translate(-40%, -40%)" }} />
+        {/* Gold glow orb bottom-right */}
+        <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: "radial-gradient(ellipse, rgba(212,175,55,0.06) 0%, transparent 70%)", transform: "translate(35%, 35%)" }} />
+        {/* Subtle gold shimmer */}
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 60% 50%, rgba(212,175,55,0.04) 0%, transparent 60%)" }} />
+        {/* Gold curved bottom transition */}
         <div
           className="absolute bottom-0 left-0 right-0 pointer-events-none"
           style={{
@@ -257,7 +261,7 @@ export default function Dashboard() {
             </p>
             <h1 className="text-white text-xl sm:text-2xl font-bold leading-tight mb-1">
               مرحباً،{" "}
-              <span style={{ color: "hsl(262 80% 82%)" }}>{user?.username || "مدير النظام"}</span>
+              <span style={{ color: "#D4AF37" }}>{user?.username || "مدير النظام"}</span>
             </h1>
             <p className="text-white/40 text-xs">نظام إدارة الحضور والانصراف</p>
           </div>
@@ -330,35 +334,73 @@ export default function Dashboard() {
             key={card.key}
             className="rounded-2xl p-4 sm:p-5 relative overflow-hidden"
             style={{
-              background: isDark ? card.gradientDark : card.gradient,
+              background: isDark
+                ? "rgba(10, 17, 32, 0.75)"
+                : card.gradient,
+              backdropFilter: isDark ? "blur(12px)" : "none",
+              WebkitBackdropFilter: isDark ? "blur(12px)" : "none",
+              border: isDark
+                ? `1px solid rgba(212,175,55,0.15)`
+                : "1px solid rgba(255,255,255,0.22)",
               boxShadow: isDark
-                ? `0 6px 20px hsl(${card.glowDark} / 0.40), 0 2px 6px hsl(${card.glowDark} / 0.20)`
+                ? `0 8px 28px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.05)`
                 : `0 6px 20px hsl(${card.glow} / 0.28), 0 2px 6px hsl(${card.glow} / 0.14)`,
-              borderRight: isDark ? "4px solid rgba(255,255,255,0.10)" : "4px solid rgba(255,255,255,0.22)",
             }}
           >
-            <div
-              className="absolute top-0 right-0 rounded-full pointer-events-none"
-              style={{ width: 88, height: 88, background: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.12)", transform: "translate(30%, -30%)" }}
-            />
-            <div
-              className="absolute bottom-0 left-0 rounded-full pointer-events-none"
-              style={{ width: 60, height: 60, background: isDark ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.07)", transform: "translate(-30%, 30%)" }}
-            />
+            {/* Colored glow from icon — dark mode */}
+            {isDark && (
+              <div
+                className="absolute top-0 right-0 pointer-events-none rounded-full"
+                style={{
+                  width: 120, height: 120,
+                  background: `radial-gradient(ellipse, hsl(${card.glow} / 0.12) 0%, transparent 70%)`,
+                  transform: "translate(20%, -20%)",
+                }}
+              />
+            )}
+            {/* Light mode orb */}
+            {!isDark && (
+              <>
+                <div className="absolute top-0 right-0 rounded-full pointer-events-none" style={{ width: 88, height: 88, background: "rgba(255,255,255,0.12)", transform: "translate(30%, -30%)" }} />
+                <div className="absolute bottom-0 left-0 rounded-full pointer-events-none" style={{ width: 60, height: 60, background: "rgba(255,255,255,0.07)", transform: "translate(-30%, 30%)" }} />
+              </>
+            )}
+            {/* Gold bottom accent line */}
+            {isDark && (
+              <div className="absolute bottom-0 left-0 right-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.30), transparent)" }} />
+            )}
             <div className="relative z-10">
               <div className="mb-3">
-                <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-white/20">
-                  <card.icon className="h-5 w-5 text-white" />
+                <div
+                  className="h-9 w-9 rounded-xl flex items-center justify-center"
+                  style={{
+                    background: isDark
+                      ? `hsl(${card.glow} / 0.18)`
+                      : "rgba(255,255,255,0.20)",
+                    border: isDark ? `1px solid hsl(${card.glow} / 0.25)` : "none",
+                  }}
+                >
+                  <card.icon
+                    className="h-5 w-5"
+                    style={{ color: isDark ? `hsl(${card.glow})` : "white" }}
+                  />
                 </div>
               </div>
               <p
-                className="text-3xl sm:text-4xl font-black text-white tabular-nums leading-none mb-2"
+                className="text-3xl sm:text-4xl font-black tabular-nums leading-none mb-2"
+                style={{ color: isDark ? "rgba(255,255,255,0.92)" : "white" }}
                 data-testid={card.testId}
               >
                 {statValues[card.key]}
               </p>
-              <p className="text-xs font-semibold text-white/80 leading-tight">{card.label}</p>
-              <p className="text-[10px] text-white/50 mt-0.5">{card.sublabel}</p>
+              <p
+                className="text-xs font-semibold leading-tight"
+                style={{ color: isDark ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.80)" }}
+              >{card.label}</p>
+              <p
+                className="text-[10px] mt-0.5"
+                style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.50)" }}
+              >{card.sublabel}</p>
             </div>
           </div>
         ))}
