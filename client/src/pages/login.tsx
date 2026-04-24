@@ -67,11 +67,14 @@ export default function Login() {
           }}
         >
           {/* Mobile only: logo */}
-          <div className="flex items-center justify-center mb-6 lg:hidden">
+          <div
+            className="flex items-center justify-center mb-6 lg:hidden rounded-2xl"
+            style={{ background: "#0D1321", padding: "16px 24px" }}
+          >
             <img
-              src="/logo-transparent.png"
+              src="/logo-matrix.png?v=1"
               alt="TEDJANI ATTENDIX"
-              style={{ maxWidth: "220px", width: "100%", height: "auto" }}
+              style={{ maxWidth: "200px", width: "100%", height: "auto", mixBlendMode: "screen" }}
               draggable={false}
             />
           </div>
@@ -326,16 +329,17 @@ export default function Login() {
         >
           {/* Logo */}
           <img
-            src="/logo-transparent.png"
+            src="/logo-matrix.png?v=1"
             alt="TEDJANI ATTENDIX"
             data-testid="img-logo"
             style={{
               width: "100%",
-              maxWidth: "420px",
+              maxWidth: "460px",
               height: "auto",
               objectFit: "contain",
-              marginBottom: "32px",
-              filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.30))",
+              marginBottom: "28px",
+              mixBlendMode: "screen",
+              filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.35))",
             }}
             draggable={false}
           />

@@ -9,24 +9,26 @@ export function TejdaniLogo({ variant = "full", className = "" }: TejdaniLogoPro
   const style: React.CSSProperties = isSidebar
     ? {
         width: "100%",
-        maxHeight: "64px",
+        maxHeight: "72px",
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",
-        filter: "drop-shadow(0 2px 12px rgba(212,175,55,0.35))",
+        mixBlendMode: "screen",
+        filter: "drop-shadow(0 2px 16px rgba(212,175,55,0.45))",
       }
     : {
         width: "100%",
-        maxWidth: "380px",
+        maxWidth: "400px",
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",
+        mixBlendMode: "screen",
         filter: "drop-shadow(0 6px 28px rgba(212,175,55,0.40))",
       };
 
   return (
     <img
-      src="/logo-tedjani.png?v=3"
+      src="/logo-matrix.png?v=1"
       alt="TEDJANI ATTENDIX"
       data-testid="img-logo"
       className={className}

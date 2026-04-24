@@ -85,7 +85,7 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-/* ========== DARK MODE — Navy SmartHR style ========== */
+/* ========== DARK MODE — Navy Luxury style ========== */
 .dark {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .06);
@@ -93,13 +93,13 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  --background: 222 40% 8%;
+  --background: 222 55% 5%;
   --foreground: 210 20% 92%;
-  --border: 220 25% 18%;
+  --border: 220 30% 16%;
 
-  --card: 222 35% 11%;
+  --card: 222 45% 9%;
   --card-foreground: 210 20% 92%;
-  --card-border: 220 25% 17%;
+  --card-border: 220 30% 15%;
 
   --sidebar: 222 43% 9%;
   --sidebar-foreground: 210 15% 88%;
@@ -184,14 +184,16 @@
   background: hsl(220 20% 95%);
 }
 .dark .app-shell-bg {
-  background: linear-gradient(135deg, #0B1526 0%, #0D1B36 50%, #0B1526 100%);
+  background: linear-gradient(135deg, #020817 0%, #0D1321 35%, #102A43 70%, #1B2434 100%);
+  background-attachment: fixed;
 }
 
 .app-main-content {
   background: hsl(220 20% 97%);
 }
 .dark .app-main-content {
-  background: hsl(222 38% 9%);
+  background: rgba(5, 12, 26, 0.60);
+  backdrop-filter: blur(1px);
 }
 
 .app-topbar {
@@ -202,11 +204,11 @@
   box-shadow: 0 1px 0 rgba(0,0,0,0.04);
 }
 .dark .app-topbar {
-  background: rgba(15, 20, 38, 0.85);
-  backdrop-filter: blur(20px) saturate(1.4);
-  -webkit-backdrop-filter: blur(20px) saturate(1.4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 1px 0 rgba(0,0,0,0.20);
+  background: rgba(2, 8, 23, 0.78);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35), 0 0 24px rgba(212,175,55,0.04);
 }
 
 .app-topbar-text-primary {
@@ -223,19 +225,19 @@
 }
 
 /* =============================================
-   SIDEBAR — TEDJANI navy #0D1321
+   SIDEBAR — TEDJANI Luxury Navy gradient
    ============================================= */
 [data-sidebar="sidebar"] {
-  background: #0B1526 !important;
+  background: linear-gradient(180deg, #020817 0%, #0D1321 40%, #102A43 80%, #0B1526 100%) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-inline-start: none !important;
-  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 2px 0 32px rgba(0, 0, 0, 0.45), inset -1px 0 0 rgba(212,175,55,0.08);
 }
 
 .dark [data-sidebar="sidebar"] {
-  background: #0B1526 !important;
-  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, #020817 0%, #0D1321 40%, #102A43 80%, #0B1526 100%) !important;
+  box-shadow: 2px 0 32px rgba(0, 0, 0, 0.60), inset -1px 0 0 rgba(212,175,55,0.10);
 }
 
 [data-sidebar="sidebar"] {
@@ -333,10 +335,11 @@
 }
 
 .dark .shadcn-card {
-  background: hsl(222 32% 12%);
-  border: 1px solid hsl(220 22% 18%) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(13, 22, 40, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .shadcn-card:hover {
