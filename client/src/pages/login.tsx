@@ -68,7 +68,7 @@ export default function Login() {
         >
           {/* Mobile only: logo */}
           <div className="flex items-center justify-center mb-6 lg:hidden">
-            <TejdaniLogo variant="full" className="!max-w-[280px]" />
+            <TejdaniLogo variant="full" className="!max-w-[220px]" />
           </div>
 
           {/* Form card */}
@@ -218,36 +218,11 @@ export default function Login() {
 
       {/* ===== LEFT PANEL: Branding (desktop only) ===== */}
       <div
-        className="hidden lg:flex flex-col justify-between w-[55%] p-14 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between w-[55%] p-10 relative overflow-hidden"
         style={{
-          background: "linear-gradient(155deg, #000000 0%, #050505 55%, #000000 100%)",
+          background: "#000000",
         }}
       >
-        {/* Gold halo — positioned behind the clock icon (right-top of logo) */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            top: "-60px",
-            right: "-40px",
-            width: "500px",
-            height: "500px",
-            borderRadius: "50%",
-            background: "radial-gradient(ellipse at center, rgba(212,175,55,0.14) 0%, transparent 60%)",
-            filter: "blur(12px)",
-          }}
-        />
-        {/* Subtle geometric grid overlay */}
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(212,175,55,0.03) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(212,175,55,0.03) 1px, transparent 1px)
-            `,
-            backgroundSize: "60px 60px",
-          }}
-        />
-
         {/* Top: Logo */}
         <div
           className="relative z-10"
@@ -288,7 +263,7 @@ export default function Login() {
             نظام الحضور والانصراف الذكي
           </p>
           <p
-            className="text-sm mb-9 leading-relaxed max-w-sm"
+            className="text-sm mb-6 leading-relaxed max-w-sm"
             style={{ color: "rgba(255,255,255,0.42)" }}
           >
             منصة متكاملة لإدارة حضور الموظفين مع تكامل أجهزة ZKTeco البيومترية وتقارير فورية.
