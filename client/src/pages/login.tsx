@@ -85,6 +85,8 @@ export default function Login() {
     if (shakeKey === 0) return;
     const card = cardRef.current;
     if (!card) return;
+    card.classList.remove("login-card-shake");
+    void card.offsetWidth;
     card.classList.add("login-card-shake");
     const timer = setTimeout(() => card.classList.remove("login-card-shake"), 700);
     return () => clearTimeout(timer);
@@ -263,8 +265,7 @@ export default function Login() {
                     type="button"
                     data-testid="button-toggle-password"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 login-icon-adaptive hover:opacity-80 transition-opacity focus:outline-none"
-                    tabIndex={-1}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 login-icon-adaptive hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-1 focus-visible:ring-yellow-500 rounded"
                     aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
                   >
                     {showPassword
