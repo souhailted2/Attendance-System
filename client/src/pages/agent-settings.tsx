@@ -182,7 +182,7 @@ export default function AgentSettings() {
               <div className="flex items-center gap-2 p-3 rounded-md bg-muted border font-mono text-xs break-all" data-testid="text-api-key">
                 <span className="flex-1 select-all">{apiKey}</span>
                 <Button size="icon" variant="ghost" className="flex-shrink-0 h-8 w-8" onClick={copyKey} data-testid="button-copy-key">
-                  {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <Button size="sm" variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending} data-testid="button-regenerate-key">

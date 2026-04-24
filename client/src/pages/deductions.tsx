@@ -61,14 +61,14 @@ function StatusBadge({ status }: { status: string }) {
   }
   if (status === "approved") {
     return (
-      <Badge variant="outline" className="border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-950/30" data-testid="status-approved">
+      <Badge variant="outline" className="border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-400 dark:text-purple-400" data-testid="status-approved">
         <CheckCircle2 className="h-3 w-3 me-1" />
         مقبول
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="border-red-500 text-red-600 bg-red-50 dark:bg-red-950/30" data-testid="status-rejected">
+    <Badge variant="outline" className="border-red-500 text-red-600 bg-red-50 dark:bg-red-950/30 dark:border-red-400 dark:text-red-400" data-testid="status-rejected">
       <XCircle className="h-3 w-3 me-1" />
       مرفوض
     </Badge>
@@ -476,15 +476,15 @@ export default function Deductions() {
                         <div className="flex items-center gap-1">
                           {isOwner && r.status === "pending" && (
                             <>
-                              <Button size="sm" variant="outline" className="border-purple-400 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 h-7 px-2" onClick={() => approveMut.mutate(r.id)} disabled={approveMut.isPending} data-testid={`button-approve-${r.id}`}><Check className="h-3.5 w-3.5" /></Button>
-                              <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 h-7 px-2" onClick={() => rejectMut.mutate(r.id)} disabled={rejectMut.isPending} data-testid={`button-reject-${r.id}`}><X className="h-3.5 w-3.5" /></Button>
+                              <Button size="sm" variant="outline" className="border-purple-400 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 dark:border-purple-400 dark:text-purple-400 h-7 px-2" onClick={() => approveMut.mutate(r.id)} disabled={approveMut.isPending} data-testid={`button-approve-${r.id}`}><Check className="h-3.5 w-3.5" /></Button>
+                              <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 dark:border-red-400 dark:text-red-400 h-7 px-2" onClick={() => rejectMut.mutate(r.id)} disabled={rejectMut.isPending} data-testid={`button-reject-${r.id}`}><X className="h-3.5 w-3.5" /></Button>
                             </>
                           )}
                           {isOwner && r.status === "rejected" && (
-                            <Button size="sm" variant="outline" className="border-purple-400 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 h-7 px-2 text-xs" onClick={() => approveMut.mutate(r.id)} disabled={approveMut.isPending} data-testid={`button-approve-rejected-${r.id}`}>قبول</Button>
+                            <Button size="sm" variant="outline" className="border-purple-400 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 dark:border-purple-400 dark:text-purple-400 h-7 px-2 text-xs" onClick={() => approveMut.mutate(r.id)} disabled={approveMut.isPending} data-testid={`button-approve-rejected-${r.id}`}>قبول</Button>
                           )}
                           {isOwner && r.status === "approved" && (
-                            <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 h-7 px-2 text-xs" onClick={() => rejectMut.mutate(r.id)} disabled={rejectMut.isPending} data-testid={`button-reject-approved-${r.id}`}>إلغاء</Button>
+                            <Button size="sm" variant="outline" className="border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 dark:border-red-400 dark:text-red-400 h-7 px-2 text-xs" onClick={() => rejectMut.mutate(r.id)} disabled={rejectMut.isPending} data-testid={`button-reject-approved-${r.id}`}>إلغاء</Button>
                           )}
                           {(isOwner || (isObserver && r.status === "pending" && r.requestedBy === "observer")) && (
                             <Button size="sm" variant="ghost" className="h-7 px-2 text-muted-foreground hover:text-foreground" onClick={() => setEditTarget(r)} data-testid={`button-edit-${r.id}`}><Pencil className="h-3.5 w-3.5" /></Button>

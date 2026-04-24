@@ -296,7 +296,7 @@ export default function ScheduleOverrides() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-green-600 hover:text-green-700"
+                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
                               data-testid={`button-recalc-override-${o.id}`}
                               onClick={() => setRecalcId(o.id)}
                             >
@@ -369,7 +369,7 @@ export default function ScheduleOverrides() {
         <Card className="bg-muted/30">
           <CardContent className="pt-4 pb-3">
             <p className="text-sm text-muted-foreground">
-              <strong>ملاحظة:</strong> زر <RefreshCw className="h-3 w-3 inline mx-1 text-green-600" /> يُعيد حساب سجلات الحضور الموجودة في قاعدة البيانات للفترة المحددة وفق أوقات الجدول الخاص. لا يُنشئ سجلات جديدة.
+              <strong>ملاحظة:</strong> زر <RefreshCw className="h-3 w-3 inline mx-1 text-green-600 dark:text-green-400" /> يُعيد حساب سجلات الحضور الموجودة في قاعدة البيانات للفترة المحددة وفق أوقات الجدول الخاص. لا يُنشئ سجلات جديدة.
             </p>
           </CardContent>
         </Card>

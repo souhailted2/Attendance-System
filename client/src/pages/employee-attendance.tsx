@@ -372,7 +372,7 @@ export default function EmployeeAttendancePage() {
                 {employee.contractEndDate && (() => {
                   const daysLeft = Math.ceil((new Date(employee.contractEndDate!).getTime() - Date.now()) / 86400000);
                   if (daysLeft < 0) return <Badge variant="destructive" className="text-xs">عقد منتهي</Badge>;
-                  if (daysLeft <= 30) return <Badge variant="outline" className="text-xs border-amber-400 text-amber-600">ينتهي بعد {daysLeft} يوم</Badge>;
+                  if (daysLeft <= 30) return <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 dark:border-amber-500 dark:text-amber-400">ينتهي بعد {daysLeft} يوم</Badge>;
                   return null;
                 })()}
               </div>
