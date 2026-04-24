@@ -31,11 +31,28 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
+  const [uptime, setUptime] = useState(0);
+  const [devices, setDevices] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const duration = 1500;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setUptime(parseFloat((ease * 99.9).toFixed(1)));
+      setDevices(Math.round(ease * 50));
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    const raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [mounted]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,6 +81,13 @@ export default function Login() {
       <div
         className="relative z-10 flex items-center justify-center w-full lg:w-[45%] p-5 lg:p-10 lg:bg-[#F8F9FC]"
       >
+        {/* Gold vertical divider — desktop only */}
+        <div
+          className="hidden lg:block absolute left-0 top-0 bottom-0 w-px pointer-events-none"
+          style={{
+            background: "linear-gradient(180deg, transparent 0%, rgba(212,175,55,0.55) 30%, rgba(212,175,55,0.80) 50%, rgba(212,175,55,0.55) 70%, transparent 100%)",
+          }}
+        />
         {/* Mobile background overlay — luxury particles */}
         <div className="absolute inset-0 pointer-events-none lg:hidden">
           {/* Gold glow top */}
@@ -322,6 +346,34 @@ export default function Login() {
             style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
         ))}
 
+        {/* ── Islamic geometric pattern — very subtle background ── */}
+        <svg
+          className="absolute inset-0 w-full h-full pointer-events-none"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{ opacity: 0.045 }}
+        >
+          <defs>
+            <pattern id="islamicPattern" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+              {/* Octagon */}
+              <polygon
+                points="22,4 38,4 52,18 52,42 38,56 22,56 8,42 8,18"
+                fill="none" stroke="#D4AF37" strokeWidth="0.8"
+              />
+              {/* Inner star */}
+              <polygon
+                points="30,10 34,22 46,22 37,30 40,42 30,35 20,42 23,30 14,22 26,22"
+                fill="none" stroke="#D4AF37" strokeWidth="0.5"
+              />
+              {/* Corner diamonds */}
+              <polygon points="0,0 6,6 0,12 -6,6" fill="none" stroke="#D4AF37" strokeWidth="0.5"/>
+              <polygon points="60,0 66,6 60,12 54,6" fill="none" stroke="#D4AF37" strokeWidth="0.5"/>
+              <polygon points="0,60 6,66 0,72 -6,66" fill="none" stroke="#D4AF37" strokeWidth="0.5"/>
+              <polygon points="60,60 66,66 60,72 54,66" fill="none" stroke="#D4AF37" strokeWidth="0.5"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#islamicPattern)" />
+        </svg>
+
         {/* ── Golden glow behind logo ── */}
         <div
           className="absolute pointer-events-none"
@@ -375,7 +427,18 @@ export default function Login() {
               textShadow: "0 2px 24px rgba(0,0,0,0.4)",
             }}
           >
-            نظام الحضور والانصراف الذكي
+            نظام الحضور والانصراف{" "}
+            <span
+              style={{
+                background: "linear-gradient(135deg, #D4AF37 0%, #f5e070 50%, #B8860B 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                filter: "drop-shadow(0 0 8px rgba(212,175,55,0.50))",
+              }}
+            >
+              الذكي
+            </span>
           </h1>
 
           {/* Subtitle */}
@@ -445,8 +508,8 @@ export default function Login() {
         >
           <div className="flex items-center justify-center gap-16">
             {[
-              { value: "99.9%", label: "وقت التشغيل" },
-              { value: "+50", label: "جهاز مدعوم" },
+              { value: `${uptime}%`, label: "وقت التشغيل" },
+              { value: `+${devices}`, label: "جهاز مدعوم" },
               { value: "لحظي", label: "تحديث البيانات" },
             ].map((s, i) => (
               <div key={i} className="text-center">
@@ -459,7 +522,10 @@ export default function Login() {
                     WebkitTextFillColor: "transparent",
                     fontFamily: "Tajawal, Cairo, sans-serif",
                     lineHeight: 1.2,
-                  }}
+                    minWidth: "60px",
+                    display: "block",
+                    tabularNums: "true",
+                  } as React.CSSProperties}
                 >
                   {s.value}
                 </p>
