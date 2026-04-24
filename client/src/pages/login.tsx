@@ -242,7 +242,7 @@ export default function Login() {
                 <p
                   className="text-2xl font-bold"
                   style={{
-                    background: "linear-gradient(135deg, hsl(43 68% 65%), hsl(40 80% 55%))",
+                    background: "linear-gradient(135deg, hsl(43 62% 65%), hsl(43 62% 45%))",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}
