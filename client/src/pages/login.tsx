@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,26 @@ import {
   ShieldCheck,
   Fingerprint,
   Clock4,
+  Eye,
+  EyeOff,
 } from "lucide-react";
+
+const FLOAT_PARTICLES = [
+  { x: 12, y: 22, s: 3,   op: 0.42, dur: 12, delay: 0   },
+  { x: 25, y: 55, s: 2,   op: 0.30, dur: 15, delay: 1.5 },
+  { x: 38, y: 30, s: 4,   op: 0.50, dur: 10, delay: 3.0 },
+  { x: 55, y: 72, s: 2.5, op: 0.35, dur: 18, delay: 0.8 },
+  { x: 68, y: 16, s: 3.5, op: 0.45, dur: 13, delay: 2.2 },
+  { x: 78, y: 46, s: 2,   op: 0.28, dur: 16, delay: 4.5 },
+  { x: 90, y: 62, s: 3,   op: 0.38, dur: 11, delay: 1.1 },
+  { x: 14, y: 80, s: 2.5, op: 0.42, dur: 14, delay: 3.7 },
+  { x: 42, y: 88, s: 2,   op: 0.32, dur:  9, delay: 6.2 },
+  { x: 60, y: 36, s: 4,   op: 0.55, dur: 17, delay: 2.8 },
+  { x: 30, y: 65, s: 1.5, op: 0.25, dur: 20, delay: 5.1 },
+  { x: 85, y: 28, s: 3,   op: 0.44, dur: 12, delay: 7.3 },
+  { x: 48, y: 50, s: 2,   op: 0.30, dur: 15, delay: 0.5 },
+  { x: 72, y: 82, s: 3.5, op: 0.48, dur: 13, delay: 4.0 },
+];
 
 const features = [
   { icon: Fingerprint, text: "تكامل أجهزة ZKTeco البيومترية" },
@@ -27,12 +46,17 @@ export default function Login() {
   const { login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
   const [uptime, setUptime] = useState(0);
   const [devices, setDevices] = useState(0);
+  const [shakeKey, setShakeKey] = useState(0);
+  const [mouseOffset, setMouseOffset] = useState({ x: 0, y: 0 });
+  const cardRef = useRef<HTMLDivElement>(null);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -57,6 +81,30 @@ export default function Login() {
     return () => { canceled = true; cancelAnimationFrame(rafId); };
   }, [mounted]);
 
+  useEffect(() => {
+    if (shakeKey === 0) return;
+    const card = cardRef.current;
+    if (!card) return;
+    card.classList.add("login-card-shake");
+    const timer = setTimeout(() => card.classList.remove("login-card-shake"), 700);
+    return () => clearTimeout(timer);
+  }, [shakeKey]);
+
+  function handlePanelMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const panel = leftPanelRef.current;
+    if (!panel) return;
+    const rect = panel.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const nx = (e.clientX - cx) / (rect.width / 2);
+    const ny = (e.clientY - cy) / (rect.height / 2);
+    setMouseOffset({ x: nx * 12, y: ny * 12 });
+  }
+
+  function handlePanelMouseLeave() {
+    setMouseOffset({ x: 0, y: 0 });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -65,6 +113,7 @@ export default function Login() {
       await login(username, password);
     } catch (err: any) {
       setError(err.message || "فشل تسجيل الدخول");
+      setShakeKey((k) => k + 1);
     } finally {
       setLoading(false);
     }
@@ -151,7 +200,7 @@ export default function Login() {
           </div>
 
           {/* Form card — glassmorphism on mobile, white on desktop */}
-          <div className="login-form-card-adaptive">
+          <div className="login-form-card-adaptive" ref={cardRef}>
             {/* Header */}
             <div className="mb-7 text-right">
               <h2 className="text-2xl font-bold mb-1 login-title-adaptive">
@@ -201,15 +250,27 @@ export default function Login() {
                   <Input
                     id="password"
                     data-testid="input-password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="pr-9 h-11 text-sm rounded-xl text-right login-input-adaptive"
+                    className="pr-9 pl-9 h-11 text-sm rounded-xl text-right login-input-adaptive"
                     style={{ boxShadow: "none" }}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
                     required
                   />
+                  <button
+                    type="button"
+                    data-testid="button-toggle-password"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 login-icon-adaptive hover:opacity-80 transition-opacity focus:outline-none"
+                    tabIndex={-1}
+                    aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}
+                  >
+                    {showPassword
+                      ? <EyeOff className="h-4 w-4" />
+                      : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -275,79 +336,111 @@ export default function Login() {
 
       {/* ===== LEFT PANEL: Branding (desktop only) ===== */}
       <div
+        ref={leftPanelRef}
         className="hidden lg:flex flex-col items-center justify-center w-[55%] relative overflow-hidden"
         style={{
           background: "linear-gradient(135deg, #020817 0%, #0D1321 35%, #102A43 70%, #1B2434 100%)",
           padding: "48px 56px",
         }}
+        onMouseMove={handlePanelMouseMove}
+        onMouseLeave={handlePanelMouseLeave}
       >
-        {/* ── Decorative SVG: curved gold lines — top-right ── */}
-        <svg
-          className="absolute top-0 right-0 pointer-events-none"
-          width="320" height="320" viewBox="0 0 320 320" fill="none"
-          style={{ opacity: 0.55 }}
+        {/* ── Parallax layer: curved lines + dot particles + floating particles ── */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            transform: `translateX(${mouseOffset.x}px) translateY(${mouseOffset.y}px)`,
+            transition: "transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+          }}
         >
-          <path d="M320 0 C240 60, 180 100, 80 160" stroke="url(#goldTopRight)" strokeWidth="1.2" fill="none"/>
-          <path d="M320 40 C220 100, 160 130, 40 200" stroke="url(#goldTopRight2)" strokeWidth="0.8" fill="none"/>
-          <path d="M280 0 C220 70, 150 120, 60 200" stroke="url(#goldTopRight3)" strokeWidth="0.5" fill="none"/>
-          <defs>
-            <linearGradient id="goldTopRight" x1="320" y1="0" x2="80" y2="160" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.9"/>
-              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-            </linearGradient>
-            <linearGradient id="goldTopRight2" x1="320" y1="40" x2="40" y2="200" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.6"/>
-              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-            </linearGradient>
-            <linearGradient id="goldTopRight3" x1="280" y1="0" x2="60" y2="200" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#f0d060" stopOpacity="0.4"/>
-              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-            </linearGradient>
-          </defs>
-        </svg>
+          {/* Decorative SVG: curved gold lines — top-right */}
+          <svg
+            className="absolute top-0 right-0"
+            width="320" height="320" viewBox="0 0 320 320" fill="none"
+            style={{ opacity: 0.55 }}
+          >
+            <path d="M320 0 C240 60, 180 100, 80 160" stroke="url(#goldTopRight)" strokeWidth="1.2" fill="none"/>
+            <path d="M320 40 C220 100, 160 130, 40 200" stroke="url(#goldTopRight2)" strokeWidth="0.8" fill="none"/>
+            <path d="M280 0 C220 70, 150 120, 60 200" stroke="url(#goldTopRight3)" strokeWidth="0.5" fill="none"/>
+            <defs>
+              <linearGradient id="goldTopRight" x1="320" y1="0" x2="80" y2="160" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.9"/>
+                <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+              </linearGradient>
+              <linearGradient id="goldTopRight2" x1="320" y1="40" x2="40" y2="200" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.6"/>
+                <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+              </linearGradient>
+              <linearGradient id="goldTopRight3" x1="280" y1="0" x2="60" y2="200" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#f0d060" stopOpacity="0.4"/>
+                <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
 
-        {/* ── Decorative SVG: curved gold lines — bottom-left ── */}
-        <svg
-          className="absolute bottom-0 left-0 pointer-events-none"
-          width="320" height="320" viewBox="0 0 320 320" fill="none"
-          style={{ opacity: 0.55 }}
-        >
-          <path d="M0 320 C80 260, 140 220, 240 160" stroke="url(#goldBotLeft)" strokeWidth="1.2" fill="none"/>
-          <path d="M0 280 C100 220, 160 190, 280 120" stroke="url(#goldBotLeft2)" strokeWidth="0.8" fill="none"/>
-          <path d="M40 320 C100 250, 170 200, 260 120" stroke="url(#goldBotLeft3)" strokeWidth="0.5" fill="none"/>
-          <defs>
-            <linearGradient id="goldBotLeft" x1="0" y1="320" x2="240" y2="160" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.9"/>
-              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-            </linearGradient>
-            <linearGradient id="goldBotLeft2" x1="0" y1="280" x2="280" y2="120" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.6"/>
-              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-            </linearGradient>
-            <linearGradient id="goldBotLeft3" x1="40" y1="320" x2="260" y2="120" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stopColor="#f0d060" stopOpacity="0.4"/>
-              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
-            </linearGradient>
-          </defs>
-        </svg>
+          {/* Decorative SVG: curved gold lines — bottom-left */}
+          <svg
+            className="absolute bottom-0 left-0"
+            width="320" height="320" viewBox="0 0 320 320" fill="none"
+            style={{ opacity: 0.55 }}
+          >
+            <path d="M0 320 C80 260, 140 220, 240 160" stroke="url(#goldBotLeft)" strokeWidth="1.2" fill="none"/>
+            <path d="M0 280 C100 220, 160 190, 280 120" stroke="url(#goldBotLeft2)" strokeWidth="0.8" fill="none"/>
+            <path d="M40 320 C100 250, 170 200, 260 120" stroke="url(#goldBotLeft3)" strokeWidth="0.5" fill="none"/>
+            <defs>
+              <linearGradient id="goldBotLeft" x1="0" y1="320" x2="240" y2="160" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.9"/>
+                <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+              </linearGradient>
+              <linearGradient id="goldBotLeft2" x1="0" y1="280" x2="280" y2="120" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.6"/>
+                <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+              </linearGradient>
+              <linearGradient id="goldBotLeft3" x1="40" y1="320" x2="260" y2="120" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stopColor="#f0d060" stopOpacity="0.4"/>
+                <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+              </linearGradient>
+            </defs>
+          </svg>
 
-        {/* ── Gold dot particles — top-right corner ── */}
-        {[
-          { x: "82%", y: "6%", s: 3 }, { x: "88%", y: "11%", s: 2 }, { x: "76%", y: "14%", s: 2.5 },
-          { x: "92%", y: "18%", s: 1.5 }, { x: "70%", y: "8%", s: 1.5 }, { x: "94%", y: "8%", s: 2 },
-        ].map((d, i) => (
-          <div key={`tr-${i}`} className="absolute pointer-events-none rounded-full"
-            style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
-        ))}
+          {/* Gold dot particles — top-right corner */}
+          {[
+            { x: "82%", y: "6%", s: 3 }, { x: "88%", y: "11%", s: 2 }, { x: "76%", y: "14%", s: 2.5 },
+            { x: "92%", y: "18%", s: 1.5 }, { x: "70%", y: "8%", s: 1.5 }, { x: "94%", y: "8%", s: 2 },
+          ].map((d, i) => (
+            <div key={`tr-${i}`} className="absolute rounded-full"
+              style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
+          ))}
 
-        {/* ── Gold dot particles — bottom-left corner ── */}
-        {[
-          { x: "6%", y: "82%", s: 3 }, { x: "11%", y: "88%", s: 2 }, { x: "14%", y: "76%", s: 2.5 },
-          { x: "18%", y: "92%", s: 1.5 }, { x: "8%", y: "70%", s: 1.5 }, { x: "3%", y: "92%", s: 2 },
-        ].map((d, i) => (
-          <div key={`bl-${i}`} className="absolute pointer-events-none rounded-full"
-            style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
-        ))}
+          {/* Gold dot particles — bottom-left corner */}
+          {[
+            { x: "6%", y: "82%", s: 3 }, { x: "11%", y: "88%", s: 2 }, { x: "14%", y: "76%", s: 2.5 },
+            { x: "18%", y: "92%", s: 1.5 }, { x: "8%", y: "70%", s: 1.5 }, { x: "3%", y: "92%", s: 2 },
+          ].map((d, i) => (
+            <div key={`bl-${i}`} className="absolute rounded-full"
+              style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
+          ))}
+
+          {/* Floating gold particles — distributed across panel */}
+          {FLOAT_PARTICLES.map((p, i) => (
+            <div
+              key={`fp-${i}`}
+              className="absolute rounded-full login-particle-float"
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                width: `${p.s}px`,
+                height: `${p.s}px`,
+                background: "radial-gradient(circle, #f5e070 0%, #D4AF37 60%, #B8860B 100%)",
+                ["--p-op" as string]: p.op,
+                ["--p-dur" as string]: `${p.dur}s`,
+                ["--p-delay" as string]: `${p.delay}s`,
+                opacity: p.op,
+                boxShadow: `0 0 ${p.s + 2}px rgba(212,175,55,0.6)`,
+              }}
+            />
+          ))}
+        </div>
 
         {/* ── Islamic geometric pattern — very subtle background ── */}
         <svg

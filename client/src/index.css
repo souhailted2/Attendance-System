@@ -424,6 +424,31 @@
   .login-footer-text { color: #9ca3af; }
 }
 
+/* ── Floating gold particles ── */
+@keyframes floatParticle {
+  0%   { transform: translateY(0px);   opacity: var(--p-op); }
+  50%  { transform: translateY(-28px); opacity: calc(var(--p-op) * 0.55); }
+  100% { transform: translateY(0px);   opacity: var(--p-op); }
+}
+.login-particle-float {
+  animation: floatParticle var(--p-dur, 12s) ease-in-out var(--p-delay, 0s) infinite;
+}
+
+/* ── Shake card on login error ── */
+@keyframes shakeCard {
+  0%   { transform: translateX(0); }
+  15%  { transform: translateX(-8px); }
+  30%  { transform: translateX(8px); }
+  45%  { transform: translateX(-6px); }
+  60%  { transform: translateX(6px); }
+  75%  { transform: translateX(-3px); }
+  90%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+.login-card-shake {
+  animation: shakeCard 0.65s ease;
+}
+
 /* =============================================
    LOGIN PAGE — dual theme
    ============================================= */
