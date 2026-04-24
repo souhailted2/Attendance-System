@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TejdaniLogo } from "@/components/tedjani-logo";
 import {
   Lock,
   User,
@@ -66,13 +67,8 @@ export default function Login() {
           }}
         >
           {/* Mobile only: logo */}
-          <div className="flex flex-col items-center mb-6 lg:hidden">
-            <img
-              src="/logo-horizontal.png"
-              className="h-auto object-contain"
-              style={{ width: "200px", filter: "drop-shadow(0 2px 10px rgba(212,175,55,0.22))" }}
-              alt="TEDJANI ATTENDIX"
-            />
+          <div className="flex items-center justify-center mb-6 lg:hidden">
+            <TejdaniLogo variant="sidebar" onDark={false} />
           </div>
 
           {/* Form card */}
@@ -261,17 +257,7 @@ export default function Login() {
             transition: "opacity 0.55s ease 0.05s, transform 0.55s ease 0.05s",
           }}
         >
-          <img
-            src="/logo-horizontal.png"
-            alt="TEDJANI ATTENDIX"
-            style={{
-              width: "100%",
-              maxWidth: "520px",
-              height: "auto",
-              objectFit: "contain",
-              filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.38))",
-            }}
-          />
+          <TejdaniLogo variant="full" onDark />
 
           {/* Gold separator line */}
           <div
