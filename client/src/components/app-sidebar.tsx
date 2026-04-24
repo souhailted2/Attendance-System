@@ -114,7 +114,7 @@ export function AppSidebar() {
           data-testid="text-app-title"
           style={{
             width: "100%",
-            maxHeight: "64px",
+            maxHeight: "58px",
             objectFit: "contain",
             objectPosition: "center",
             filter: "drop-shadow(0 2px 12px rgba(212,175,55,0.35))",
