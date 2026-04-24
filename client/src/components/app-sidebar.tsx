@@ -123,7 +123,7 @@ export function AppSidebar() {
             <h2 className="text-sm font-bold leading-tight tracking-wide" data-testid="text-app-title" style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.04em" }}>
               TEDJANI ATTENDIX
             </h2>
-            <p className="text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.65)", fontFamily: "'Cairo', sans-serif" }}>Smart Attendance</p>
+            <p className="text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.65)", fontFamily: "'Cairo', sans-serif" }}>Smart Attendance & Workforce Management</p>
           </div>
         </div>
       </SidebarHeader>
