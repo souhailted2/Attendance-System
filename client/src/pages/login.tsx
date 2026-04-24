@@ -220,7 +220,7 @@ export default function Login() {
       <div
         className="hidden lg:flex flex-col justify-between w-[55%] p-14 relative overflow-hidden"
         style={{
-          background: "linear-gradient(155deg, #0D1321 0%, #111827 55%, #0f1a2e 100%)",
+          background: "linear-gradient(155deg, #000000 0%, #050505 55%, #000000 100%)",
         }}
       >
         {/* Gold halo — positioned behind the clock icon (right-top of logo) */}
