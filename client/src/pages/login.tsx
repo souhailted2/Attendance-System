@@ -3,7 +3,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TejdaniLogo } from "@/components/tedjani-logo";
 import {
   Lock,
   User,
@@ -31,6 +30,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [btnHover, setBtnHover] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 60);
@@ -51,15 +51,15 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex overflow-hidden" dir="rtl" style={{ background: "#F5F6FA" }}>
+    <div className="min-h-screen flex overflow-hidden" dir="rtl" style={{ fontFamily: "Tajawal, Cairo, sans-serif" }}>
 
       {/* ===== RIGHT PANEL: Form ===== */}
       <div
         className="relative z-10 flex items-center justify-center w-full lg:w-[45%] p-6 lg:p-10"
-        style={{ background: "#F5F6FA" }}
+        style={{ background: "#F8F9FC" }}
       >
         <div
-          className="w-full max-w-[360px]"
+          className="w-full max-w-[380px]"
           style={{
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateY(0)" : "translateY(16px)",
@@ -68,23 +68,28 @@ export default function Login() {
         >
           {/* Mobile only: logo */}
           <div className="flex items-center justify-center mb-6 lg:hidden">
-            <TejdaniLogo variant="full" className="!max-w-[220px]" />
+            <img
+              src="/logo-transparent.png"
+              alt="TEDJANI ATTENDIX"
+              style={{ maxWidth: "220px", width: "100%", height: "auto" }}
+              draggable={false}
+            />
           </div>
 
           {/* Form card */}
           <div
-            className="rounded-2xl p-8"
             style={{
               background: "#ffffff",
-              border: "1px solid #e8eaee",
-              boxShadow: "0 4px 24px rgba(13,19,33,0.10), 0 1px 4px rgba(13,19,33,0.06)",
+              borderRadius: "24px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)",
+              padding: "40px 36px",
             }}
           >
             {/* Header */}
             <div className="mb-7 text-right">
               <h2
                 className="text-2xl font-bold mb-1"
-                style={{ color: "#0D1321", fontFamily: "Tajawal, Cairo, sans-serif" }}
+                style={{ color: "#0D1321" }}
               >
                 أهلاً بك
               </h2>
@@ -113,11 +118,11 @@ export default function Login() {
                     data-testid="input-username"
                     type="text"
                     placeholder="أدخل اسم المستخدم"
-                    className="pr-9 h-10 text-sm rounded-lg text-right"
+                    className="pr-9 h-11 text-sm rounded-xl text-right border-0"
                     style={{
-                      background: "#f9fafb",
-                      border: "1px solid #e5e7eb",
+                      background: "#F4F5F8",
                       color: "#111827",
+                      boxShadow: "none",
                     }}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -146,11 +151,11 @@ export default function Login() {
                     data-testid="input-password"
                     type="password"
                     placeholder="••••••••"
-                    className="pr-9 h-10 text-sm rounded-lg text-right"
+                    className="pr-9 h-11 text-sm rounded-xl text-right border-0"
                     style={{
-                      background: "#f9fafb",
-                      border: "1px solid #e5e7eb",
+                      background: "#F4F5F8",
                       color: "#111827",
+                      boxShadow: "none",
                     }}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -163,7 +168,7 @@ export default function Login() {
               {/* Error */}
               {error && (
                 <div
-                  className="flex items-center gap-2 rounded-lg px-3 py-2.5"
+                  className="flex items-center gap-2 rounded-xl px-3 py-2.5"
                   style={{
                     background: "rgba(239,68,68,0.08)",
                     border: "1px solid rgba(239,68,68,0.20)",
@@ -178,24 +183,31 @@ export default function Login() {
               {/* Submit */}
               <Button
                 type="submit"
-                className="w-full h-11 text-sm font-bold rounded-xl border-0 mt-1"
+                className="w-full h-12 text-sm font-bold border-0 mt-2"
                 disabled={loading}
                 data-testid="button-login-submit"
+                onMouseEnter={() => setBtnHover(true)}
+                onMouseLeave={() => setBtnHover(false)}
                 style={{
                   background: loading
                     ? "rgba(212,175,55,0.30)"
-                    : "linear-gradient(135deg, #D4AF37 0%, #c9a227 50%, #B8860B 100%)",
-                  boxShadow: loading ? "none" : "0 4px 18px rgba(212,175,55,0.38), 0 1px 3px rgba(0,0,0,0.08)",
-                  color: "#1a1200",
-                  transition: "all 0.2s ease",
+                    : "linear-gradient(90deg, #D4AF37, #B8860B)",
+                  borderRadius: "14px",
+                  color: "white",
+                  fontWeight: "bold",
+                  transform: btnHover && !loading ? "translateY(-2px)" : "translateY(0)",
+                  boxShadow: btnHover && !loading
+                    ? "0 8px 20px rgba(212,175,55,0.35)"
+                    : loading ? "none" : "0 4px 12px rgba(212,175,55,0.25)",
+                  transition: "all 0.22s ease",
                   letterSpacing: "0.02em",
                 }}
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <div
-                      className="h-4 w-4 rounded-full border-2 border-t-transparent animate-spin"
-                      style={{ borderColor: "rgba(26,18,0,0.25)", borderTopColor: "rgba(26,18,0,0.70)" }}
+                      className="h-4 w-4 rounded-full border-2 animate-spin"
+                      style={{ borderColor: "rgba(255,255,255,0.25)", borderTopColor: "white" }}
                     />
                     جاري التحقق...
                   </span>
@@ -207,10 +219,7 @@ export default function Login() {
           </div>
 
           {/* Footer */}
-          <p
-            className="text-xs text-center mt-5"
-            style={{ color: "#9ca3af" }}
-          >
+          <p className="text-xs text-center mt-5" style={{ color: "#9ca3af" }}>
             جميع الحقوق محفوظة — TEDJANI ATTENDIX
           </p>
         </div>
@@ -218,80 +227,182 @@ export default function Login() {
 
       {/* ===== LEFT PANEL: Branding (desktop only) ===== */}
       <div
-        className="hidden lg:flex flex-col justify-between w-[55%] p-10 relative overflow-hidden"
+        className="hidden lg:flex flex-col items-center justify-center w-[55%] relative overflow-hidden"
         style={{
-          background: "linear-gradient(155deg, #0B1526 0%, #0D1B36 100%)",
+          background: "linear-gradient(135deg, #020817 0%, #0D1321 35%, #102A43 70%, #1B2434 100%)",
+          padding: "48px 56px",
         }}
       >
-        {/* Top: Logo */}
+        {/* ── Decorative SVG: curved gold lines — top-right ── */}
+        <svg
+          className="absolute top-0 right-0 pointer-events-none"
+          width="320" height="320" viewBox="0 0 320 320" fill="none"
+          style={{ opacity: 0.55 }}
+        >
+          <path d="M320 0 C240 60, 180 100, 80 160" stroke="url(#goldTopRight)" strokeWidth="1.2" fill="none"/>
+          <path d="M320 40 C220 100, 160 130, 40 200" stroke="url(#goldTopRight2)" strokeWidth="0.8" fill="none"/>
+          <path d="M280 0 C220 70, 150 120, 60 200" stroke="url(#goldTopRight3)" strokeWidth="0.5" fill="none"/>
+          <defs>
+            <linearGradient id="goldTopRight" x1="320" y1="0" x2="80" y2="160" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.9"/>
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+            </linearGradient>
+            <linearGradient id="goldTopRight2" x1="320" y1="40" x2="40" y2="200" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.6"/>
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+            </linearGradient>
+            <linearGradient id="goldTopRight3" x1="280" y1="0" x2="60" y2="200" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#f0d060" stopOpacity="0.4"/>
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        {/* ── Decorative SVG: curved gold lines — bottom-left ── */}
+        <svg
+          className="absolute bottom-0 left-0 pointer-events-none"
+          width="320" height="320" viewBox="0 0 320 320" fill="none"
+          style={{ opacity: 0.55 }}
+        >
+          <path d="M0 320 C80 260, 140 220, 240 160" stroke="url(#goldBotLeft)" strokeWidth="1.2" fill="none"/>
+          <path d="M0 280 C100 220, 160 190, 280 120" stroke="url(#goldBotLeft2)" strokeWidth="0.8" fill="none"/>
+          <path d="M40 320 C100 250, 170 200, 260 120" stroke="url(#goldBotLeft3)" strokeWidth="0.5" fill="none"/>
+          <defs>
+            <linearGradient id="goldBotLeft" x1="0" y1="320" x2="240" y2="160" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.9"/>
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+            </linearGradient>
+            <linearGradient id="goldBotLeft2" x1="0" y1="280" x2="280" y2="120" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#D4AF37" stopOpacity="0.6"/>
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+            </linearGradient>
+            <linearGradient id="goldBotLeft3" x1="40" y1="320" x2="260" y2="120" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#f0d060" stopOpacity="0.4"/>
+              <stop offset="100%" stopColor="#D4AF37" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+        </svg>
+
+        {/* ── Gold dot particles — top-right corner ── */}
+        {[
+          { x: "82%", y: "6%", s: 3 }, { x: "88%", y: "11%", s: 2 }, { x: "76%", y: "14%", s: 2.5 },
+          { x: "92%", y: "18%", s: 1.5 }, { x: "70%", y: "8%", s: 1.5 }, { x: "94%", y: "8%", s: 2 },
+        ].map((d, i) => (
+          <div key={`tr-${i}`} className="absolute pointer-events-none rounded-full"
+            style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
+        ))}
+
+        {/* ── Gold dot particles — bottom-left corner ── */}
+        {[
+          { x: "6%", y: "82%", s: 3 }, { x: "11%", y: "88%", s: 2 }, { x: "14%", y: "76%", s: 2.5 },
+          { x: "18%", y: "92%", s: 1.5 }, { x: "8%", y: "70%", s: 1.5 }, { x: "3%", y: "92%", s: 2 },
+        ].map((d, i) => (
+          <div key={`bl-${i}`} className="absolute pointer-events-none rounded-full"
+            style={{ left: d.x, top: d.y, width: `${d.s}px`, height: `${d.s}px`, background: "#D4AF37", opacity: 0.55 }} />
+        ))}
+
+        {/* ── Golden glow behind logo ── */}
         <div
-          className="relative z-10"
+          className="absolute pointer-events-none"
+          style={{
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -70%)",
+            width: "420px",
+            height: "300px",
+            background: "radial-gradient(ellipse at center, rgba(212,175,55,0.18) 0%, rgba(212,175,55,0.06) 45%, transparent 70%)",
+            filter: "blur(24px)",
+          }}
+        />
+
+        {/* ── Content (logo + text + features) ── */}
+        <div
+          className="relative z-10 flex flex-col items-center text-center w-full max-w-xl"
           style={{
             opacity: mounted ? 1 : 0,
-            transform: mounted ? "translateY(0)" : "translateY(-12px)",
-            transition: "opacity 0.55s ease 0.05s, transform 0.55s ease 0.05s",
+            transform: mounted ? "translateY(0)" : "translateY(18px)",
+            transition: "opacity 0.55s ease 0.08s, transform 0.55s ease 0.08s",
           }}
         >
-          <TejdaniLogo variant="full" />
-
-          {/* Gold separator line */}
-          <div
-            className="mt-7 mb-0"
+          {/* Logo */}
+          <img
+            src="/logo-transparent.png"
+            alt="TEDJANI ATTENDIX"
+            data-testid="img-logo"
             style={{
-              width: "56px",
-              height: "2px",
-              background: "linear-gradient(90deg, #D4AF37, rgba(212,175,55,0.1))",
-              borderRadius: "2px",
+              width: "100%",
+              maxWidth: "420px",
+              height: "auto",
+              objectFit: "contain",
+              marginBottom: "32px",
+              filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.30))",
             }}
+            draggable={false}
           />
-        </div>
 
-        {/* Middle: Tagline + Features */}
-        <div
-          className="relative z-10 flex-1 flex flex-col justify-center py-10"
-          style={{
-            opacity: mounted ? 1 : 0,
-            transform: mounted ? "translateY(0)" : "translateY(10px)",
-            transition: "opacity 0.6s ease 0.15s, transform 0.6s ease 0.15s",
-          }}
-        >
-          {/* Tagline */}
-          <p
-            className="text-lg font-semibold mb-1"
-            style={{ color: "rgba(255,255,255,0.90)", fontFamily: "Tajawal, Cairo, sans-serif", letterSpacing: "0.01em" }}
+          {/* Title */}
+          <h1
+            style={{
+              fontSize: "42px",
+              fontWeight: 700,
+              color: "white",
+              textAlign: "center",
+              lineHeight: 1.25,
+              marginBottom: "16px",
+              fontFamily: "Tajawal, Cairo, sans-serif",
+              textShadow: "0 2px 24px rgba(0,0,0,0.4)",
+            }}
           >
             نظام الحضور والانصراف الذكي
-          </p>
+          </h1>
+
+          {/* Subtitle */}
           <p
-            className="text-sm mb-6 leading-relaxed max-w-sm"
-            style={{ color: "rgba(255,255,255,0.42)" }}
+            style={{
+              fontSize: "18px",
+              color: "rgba(255,255,255,0.72)",
+              textAlign: "center",
+              lineHeight: 1.7,
+              marginBottom: "36px",
+              maxWidth: "460px",
+              fontFamily: "Tajawal, Cairo, sans-serif",
+            }}
           >
-            منصة متكاملة لإدارة حضور الموظفين مع تكامل أجهزة ZKTeco البيومترية وتقارير فورية.
+            تحكم كامل في حضور الموظفين وتقارير الأداء لحظة بلحظة
           </p>
 
-          {/* Features list */}
-          <div className="space-y-3.5">
+          {/* Gold divider */}
+          <div style={{
+            width: "80px", height: "2px", marginBottom: "32px",
+            background: "linear-gradient(90deg, transparent, #D4AF37, transparent)",
+            borderRadius: "2px",
+          }} />
+
+          {/* Features grid */}
+          <div className="grid grid-cols-2 gap-3 w-full text-right">
             {features.map((f, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3.5"
+                className="flex items-center gap-3"
                 style={{
                   opacity: mounted ? 1 : 0,
-                  transform: mounted ? "translateX(0)" : "translateX(-10px)",
-                  transition: `opacity 0.4s ease ${0.25 + i * 0.07}s, transform 0.4s ease ${0.25 + i * 0.07}s`,
+                  transform: mounted ? "translateY(0)" : "translateY(10px)",
+                  transition: `opacity 0.4s ease ${0.2 + i * 0.06}s, transform 0.4s ease ${0.2 + i * 0.06}s`,
                 }}
               >
-                {/* Icon badge */}
                 <div
-                  className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
+                  className="flex items-center justify-center shrink-0 rounded-xl"
                   style={{
-                    background: "rgba(212,175,55,0.12)",
-                    border: "1px solid rgba(212,175,55,0.22)",
+                    width: "38px",
+                    height: "38px",
+                    background: "rgba(15,28,55,0.65)",
+                    border: "1px solid rgba(212,175,55,0.40)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
                   }}
                 >
-                  <f.icon className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
+                  <f.icon style={{ width: "16px", height: "16px", color: "#D4AF37" }} />
                 </div>
-                <span className="text-sm" style={{ color: "rgba(255,255,255,0.58)" }}>
+                <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.82)", fontFamily: "Tajawal, Cairo, sans-serif" }}>
                   {f.text}
                 </span>
               </div>
@@ -299,41 +410,38 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Bottom: Stats bar */}
+        {/* ── Bottom stats bar ── */}
         <div
-          className="relative z-10"
+          className="absolute bottom-0 left-0 right-0 z-10"
           style={{
+            padding: "20px 56px",
+            background: "rgba(2,8,23,0.50)",
+            borderTop: "1px solid rgba(212,175,55,0.15)",
             opacity: mounted ? 1 : 0,
-            transition: "opacity 0.6s ease 0.35s",
+            transition: "opacity 0.6s ease 0.4s",
           }}
         >
-          {/* Gold separator */}
-          <div
-            className="mb-7"
-            style={{
-              height: "1px",
-              background: "linear-gradient(90deg, transparent, rgba(212,175,55,0.30) 40%, rgba(212,175,55,0.30) 60%, transparent)",
-            }}
-          />
-          <div className="flex items-center gap-10">
+          <div className="flex items-center justify-center gap-16">
             {[
               { value: "99.9%", label: "وقت التشغيل" },
               { value: "+50", label: "جهاز مدعوم" },
               { value: "لحظي", label: "تحديث البيانات" },
             ].map((s, i) => (
-              <div key={i} className="text-right">
+              <div key={i} className="text-center">
                 <p
-                  className="text-2xl font-bold"
                   style={{
+                    fontSize: "22px",
+                    fontWeight: "bold",
                     background: "linear-gradient(135deg, #D4AF37 0%, #f0d060 50%, #B8860B 100%)",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                     fontFamily: "Tajawal, Cairo, sans-serif",
+                    lineHeight: 1.2,
                   }}
                 >
                   {s.value}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.32)" }}>
+                <p style={{ fontSize: "11px", color: "rgba(255,255,255,0.38)", marginTop: "2px", fontFamily: "Tajawal, Cairo, sans-serif" }}>
                   {s.label}
                 </p>
               </div>
