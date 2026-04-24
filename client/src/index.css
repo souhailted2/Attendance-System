@@ -354,8 +354,8 @@
 
 /* Outer background */
 .login-bg {
-  /* Light mode: soft lavender-gray */
-  background: hsl(240 18% 95%);
+  /* Light mode: TEDJANI identity light gray #F5F6FA */
+  background: hsl(220 20% 97%);
 }
 .dark .login-bg {
   /* Dark mode: deep navy gradient */
@@ -506,11 +506,11 @@ button:active:not(:disabled) {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(262 40% 70% / 0.30);
+  background: hsl(43 35% 50% / 0.30);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(262 60% 55% / 0.55);
+  background: hsl(43 55% 42% / 0.55);
 }
 
 /* =============================================
