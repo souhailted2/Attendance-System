@@ -68,7 +68,7 @@ export default function Login() {
         >
           {/* Mobile only: logo */}
           <div className="flex items-center justify-center mb-6 lg:hidden">
-            <TejdaniLogo variant="sidebar" />
+            <TejdaniLogo variant="full" className="!max-w-[280px]" />
           </div>
 
           {/* Form card */}
