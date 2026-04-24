@@ -26,7 +26,7 @@ function getInitials(name: string): string {
 
 function getAvatarGradient(name: string): string {
   const gradients = [
-    "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))",
+    "linear-gradient(135deg, hsl(43 73% 46%), hsl(43 80% 40%))",
     "linear-gradient(135deg, hsl(43 96% 48%), hsl(36 90% 55%))",
     "linear-gradient(135deg, hsl(160 70% 38%), hsl(155 65% 48%))",
     "linear-gradient(135deg, hsl(220 80% 50%), hsl(230 75% 60%))",
@@ -43,8 +43,8 @@ const statCards = [
     label: "إجمالي الموظفين",
     sublabel: "موظف نشط",
     icon: Users,
-    gradient: "linear-gradient(145deg, hsl(262 76% 40%), hsl(275 72% 54%))",
-    gradientDark: "linear-gradient(145deg, hsl(262 60% 18%), hsl(275 55% 28%))",
+    gradient: "linear-gradient(145deg, hsl(43 73% 46%), hsl(43 80% 40%))",
+    gradientDark: "linear-gradient(145deg, hsl(222 47% 11%), hsl(215 40% 20%))",
     glow: "262 76% 45%",
     glowDark: "262 60% 25%",
     testId: "text-total-employees",
@@ -86,7 +86,7 @@ const statCards = [
 
 const quickActions = [
   { label: "سجل الحضور", url: "/attendance", icon: ClipboardCheck, color: "hsl(160 70% 38%)" },
-  { label: "الموظفين", url: "/employees", icon: Users, color: "hsl(271 76% 45%)" },
+  { label: "الموظفين", url: "/employees", icon: Users, color: "hsl(43 73% 46%)" },
   { label: "التقارير", url: "/reports", icon: BarChart3, color: "hsl(43 96% 42%)" },
   { label: "الفترات", url: "/shifts", icon: CalendarClock, color: "hsl(220 80% 50%)" },
 ];
@@ -228,13 +228,13 @@ export default function Dashboard() {
       <div
         className="rounded-2xl relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, hsl(262 76% 15%) 0%, hsl(262 76% 24%) 55%, hsl(250 72% 31%) 100%)",
-          boxShadow: "0 8px 32px hsl(262 76% 20% / 0.35), 0 2px 8px hsl(262 76% 20% / 0.20)",
+          background: "linear-gradient(135deg, #0D1321 0%, #1B2434 55%, #1a2540 100%)",
+          boxShadow: "0 8px 32px rgba(13,19,33,0.35), 0 2px 8px rgba(13,19,33,0.20)",
         }}
       >
-        <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: isDark ? "hsl(280 70% 60% / 0.06)" : "hsl(280 70% 60% / 0.10)", transform: "translate(-40%, -40%)" }} />
-        <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: isDark ? "hsl(250 80% 50% / 0.06)" : "hsl(250 80% 50% / 0.10)", transform: "translate(35%, 35%)" }} />
-        <div className="absolute inset-0 pointer-events-none" style={{ background: isDark ? "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.05) 0%, transparent 60%)" : "radial-gradient(ellipse at 60% 50%, hsl(262 90% 60% / 0.08) 0%, transparent 60%)" }} />
+        <div className="absolute top-0 left-0 rounded-full pointer-events-none" style={{ width: 300, height: 300, background: isDark ? "rgba(212,175,55,0.05)" : "rgba(212,175,55,0.10)", transform: "translate(-40%, -40%)" }} />
+        <div className="absolute bottom-0 right-0 rounded-full pointer-events-none" style={{ width: 200, height: 200, background: isDark ? "rgba(184,134,11,0.05)" : "rgba(184,134,11,0.10)", transform: "translate(35%, 35%)" }} />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: isDark ? "radial-gradient(ellipse at 60% 50%, rgba(212,175,55,0.05) 0%, transparent 60%)" : "radial-gradient(ellipse at 60% 50%, rgba(212,175,55,0.08) 0%, transparent 60%)" }} />
         {/* Curved bottom transition */}
         <div
           className="absolute bottom-0 left-0 right-0 pointer-events-none"
@@ -257,9 +257,9 @@ export default function Dashboard() {
             </p>
             <h1 className="text-white text-xl sm:text-2xl font-bold leading-tight mb-1">
               مرحباً،{" "}
-              <span style={{ color: "hsl(262 80% 82%)" }}>{user?.username || "مدير النظام"}</span>
+              <span style={{ color: "#D4AF37" }}>{user?.username || "مدير النظام"}</span>
             </h1>
-            <p className="text-white/40 text-xs">نظام إدارة الحضور والانصراف</p>
+            <p className="text-white/40 text-xs">TEDJANI ATTENDIX</p>
           </div>
 
           <div className="flex items-center gap-5 sm:gap-7">
@@ -494,7 +494,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" style={{ color: "hsl(271 76% 45%)" }} />
+                <BarChart3 className="h-4 w-4" style={{ color: "hsl(43 73% 46%)" }} />
                 الحضور خلال 7 أيام
               </CardTitle>
             </CardHeader>
@@ -745,7 +745,7 @@ export default function Dashboard() {
                           <div
                             className="h-6 w-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                             style={{
-                              background: idx === 0 ? "hsl(0 72% 51% / 0.15)" : idx === 1 ? "hsl(43 96% 52% / 0.15)" : isDark ? "hsl(271 20% 22%)" : "hsl(271 20% 92%)",
+                              background: idx === 0 ? "hsl(0 72% 51% / 0.15)" : idx === 1 ? "hsl(43 96% 52% / 0.15)" : isDark ? "hsl(222 40% 18%)" : "hsl(43 30% 90%)",
                               color: idx === 0 ? "hsl(0 72% 51%)" : idx === 1 ? "hsl(43 96% 42%)" : "hsl(var(--muted-foreground))",
                             }}
                           >
@@ -846,7 +846,7 @@ export default function Dashboard() {
           <Card>
             <CardHeader className="pb-2 pt-4 px-5">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <div className="h-1.5 w-1.5 rounded-full" style={{ background: "hsl(271 76% 45%)" }} />
+                <div className="h-1.5 w-1.5 rounded-full" style={{ background: "hsl(43 73% 46%)" }} />
                 الموظفون النشطون
               </CardTitle>
             </CardHeader>

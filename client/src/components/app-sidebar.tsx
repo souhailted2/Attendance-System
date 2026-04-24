@@ -23,6 +23,7 @@ import {
   Wallet,
   Minus,
   FileSpreadsheet,
+  Clock,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -77,10 +78,10 @@ const caisseItems = [
 
 function getAvatarGradient(username: string): string {
   const gradients = [
-    "linear-gradient(135deg, hsl(271 76% 45%), hsl(280 70% 55%))",
-    "linear-gradient(135deg, hsl(43 96% 48%), hsl(36 90% 55%))",
+    "linear-gradient(135deg, #D4AF37, #B8860B)",
+    "linear-gradient(135deg, #B8860B, #8B6914)",
     "linear-gradient(135deg, hsl(160 70% 38%), hsl(155 65% 48%))",
-    "linear-gradient(135deg, hsl(220 80% 50%), hsl(230 75% 60%))",
+    "linear-gradient(135deg, hsl(221 50% 30%), hsl(222 45% 40%))",
   ];
   let hash = 0;
   for (let i = 0; i < username.length; i++) hash = username.charCodeAt(i) + ((hash << 5) - hash);
@@ -112,15 +113,17 @@ export function AppSidebar() {
           <div
             className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
             style={{
-              background: "linear-gradient(135deg, hsl(43 96% 52%), hsl(36 90% 58%))",
-              boxShadow: "0 3px 12px hsl(43 96% 52% / 0.40)",
+              background: "linear-gradient(135deg, #D4AF37, #B8860B)",
+              boxShadow: "0 3px 12px rgba(212, 175, 55, 0.45)",
             }}
           >
-            <ClipboardCheck className="h-4 w-4 text-white" />
+            <Clock className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h2 className="text-sm font-bold leading-tight" data-testid="text-app-title">نظام الحضور</h2>
-            <p className="text-[10px] opacity-50 leading-tight">v2.0 — إدارة الحضور</p>
+            <h2 className="text-sm font-bold leading-tight tracking-wide" data-testid="text-app-title" style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.04em" }}>
+              TEDJANI ATTENDIX
+            </h2>
+            <p className="text-[9px] leading-tight" style={{ color: "rgba(212,175,55,0.65)", fontFamily: "'Cairo', sans-serif" }}>Smart Attendance</p>
           </div>
         </div>
       </SidebarHeader>

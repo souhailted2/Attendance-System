@@ -18,21 +18,21 @@
   --card-foreground: 222 30% 12%;
   --card-border: 215 18% 91%;
 
-  --sidebar: 262 76% 17%;
+  --sidebar: 222 50% 9%;
   --sidebar-foreground: 0 0% 95%;
-  --sidebar-border: 262 40% 28%;
-  --sidebar-primary: 262 80% 68%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 262 50% 28%;
+  --sidebar-border: 222 30% 18%;
+  --sidebar-primary: 43 65% 52%;
+  --sidebar-primary-foreground: 222 50% 10%;
+  --sidebar-accent: 222 35% 16%;
   --sidebar-accent-foreground: 0 0% 98%;
-  --sidebar-ring: 262 80% 68%;
+  --sidebar-ring: 43 65% 52%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 222 30% 12%;
   --popover-border: 215 18% 90%;
 
-  --primary: 262 75% 50%;
-  --primary-foreground: 0 0% 98%;
+  --primary: 43 65% 52%;
+  --primary-foreground: 222 50% 10%;
   --secondary: 210 15% 92%;
   --secondary-foreground: 222 25% 20%;
   --muted: 215 12% 93%;
@@ -44,13 +44,13 @@
   --destructive-foreground: 0 0% 98%;
 
   --input: 215 15% 87%;
-  --ring: 262 75% 50%;
+  --ring: 43 65% 52%;
 
-  --gold: 43 96% 52%;
-  --chart-1: 262 75% 50%;
+  --gold: 43 65% 52%;
+  --chart-1: 43 65% 52%;
   --chart-2: 173 80% 40%;
-  --chart-3: 43 96% 52%;
-  --chart-4: 262 50% 65%;
+  --chart-3: 40 80% 40%;
+  --chart-4: 220 60% 55%;
   --chart-5: 27 96% 61%;
 
   --font-sans: 'IBM Plex Sans Arabic', 'Tajawal', sans-serif;
@@ -101,21 +101,21 @@
   --card-foreground: 210 20% 92%;
   --card-border: 220 25% 17%;
 
-  --sidebar: 222 48% 6%;
+  --sidebar: 222 50% 5%;
   --sidebar-foreground: 210 15% 88%;
-  --sidebar-border: 222 30% 14%;
-  --sidebar-primary: 262 85% 68%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 220 35% 14%;
+  --sidebar-border: 222 30% 13%;
+  --sidebar-primary: 43 70% 55%;
+  --sidebar-primary-foreground: 222 50% 10%;
+  --sidebar-accent: 222 35% 13%;
   --sidebar-accent-foreground: 210 20% 90%;
-  --sidebar-ring: 262 85% 68%;
+  --sidebar-ring: 43 70% 55%;
 
   --popover: 222 38% 10%;
   --popover-foreground: 210 20% 92%;
   --popover-border: 220 25% 18%;
 
-  --primary: 262 85% 65%;
-  --primary-foreground: 0 0% 98%;
+  --primary: 43 70% 55%;
+  --primary-foreground: 222 50% 10%;
   --secondary: 220 28% 16%;
   --secondary-foreground: 210 18% 88%;
   --muted: 220 25% 15%;
@@ -127,13 +127,13 @@
   --destructive-foreground: 0 0% 98%;
 
   --input: 220 28% 20%;
-  --ring: 262 85% 65%;
+  --ring: 43 70% 55%;
 
-  --gold: 43 96% 55%;
-  --chart-1: 262 85% 65%;
+  --gold: 43 70% 55%;
+  --chart-1: 43 70% 55%;
   --chart-2: 173 80% 55%;
-  --chart-3: 43 96% 60%;
-  --chart-4: 262 60% 75%;
+  --chart-3: 40 80% 48%;
+  --chart-4: 220 65% 60%;
   --chart-5: 27 96% 65%;
 
   --shadow-2xs: 0px 1px 2px 0px rgba(0,0,0,0.35);
@@ -223,19 +223,19 @@
 }
 
 /* =============================================
-   SIDEBAR — dark purple (light) / dark navy (dark)
+   SIDEBAR — dark navy (TEDJANI brand #0D1321)
    ============================================= */
 [data-sidebar="sidebar"] {
-  background: hsl(262 76% 15%) !important;
+  background: hsl(222 50% 9%) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-inline-start: none !important;
-  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.20);
+  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.25);
 }
 
 .dark [data-sidebar="sidebar"] {
-  background: hsl(222 48% 5%) !important;
-  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.40);
+  background: hsl(222 50% 5%) !important;
+  box-shadow: -2px 0 24px rgba(0, 0, 0, 0.50);
 }
 
 [data-sidebar="sidebar"] {
@@ -274,18 +274,18 @@
   top: 15%;
   height: 70%;
   width: 3px;
-  background: hsl(262 70% 75%);
+  background: hsl(43 65% 55%);
   border-radius: 0 3px 3px 0;
   pointer-events: none;
 }
 
 .dark [data-sidebar="menu-button"][data-active="true"] {
-  background: rgba(139, 92, 246, 0.22) !important;
-  color: rgba(196, 181, 253, 1) !important;
+  background: rgba(212, 175, 55, 0.18) !important;
+  color: rgba(212, 175, 55, 1) !important;
 }
 
 .dark [data-sidebar="menu-button"][data-active="true"]::after {
-  background: hsl(262 85% 65%);
+  background: hsl(43 70% 58%);
 }
 
 /* Inactive sidebar icon — explicit muted color */
@@ -338,14 +338,14 @@
 
 .shadcn-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(99, 50, 200, 0.14), 0 4px 12px rgba(99, 50, 200, 0.08);
-  border-color: hsl(262 50% 74%) !important;
+  box-shadow: 0 12px 32px rgba(212, 175, 55, 0.14), 0 4px 12px rgba(212, 175, 55, 0.08);
+  border-color: hsl(43 65% 70%) !important;
 }
 
 .dark .shadcn-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(139, 92, 246, 0.30), 0 0 20px rgba(139, 92, 246, 0.08);
-  border-color: hsl(262 60% 35%) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 55, 0.25), 0 0 20px rgba(212, 175, 55, 0.07);
+  border-color: hsl(43 65% 35%) !important;
 }
 
 /* =============================================
@@ -372,8 +372,8 @@
 
 /* Branding panel (left side, desktop) */
 .login-branding-panel {
-  /* Both modes: always a rich dark-purple panel — consistent with sidebar */
-  background: linear-gradient(160deg, hsl(262 76% 14%) 0%, hsl(250 65% 20%) 100%);
+  /* Both modes: always rich dark navy — TEDJANI brand #0D1321/#1B2434 */
+  background: linear-gradient(160deg, hsl(222 50% 8%) 0%, hsl(221 38% 14%) 100%);
 }
 
 /* Form card */
@@ -482,11 +482,11 @@
    BUTTONS — professional styling
    ============================================= */
 .btn-primary-glow {
-  box-shadow: 0 4px 14px hsl(262 75% 50% / 0.35);
+  box-shadow: 0 4px 14px hsl(43 65% 52% / 0.40);
   transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 .btn-primary-glow:hover {
-  box-shadow: 0 6px 20px hsl(262 75% 50% / 0.50);
+  box-shadow: 0 6px 20px hsl(43 65% 52% / 0.55);
   transform: translateY(-1px);
 }
 
@@ -506,11 +506,11 @@ button:active:not(:disabled) {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(262 40% 70% / 0.30);
+  background: hsl(43 50% 55% / 0.30);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(262 60% 55% / 0.55);
+  background: hsl(43 65% 52% / 0.55);
 }
 
 /* =============================================
