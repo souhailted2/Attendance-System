@@ -107,13 +107,13 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right">
-      <SidebarHeader className="px-4 py-4 border-b border-white/10 flex items-center justify-center">
+      <SidebarHeader className="px-5 py-5 border-b border-white/10 flex items-center justify-center">
         <img
           src="/logo-horizontal.png"
-          className="h-10 w-auto object-contain"
+          className="w-[78%] h-auto object-contain"
           alt="TEDJANI ATTENDIX"
           data-testid="text-app-title"
-          style={{ filter: "drop-shadow(0 2px 6px rgba(212,175,55,0.25))" }}
+          style={{ filter: "drop-shadow(0 2px 8px rgba(212,175,55,0.30))" }}
         />
       </SidebarHeader>
 

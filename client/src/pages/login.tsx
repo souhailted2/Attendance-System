@@ -72,11 +72,12 @@ export default function Login() {
           }}
         >
           {/* Logo (mobile only) */}
-          <div className="flex items-center justify-center lg:hidden">
+          <div className="flex items-center justify-center lg:hidden py-2">
             <img
               src="/logo-horizontal.png"
-              className="h-12 w-auto object-contain"
+              className="w-56 h-auto object-contain"
               alt="TEDJANI ATTENDIX"
+              style={{ filter: "drop-shadow(0 2px 8px rgba(212,175,55,0.20))" }}
             />
           </div>
 
@@ -190,9 +191,9 @@ export default function Login() {
           {/* Full logo image */}
           <img
             src="/logo-full.png"
-            className="w-72 object-contain mb-10"
+            className="w-80 max-w-[80%] object-contain mb-8"
             alt="TEDJANI ATTENDIX"
-            style={{ filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.30))" }}
+            style={{ filter: "drop-shadow(0 10px 40px rgba(212,175,55,0.35))" }}
           />
 
           {/* Tagline */}
