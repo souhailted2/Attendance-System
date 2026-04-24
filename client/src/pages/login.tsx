@@ -41,17 +41,20 @@ export default function Login() {
 
   useEffect(() => {
     if (!mounted) return;
+    let rafId: number;
+    let canceled = false;
     const duration = 1500;
     const start = performance.now();
     const tick = (now: number) => {
+      if (canceled) return;
       const progress = Math.min((now - start) / duration, 1);
       const ease = 1 - Math.pow(1 - progress, 3);
       setUptime(parseFloat((ease * 99.9).toFixed(1)));
       setDevices(Math.round(ease * 50));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) rafId = requestAnimationFrame(tick);
     };
-    const raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    rafId = requestAnimationFrame(tick);
+    return () => { canceled = true; cancelAnimationFrame(rafId); };
   }, [mounted]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -524,8 +527,8 @@ export default function Login() {
                     lineHeight: 1.2,
                     minWidth: "60px",
                     display: "block",
-                    tabularNums: "true",
-                  } as React.CSSProperties}
+                    fontVariantNumeric: "tabular-nums",
+                  }}
                 >
                   {s.value}
                 </p>
