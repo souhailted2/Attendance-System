@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ClipboardCheck,
   Lock,
   User,
   Users,
@@ -52,14 +51,14 @@ export default function Login() {
 
   return (
     <div className="login-bg min-h-screen flex overflow-hidden relative" dir="rtl">
-      {/* Dark mode only: atmospheric orbs */}
+      {/* Dark mode only: atmospheric orbs — gold tones */}
       <div
         className="login-orb absolute pointer-events-none"
-        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, hsl(262 80% 55% / 0.18) 0%, transparent 65%)" }}
+        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, hsl(43 62% 52% / 0.12) 0%, transparent 65%)" }}
       />
       <div
         className="login-orb absolute pointer-events-none"
-        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, hsl(220 80% 60% / 0.14) 0%, transparent 65%)" }}
+        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, hsl(222 45% 30% / 0.18) 0%, transparent 65%)" }}
       />
 
       {/* ===== RIGHT PANEL: Form ===== */}
@@ -73,20 +72,12 @@ export default function Login() {
           }}
         >
           {/* Logo (mobile only) */}
-          <div className="flex items-center gap-3 lg:hidden">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
-              style={{
-                background: "linear-gradient(135deg, hsl(262 80% 55%), hsl(280 75% 65%))",
-                boxShadow: "0 4px 16px hsl(262 80% 55% / 0.40)",
-              }}
-            >
-              <ClipboardCheck className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold login-title">نظام إدارة الحضور</h1>
-              <p className="text-xs login-subtitle">v2.0</p>
-            </div>
+          <div className="flex items-center justify-center lg:hidden">
+            <img
+              src="/logo-horizontal.png"
+              className="h-12 w-auto object-contain"
+              alt="TEDJANI ATTENDIX"
+            />
           </div>
 
           {/* Form card */}
@@ -108,7 +99,7 @@ export default function Login() {
                     data-testid="input-username"
                     type="text"
                     placeholder="أدخل اسم المستخدم"
-                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-purple-400/50"
+                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-yellow-500/40"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoComplete="username"
@@ -128,7 +119,7 @@ export default function Login() {
                     data-testid="input-password"
                     type="password"
                     placeholder="••••••••"
-                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-purple-400/50"
+                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-yellow-500/40"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -158,9 +149,9 @@ export default function Login() {
                 data-testid="button-login-submit"
                 style={{
                   background: loading
-                    ? "rgba(139, 92, 246, 0.40)"
-                    : "linear-gradient(135deg, hsl(262 80% 52%), hsl(280 75% 58%))",
-                  boxShadow: loading ? "none" : "0 4px 18px hsl(262 80% 52% / 0.40)",
+                    ? "rgba(180, 140, 10, 0.40)"
+                    : "linear-gradient(135deg, hsl(43 62% 38%), hsl(40 80% 30%))",
+                  boxShadow: loading ? "none" : "0 4px 18px hsl(43 62% 42% / 0.45)",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -180,63 +171,37 @@ export default function Login() {
         </div>
       </div>
 
-      {/* ===== LEFT PANEL: Branding (desktop only — always dark purple) ===== */}
+      {/* ===== LEFT PANEL: Branding (desktop only — TEDJANI navy) ===== */}
       <div className="login-branding-panel hidden lg:flex flex-col justify-center w-[55%] p-16 relative overflow-hidden">
-        {/* Subtle inner glow */}
+        {/* Subtle gold glow */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 60% 40%, rgba(139,92,246,0.15) 0%, transparent 65%)" }}
+          style={{ background: "radial-gradient(ellipse at 50% 40%, rgba(212,175,55,0.08) 0%, transparent 65%)" }}
         />
 
         <div
-          className="relative z-10"
+          className="relative z-10 flex flex-col items-center text-center"
           style={{
             opacity: mounted ? 1 : 0,
             transform: mounted ? "translateX(0)" : "translateX(-20px)",
             transition: "opacity 0.6s ease 0.1s, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.1s",
           }}
         >
-          {/* Logo */}
-          <div className="flex items-center gap-4 mb-10">
-            <div
-              className="flex h-14 w-14 items-center justify-center rounded-2xl shrink-0"
-              style={{
-                background: "linear-gradient(135deg, hsl(262 80% 55%), hsl(280 75% 65%))",
-                boxShadow: "0 8px 32px hsl(262 80% 55% / 0.45)",
-              }}
-            >
-              <ClipboardCheck className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">نظام إدارة الحضور</h1>
-              <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>
-                Attendance Management System v2.0
-              </p>
-            </div>
-          </div>
+          {/* Full logo image */}
+          <img
+            src="/logo-full.png"
+            className="w-72 object-contain mb-10"
+            alt="TEDJANI ATTENDIX"
+            style={{ filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.30))" }}
+          />
 
-          {/* Headline */}
-          <div className="mb-10 space-y-3">
-            <h2 className="text-4xl font-bold text-white leading-tight">
-              إدارة الحضور
-              <br />
-              <span
-                style={{
-                  background: "linear-gradient(135deg, hsl(262 85% 75%), hsl(220 85% 75%))",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                بكل احترافية
-              </span>
-            </h2>
-            <p className="text-base leading-relaxed max-w-md" style={{ color: "rgba(255,255,255,0.42)" }}>
-              منصة متكاملة لإدارة حضور الموظفين مع تكامل أجهزة ZKTeco البيومترية وتقارير ذكية فورية.
-            </p>
-          </div>
+          {/* Tagline */}
+          <p className="text-base leading-relaxed max-w-sm" style={{ color: "rgba(255,255,255,0.45)" }}>
+            منصة متكاملة لإدارة حضور الموظفين مع تكامل أجهزة ZKTeco البيومترية وتقارير ذكية فورية.
+          </p>
 
           {/* Features */}
-          <div className="grid grid-cols-1 gap-3 max-w-md">
+          <div className="grid grid-cols-1 gap-3 max-w-md mt-8 text-right w-full">
             {features.map((f, i) => (
               <div
                 key={i}
@@ -250,11 +215,11 @@ export default function Login() {
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
                   style={{
-                    background: "rgba(139, 92, 246, 0.20)",
-                    border: "1px solid rgba(139, 92, 246, 0.30)",
+                    background: "rgba(212, 175, 55, 0.15)",
+                    border: "1px solid rgba(212, 175, 55, 0.25)",
                   }}
                 >
-                  <f.icon className="h-4 w-4 text-purple-300" />
+                  <f.icon className="h-4 w-4" style={{ color: "hsl(43 62% 65%)" }} />
                 </div>
                 <span className="text-sm" style={{ color: "rgba(255,255,255,0.60)" }}>{f.text}</span>
               </div>
@@ -263,7 +228,7 @@ export default function Login() {
 
           {/* Stats bar */}
           <div
-            className="mt-12 flex items-center gap-8 pt-8"
+            className="mt-10 flex items-center gap-8 pt-8 w-full justify-center"
             style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
           >
             {[
@@ -275,7 +240,7 @@ export default function Login() {
                 <p
                   className="text-2xl font-bold"
                   style={{
-                    background: "linear-gradient(135deg, hsl(262 85% 72%), hsl(220 85% 72%))",
+                    background: "linear-gradient(135deg, hsl(43 68% 65%), hsl(40 80% 55%))",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}

@@ -107,22 +107,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right">
-      <SidebarHeader className="px-4 py-3 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl shrink-0"
-            style={{
-              background: "linear-gradient(135deg, hsl(43 96% 52%), hsl(36 90% 58%))",
-              boxShadow: "0 3px 12px hsl(43 96% 52% / 0.40)",
-            }}
-          >
-            <ClipboardCheck className="h-4 w-4 text-white" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold leading-tight" data-testid="text-app-title">نظام الحضور</h2>
-            <p className="text-[10px] opacity-50 leading-tight">v2.0 — إدارة الحضور</p>
-          </div>
-        </div>
+      <SidebarHeader className="px-4 py-4 border-b border-white/10 flex items-center justify-center">
+        <img
+          src="/logo-horizontal.png"
+          className="h-10 w-auto object-contain"
+          alt="TEDJANI ATTENDIX"
+          data-testid="text-app-title"
+          style={{ filter: "drop-shadow(0 2px 6px rgba(212,175,55,0.25))" }}
+        />
       </SidebarHeader>
 
       <SidebarContent>
