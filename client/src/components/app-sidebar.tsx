@@ -39,7 +39,6 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { TejdaniLogo } from "@/components/tedjani-logo";
 
 const mainItems = [
   { title: "لوحة التحكم", url: "/", icon: LayoutDashboard },
@@ -108,8 +107,17 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right">
-      <SidebarHeader className="px-4 py-3 border-b border-white/10 flex items-center justify-center" data-testid="text-app-title">
-        <TejdaniLogo variant="sidebar" onDark />
+      <SidebarHeader className="px-2 py-2 border-b border-white/10 flex items-center justify-center" data-testid="text-app-title">
+        <img
+          src="/logo.png"
+          alt="TEDJANI ATTENDIX"
+          style={{
+            width: "100%",
+            maxHeight: "72px",
+            objectFit: "contain",
+            mixBlendMode: "screen",
+          }}
+        />
       </SidebarHeader>
 
       <SidebarContent>
