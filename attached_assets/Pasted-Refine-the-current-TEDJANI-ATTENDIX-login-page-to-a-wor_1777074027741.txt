@@ -1,0 +1,136 @@
+Refine the current TEDJANI ATTENDIX login page to a world-class premium SaaS / enterprise style.
+
+The current design is very good, but improve it with these exact adjustments:
+
+1. LEFT BRANDING SECTION
+
+Keep the existing dark luxury navy background and decorative gold lines.
+
+Background CSS:
+
+linear-gradient(135deg, #020817 0%, #0D1321 35%, #102A43 70%, #1B2434 100%)
+
+Keep subtle glowing particles and elegant gold corner lines.
+
+2. LOGO
+
+The logo is slightly too large.
+
+Reduce logo size by 10% to 15%.
+
+Keep it centered horizontally.
+
+Add soft glow behind logo:
+
+filter: drop-shadow(0 0 30px rgba(212,175,55,0.18));
+
+3. MAIN TITLE
+
+Keep title:
+
+نظام الحضور والانصراف الذكي
+
+Make it more luxurious:
+
+font-size: 72px;
+font-weight: 800;
+line-height: 1.2;
+color: white;
+
+Add text shadow:
+
+text-shadow: 0 4px 20px rgba(0,0,0,.35);
+
+Highlight first word in gold:
+الحضور
+
+Use gold color:
+#D4AF37
+
+4. SUBTITLE
+
+Keep subtitle:
+
+تحكم كامل في حضور الموظفين وتقارير الأداء لحظة بلحظة
+
+Style:
+
+font-size: 28px;
+color: rgba(255,255,255,.75);
+
+5. FEATURES SECTION
+
+Keep existing feature cards.
+
+Improve spacing between icon and text.
+
+Add hover animation:
+
+transform: translateY(-3px);
+
+Icons style:
+gold border
+dark transparent background
+rounded corners
+
+6. BOTTOM STATS BAR
+
+Keep the bottom stats bar.
+
+Improve typography:
+
+99.9%
+50+
+لحظي
+
+Use gold for numbers.
+
+7. RIGHT LOGIN FORM
+
+Keep current structure.
+
+Add soft card shadow:
+
+box-shadow: 0 10px 40px rgba(0,0,0,.08);
+
+Increase border-radius:
+28px
+
+8. INPUTS
+
+Keep current style.
+
+Add subtle focus effect:
+
+border-color: #D4AF37;
+box-shadow: 0 0 0 4px rgba(212,175,55,.12);
+
+9. LOGIN BUTTON
+
+Keep gold button but improve:
+
+background: linear-gradient(90deg,#D4AF37,#B8860B);
+
+color: white;
+font-weight: bold;
+
+Hover:
+
+transform: translateY(-2px);
+box-shadow: 0 8px 20px rgba(212,175,55,.35);
+
+10. FOOTER TEXT
+
+Make footer text smaller and lighter:
+
+color: rgba(0,0,0,.35);
+
+11. OVERALL STYLE
+
+Luxury / Corporate / Enterprise / Oracle / SAP / Mercedes quality.
+
+Do not change functionality.
+
+Do not move layout.
+
+Only polish and refine the design to perfection.
