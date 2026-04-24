@@ -98,7 +98,7 @@ export default function Login() {
           {/* Mobile only: logo + title */}
           <div className="flex flex-col items-center mb-8 lg:hidden">
             <img
-              src="/logo-matrix.png?v=1"
+              src="/logo-tedjani.png?v=2"
               alt="TEDJANI ATTENDIX"
               style={{
                 maxWidth: "240px", width: "100%", height: "auto",
@@ -347,7 +347,7 @@ export default function Login() {
         >
           {/* Logo */}
           <img
-            src="/logo-matrix.png?v=1"
+            src="/logo-tedjani.png?v=2"
             alt="TEDJANI ATTENDIX"
             data-testid="img-logo"
             style={{

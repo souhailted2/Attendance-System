@@ -28,7 +28,7 @@ export function TejdaniLogo({ variant = "full", className = "" }: TejdaniLogoPro
 
   return (
     <img
-      src="/logo-matrix.png?v=1"
+      src="/logo-tedjani.png?v=2"
       alt="TEDJANI ATTENDIX"
       data-testid="img-logo"
       className={className}
