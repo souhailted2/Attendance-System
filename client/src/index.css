@@ -336,7 +336,7 @@
 
 .dark .shadcn-card {
   background: rgba(13, 22, 40, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(212, 175, 55, 0.12) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
@@ -350,8 +350,8 @@
 
 .dark .shadcn-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 55, 0.25), 0 0 20px rgba(212, 175, 55, 0.06);
-  border-color: hsl(43 50% 30%) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(212, 175, 55, 0.35), 0 0 24px rgba(212, 175, 55, 0.08);
+  border-color: rgba(212, 175, 55, 0.45) !important;
 }
 
 /* =============================================
@@ -601,6 +601,74 @@ tr:hover td {
 }
 
 /* =============================================
+   TABLE — gold accent header in dark mode
+   ============================================= */
+.dark thead tr {
+  border-bottom: 1px solid rgba(212, 175, 55, 0.18) !important;
+}
+.dark thead th {
+  color: hsl(43 55% 62%);
+  background: rgba(10, 17, 35, 0.55);
+}
+
+/* =============================================
+   DIALOG — gold border glassmorphism in dark mode
+   ============================================= */
+.dark [role="dialog"],
+.dark [role="alertdialog"] {
+  border-color: rgba(212, 175, 55, 0.18) !important;
+  background: rgba(13, 20, 38, 0.92) !important;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(212, 175, 55, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Dialog title gold accent in dark mode */
+.dark [role="dialog"] h2,
+.dark [role="alertdialog"] h2 {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* =============================================
+   FORM — gold accent labels and inputs in dark mode
+   ============================================= */
+.dark .form-section-title {
+  color: hsl(43 55% 62%);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.15);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+
+/* Input, select, textarea — subtle gold border tint in dark mode */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark textarea,
+.dark [role="combobox"],
+.dark [data-radix-select-trigger] {
+  border-color: rgba(212, 175, 55, 0.15) !important;
+}
+
+/* Stronger gold accent on focus */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+.dark textarea:focus {
+  border-color: rgba(212, 175, 55, 0.40) !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.12);
+}
+
+/* Label gold tint in dark mode forms inside dialogs */
+.dark [role="dialog"] label,
+.dark [role="alertdialog"] label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* =============================================
+   STAT CARD ICON WRAPPER — gold accent
+   ============================================= */
+.dark .stat-icon-gold {
+  background: rgba(212, 175, 55, 0.12) !important;
+  color: hsl(43 62% 60%) !important;
+}
+
+/* =============================================
    PAGE HEADER GLASS
    ============================================= */
 .page-header-glass {
@@ -611,7 +679,8 @@ tr:hover td {
 }
 .dark .page-header-glass {
   background: rgba(15, 20, 42, 0.80);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.10);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 0 16px rgba(212, 175, 55, 0.03);
 }
 
 /**
