@@ -227,18 +227,17 @@ export default function Login() {
           background: "linear-gradient(155deg, #0D1321 0%, #111827 55%, #0f1a2e 100%)",
         }}
       >
-        {/* Subtle gold radial glow — top center */}
+        {/* Gold halo — positioned behind the clock icon (right-top of logo) */}
         <div
           className="absolute pointer-events-none"
           style={{
-            top: "-80px",
-            right: "50%",
-            transform: "translateX(50%)",
-            width: "700px",
+            top: "-60px",
+            right: "-40px",
+            width: "500px",
             height: "500px",
             borderRadius: "50%",
-            background: "radial-gradient(ellipse at center, rgba(212,175,55,0.09) 0%, transparent 65%)",
-            filter: "blur(8px)",
+            background: "radial-gradient(ellipse at center, rgba(212,175,55,0.14) 0%, transparent 60%)",
+            filter: "blur(12px)",
           }}
         />
         {/* Subtle geometric grid overlay */}
@@ -266,11 +265,11 @@ export default function Login() {
             src="/logo-horizontal.png"
             alt="TEDJANI ATTENDIX"
             style={{
-              width: "260px",
-              maxWidth: "80%",
+              width: "100%",
+              maxWidth: "520px",
               height: "auto",
               objectFit: "contain",
-              filter: "drop-shadow(0 6px 28px rgba(212,175,55,0.32))",
+              filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.38))",
             }}
           />
 
