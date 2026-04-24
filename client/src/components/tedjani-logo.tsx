@@ -9,21 +9,21 @@ export function TejdaniLogo({ variant = "full", className = "" }: TejdaniLogoPro
   const style: React.CSSProperties = isSidebar
     ? {
         width: "100%",
-        maxHeight: "70px",
+        maxHeight: "110px",
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",
         mixBlendMode: "screen",
-        filter: "drop-shadow(0 2px 14px rgba(212,175,55,0.35))",
+        filter: "drop-shadow(0 2px 14px rgba(212,175,55,0.40))",
       }
     : {
         width: "100%",
-        maxWidth: "560px",
+        maxWidth: "680px",
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",
         mixBlendMode: "screen",
-        filter: "drop-shadow(0 8px 36px rgba(212,175,55,0.40))",
+        filter: "drop-shadow(0 8px 40px rgba(212,175,55,0.45))",
       };
 
   return (
