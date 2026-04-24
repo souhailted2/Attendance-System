@@ -54,11 +54,11 @@ export default function Login() {
       {/* Dark mode only: atmospheric orbs — gold tones */}
       <div
         className="login-orb absolute pointer-events-none"
-        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, hsl(43 62% 52% / 0.12) 0%, transparent 65%)" }}
+        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, hsl(43 62% 52% / 0.15) 0%, transparent 65%)" }}
       />
       <div
         className="login-orb absolute pointer-events-none"
-        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, hsl(222 45% 30% / 0.18) 0%, transparent 65%)" }}
+        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, hsl(43 40% 30% / 0.14) 0%, transparent 65%)" }}
       />
 
       {/* ===== RIGHT PANEL: Form ===== */}
@@ -150,8 +150,8 @@ export default function Login() {
                 style={{
                   background: loading
                     ? "rgba(180, 140, 10, 0.40)"
-                    : "linear-gradient(135deg, hsl(43 62% 38%), hsl(40 80% 30%))",
-                  boxShadow: loading ? "none" : "0 4px 18px hsl(43 62% 42% / 0.45)",
+                    : "linear-gradient(135deg, hsl(43 62% 42%), hsl(40 80% 34%))",
+                  boxShadow: loading ? "none" : "0 4px 18px hsl(43 62% 42% / 0.40)",
                   transition: "all 0.2s ease",
                 }}
               >

@@ -101,7 +101,7 @@
   --card-foreground: 210 20% 92%;
   --card-border: 220 25% 17%;
 
-  --sidebar: 222 48% 5%;
+  --sidebar: 222 48% 6%;
   --sidebar-foreground: 210 15% 88%;
   --sidebar-border: 222 30% 14%;
   --sidebar-primary: 43 68% 58%;
@@ -234,7 +234,7 @@
 }
 
 .dark [data-sidebar="sidebar"] {
-  background: hsl(222 48% 5%) !important;
+  background: hsl(222 48% 6%) !important;
   box-shadow: -2px 0 24px rgba(0, 0, 0, 0.45);
 }
 
@@ -373,7 +373,7 @@
 /* Branding panel (left side, desktop) */
 .login-branding-panel {
   /* Both modes: always rich dark navy — TEDJANI brand */
-  background: linear-gradient(160deg, hsl(222 45% 8%) 0%, hsl(221 38% 13%) 100%);
+  background: linear-gradient(160deg, hsl(222 45% 9%) 0%, hsl(221 35% 14%) 100%);
 }
 
 /* Form card */
