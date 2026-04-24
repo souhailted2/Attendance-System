@@ -145,15 +145,16 @@ export default function Login() {
 
               <Button
                 type="submit"
-                className="w-full h-10 text-sm font-semibold rounded-lg border-0 text-white"
+                className="w-full h-10 text-sm font-semibold rounded-lg border-0"
                 disabled={loading}
                 data-testid="button-login-submit"
                 style={{
                   background: loading
-                    ? "rgba(180, 140, 10, 0.40)"
-                    : "linear-gradient(135deg, hsl(43 62% 42%), hsl(40 80% 34%))",
-                  boxShadow: loading ? "none" : "0 4px 18px hsl(43 62% 42% / 0.40)",
+                    ? "rgba(212, 175, 55, 0.35)"
+                    : "linear-gradient(135deg, #D4AF37, #B8860B)",
+                  boxShadow: loading ? "none" : "0 4px 20px rgba(212, 175, 55, 0.45)",
                   transition: "all 0.2s ease",
+                  color: "#1a1200",
                 }}
               >
                 {loading ? (
