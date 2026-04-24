@@ -9,7 +9,7 @@ export function TejdaniLogo({ variant = "full", className = "" }: TejdaniLogoPro
   const style: React.CSSProperties = isSidebar
     ? {
         width: "100%",
-        maxHeight: "72px",
+        maxHeight: "120px",
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",

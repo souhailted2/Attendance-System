@@ -108,7 +108,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar side="right">
-      <SidebarHeader className="px-4 py-3 border-b border-white/10 flex items-center justify-center" data-testid="text-app-title">
+      <SidebarHeader className="px-4 py-5 border-b border-white/10 flex items-center justify-center" data-testid="text-app-title">
         <TejdaniLogo variant="sidebar" />
       </SidebarHeader>
 
