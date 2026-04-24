@@ -371,8 +371,9 @@
     background: #ffffff;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    border-radius: 28px;
     border: 1px solid hsl(220 13% 89%);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04);
   }
 }
 
@@ -407,6 +408,13 @@
     background: #F4F5F8 !important;
     color: #111827 !important;
     border: none !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+  }
+  .login-input-adaptive:focus {
+    border: 1px solid #D4AF37 !important;
+    box-shadow: 0 0 0 4px rgba(212,175,55,0.12) !important;
+    background: #fff !important;
+    outline: none !important;
   }
 }
 
@@ -421,7 +429,15 @@
   color: rgba(255,255,255,0.28);
 }
 @media (min-width: 1024px) {
-  .login-footer-text { color: #9ca3af; }
+  .login-footer-text { color: rgba(0,0,0,0.35); }
+}
+
+.login-feature-item {
+  cursor: default;
+  transition: transform 0.2s ease;
+}
+.login-feature-item:hover {
+  transform: translateY(-3px);
 }
 
 /* =============================================

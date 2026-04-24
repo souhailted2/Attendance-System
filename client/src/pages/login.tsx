@@ -407,12 +407,12 @@ export default function Login() {
             data-testid="img-logo"
             style={{
               width: "100%",
-              maxWidth: "460px",
+              maxWidth: "390px",
               height: "auto",
               objectFit: "contain",
               marginBottom: "28px",
               mixBlendMode: "screen",
-              filter: "drop-shadow(0 8px 32px rgba(212,175,55,0.35))",
+              filter: "drop-shadow(0 0 30px rgba(212,175,55,0.18))",
             }}
             draggable={false}
           />
@@ -420,17 +420,17 @@ export default function Login() {
           {/* Title */}
           <h1
             style={{
-              fontSize: "42px",
-              fontWeight: 700,
+              fontSize: "72px",
+              fontWeight: 800,
               color: "white",
               textAlign: "center",
-              lineHeight: 1.25,
+              lineHeight: 1.2,
               marginBottom: "16px",
               fontFamily: "Tajawal, Cairo, sans-serif",
-              textShadow: "0 2px 24px rgba(0,0,0,0.4)",
+              textShadow: "0 4px 20px rgba(0,0,0,0.35)",
             }}
           >
-            نظام الحضور والانصراف{" "}
+            نظام{" "}
             <span
               style={{
                 background: "linear-gradient(135deg, #D4AF37 0%, #f5e070 50%, #B8860B 100%)",
@@ -440,19 +440,20 @@ export default function Login() {
                 filter: "drop-shadow(0 0 8px rgba(212,175,55,0.50))",
               }}
             >
-              الذكي
+              الحضور
             </span>
+            {" "}والانصراف الذكي
           </h1>
 
           {/* Subtitle */}
           <p
             style={{
-              fontSize: "18px",
-              color: "rgba(255,255,255,0.72)",
+              fontSize: "28px",
+              color: "rgba(255,255,255,0.75)",
               textAlign: "center",
-              lineHeight: 1.7,
+              lineHeight: 1.6,
               marginBottom: "36px",
-              maxWidth: "460px",
+              maxWidth: "520px",
               fontFamily: "Tajawal, Cairo, sans-serif",
             }}
           >
@@ -469,30 +470,31 @@ export default function Login() {
           {/* Features grid */}
           <div className="grid grid-cols-2 gap-3 w-full text-right">
             {features.map((f, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3"
-                style={{
-                  opacity: mounted ? 1 : 0,
-                  transform: mounted ? "translateY(0)" : "translateY(10px)",
-                  transition: `opacity 0.4s ease ${0.2 + i * 0.06}s, transform 0.4s ease ${0.2 + i * 0.06}s`,
-                }}
-              >
+              <div key={i} className="login-feature-item">
                 <div
-                  className="flex items-center justify-center shrink-0 rounded-xl"
+                  className="flex items-center gap-3"
                   style={{
-                    width: "38px",
-                    height: "38px",
-                    background: "rgba(15,28,55,0.65)",
-                    border: "1px solid rgba(212,175,55,0.40)",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                    opacity: mounted ? 1 : 0,
+                    transform: mounted ? "translateY(0)" : "translateY(10px)",
+                    transition: `opacity 0.4s ease ${0.2 + i * 0.06}s, transform 0.4s ease ${0.2 + i * 0.06}s`,
                   }}
                 >
-                  <f.icon style={{ width: "16px", height: "16px", color: "#D4AF37" }} />
+                  <div
+                    className="flex items-center justify-center shrink-0 rounded-xl"
+                    style={{
+                      width: "38px",
+                      height: "38px",
+                      background: "rgba(15,28,55,0.65)",
+                      border: "1px solid rgba(212,175,55,0.40)",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                    }}
+                  >
+                    <f.icon style={{ width: "16px", height: "16px", color: "#D4AF37" }} />
+                  </div>
+                  <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.82)", fontFamily: "Tajawal, Cairo, sans-serif" }}>
+                    {f.text}
+                  </span>
                 </div>
-                <span style={{ fontSize: "13px", color: "rgba(255,255,255,0.82)", fontFamily: "Tajawal, Cairo, sans-serif" }}>
-                  {f.text}
-                </span>
               </div>
             ))}
           </div>
