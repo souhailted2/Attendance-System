@@ -220,7 +220,7 @@ export default function Login() {
       <div
         className="hidden lg:flex flex-col justify-between w-[55%] p-10 relative overflow-hidden"
         style={{
-          background: "#000000",
+          background: "linear-gradient(155deg, #0B1526 0%, #0D1B36 100%)",
         }}
       >
         {/* Top: Logo */}

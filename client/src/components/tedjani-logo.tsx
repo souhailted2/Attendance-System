@@ -13,7 +13,6 @@ export function TejdaniLogo({ variant = "full", className = "" }: TejdaniLogoPro
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",
-        mixBlendMode: "screen",
         filter: "drop-shadow(0 2px 12px rgba(212,175,55,0.35))",
       }
     : {
@@ -22,7 +21,6 @@ export function TejdaniLogo({ variant = "full", className = "" }: TejdaniLogoPro
         height: "auto",
         objectFit: "contain",
         objectPosition: "center",
-        mixBlendMode: "screen",
         filter: "drop-shadow(0 6px 28px rgba(212,175,55,0.40))",
       };
 

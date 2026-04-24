@@ -184,7 +184,7 @@
   background: hsl(220 20% 95%);
 }
 .dark .app-shell-bg {
-  background: linear-gradient(135deg, #000000 0%, #050505 50%, #000000 100%);
+  background: linear-gradient(135deg, #0B1526 0%, #0D1B36 50%, #0B1526 100%);
 }
 
 .app-main-content {
@@ -226,7 +226,7 @@
    SIDEBAR — TEDJANI navy #0D1321
    ============================================= */
 [data-sidebar="sidebar"] {
-  background: #000000 !important;
+  background: #0B1526 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   border-inline-start: none !important;
@@ -234,7 +234,7 @@
 }
 
 .dark [data-sidebar="sidebar"] {
-  background: #000000 !important;
+  background: #0B1526 !important;
   box-shadow: -2px 0 24px rgba(0, 0, 0, 0.45);
 }
 
@@ -361,8 +361,8 @@
   background: hsl(220 20% 97%);
 }
 .dark .login-bg {
-  /* Dark mode: pure black to match TEDJANI logo background */
-  background: linear-gradient(135deg, #000000 0%, #050505 60%, #000000 100%);
+  /* Dark mode: Navy Luxury */
+  background: linear-gradient(135deg, #0B1526 0%, #0D1B36 60%, #0B1526 100%);
 }
 
 /* Dark orbs — only visible in dark mode */
@@ -375,8 +375,8 @@
 
 /* Branding panel (left side, desktop) */
 .login-branding-panel {
-  /* Both modes: pure black to match TEDJANI logo background */
-  background: linear-gradient(160deg, #000000 0%, #060606 100%);
+  /* Both modes: Navy Luxury */
+  background: linear-gradient(160deg, #0B1526 0%, #0D1B36 100%);
 }
 
 /* Form card */
