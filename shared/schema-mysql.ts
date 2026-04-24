@@ -134,6 +134,7 @@ export const attendanceRecords = mysqlTable("attendance_records", {
   notes: text("notes"),
   rawPunches: text("raw_punches"),
   deletedPunches: text("deleted_punches"),
+  manualPunchIndices: text("manual_punch_indices"),
   isManualEdit: boolean("is_manual_edit").notNull().default(false),
 }, (table) => [
   uniqueIndex("attendance_employee_date_idx").on(table.employeeId, table.date),
@@ -248,7 +249,7 @@ export const insertEmployeeSchema = createInsertSchema(employees).pick({
 export const insertAttendanceSchema = createInsertSchema(attendanceRecords).pick({
   employeeId: true, date: true, checkIn: true, checkOut: true, status: true,
   lateMinutes: true, earlyLeaveMinutes: true, middleAbsenceMinutes: true, totalHours: true, penalty: true, notes: true,
-  rawPunches: true, deletedPunches: true, isManualEdit: true,
+  rawPunches: true, deletedPunches: true, manualPunchIndices: true, isManualEdit: true,
 });
 
 export const insertSyncLockSchema = createInsertSchema(syncLocks).pick({

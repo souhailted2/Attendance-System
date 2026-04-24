@@ -1240,6 +1240,8 @@ export async function registerRoutes(
       const workRule = await getWorkRuleForEmployee(employeeId);
 
       const manualPunches = [checkIn, checkOut].filter(Boolean) as string[];
+      // كل بصمة في السجل المُنشأ يدوياً تُعدّ بصمة يدوية
+      const initialManualIndices = manualPunches.map((_, idx) => idx);
       let attendanceData: any = {
         employeeId, date,
         checkIn: checkIn || null,
@@ -1248,6 +1250,7 @@ export async function registerRoutes(
         notes: notes || null,
         lateMinutes: 0, earlyLeaveMinutes: 0, middleAbsenceMinutes: 0, totalHours: "0", penalty: "0",
         rawPunches: manualPunches.length > 0 ? JSON.stringify(manualPunches) : null,
+        manualPunchIndices: initialManualIndices.length > 0 ? JSON.stringify(initialManualIndices) : null,
         isManualEdit: true,
       };
 
@@ -1349,12 +1352,21 @@ export async function registerRoutes(
           deletedArr.push(deletedTime);
         }
 
+        // تحديث manualPunchIndices بعد حذف البصمة
+        let manualIndicesD: number[] = [];
+        try {
+          const mi = (existingRecords as any).manualPunchIndices;
+          if (mi) manualIndicesD = JSON.parse(mi);
+        } catch { manualIndicesD = []; }
+        manualIndicesD = manualIndicesD.filter(i => i !== punchIdx).map(i => i > punchIdx ? i - 1 : i);
+
         const punchUpdateData: Partial<InsertAttendance> = {
           checkIn: newCheckIn,
           checkOut: newCheckOut,
           rawPunches: newRawPunches,
           middleAbsenceMinutes: newMiddleAbs,
           deletedPunches: JSON.stringify(deletedArr),
+          manualPunchIndices: manualIndicesD.length > 0 ? JSON.stringify(manualIndicesD) : null,
           isManualEdit: true,
         };
 
@@ -1445,6 +1457,54 @@ export async function registerRoutes(
           : 0;
       }
 
+      // إعادة بناء manualPunchIndices بعد تعديل الأوقات
+      let patchManualIndices: string | null = (existingRecords as any).manualPunchIndices ?? null;
+      if (isRestStatus) {
+        patchManualIndices = null;
+      } else if (timesChanged) {
+        const oldManualSet = new Set<number>();
+        try {
+          const mi = (existingRecords as any).manualPunchIndices;
+          if (mi) (JSON.parse(mi) as number[]).forEach((i: number) => oldManualSet.add(i));
+        } catch {}
+        let existingRawArrForMI: string[] = [];
+        try {
+          const rp = (existingRecords as any).rawPunches;
+          if (rp) existingRawArrForMI = JSON.parse(rp);
+        } catch {}
+        const newRawArrForMI: string[] = newRawPunches ? (() => { try { return JSON.parse(newRawPunches); } catch { return []; } })() : [];
+        const newManualSet = new Set<number>();
+        if (newRawArrForMI.length > 0) {
+          const hasNewCheckIn = !!finalCheckIn;
+          // البصمات الوسطى تحتفظ بوضعها اليدوي مع مراعاة الإزاحة
+          const shift = hasNewCheckIn ? 0 : -1;
+          for (let oi = 1; oi < existingRawArrForMI.length - 1; oi++) {
+            if (oldManualSet.has(oi)) {
+              const ni = oi + shift;
+              if (ni >= 0 && ni < newRawArrForMI.length) newManualSet.add(ni);
+            }
+          }
+          // checkIn: إذا تغيّر → يدوي، وإذا لم يتغيّر → احتفظ بوضعه القديم
+          if (finalCheckIn) {
+            const checkInChanged = checkIn !== undefined && (checkIn || null) !== existingRecords.checkIn;
+            if (checkInChanged || oldManualSet.has(0)) {
+              newManualSet.add(0);
+            }
+          }
+          // checkOut: إذا تغيّر → يدوي، وإذا لم يتغيّر → احتفظ بوضعه القديم
+          // ملاحظة: نتحقق حتى عند بصمة واحدة (مثلاً بعد حذف checkIn)
+          if (finalCheckOut) {
+            const oldLastIdx = existingRawArrForMI.length > 0 ? existingRawArrForMI.length - 1 : -1;
+            const checkOutChanged = checkOut !== undefined && (checkOut || null) !== existingRecords.checkOut;
+            if (checkOutChanged || (oldLastIdx >= 0 && oldManualSet.has(oldLastIdx))) {
+              newManualSet.add(newRawArrForMI.length - 1);
+            }
+          }
+        }
+        const newManualArr = Array.from(newManualSet).sort((a, b) => a - b);
+        patchManualIndices = newManualArr.length > 0 ? JSON.stringify(newManualArr) : null;
+      }
+
       const updateData: Partial<InsertAttendance> = {
         checkIn: finalCheckIn,
         checkOut: finalCheckOut,
@@ -1452,6 +1512,7 @@ export async function registerRoutes(
         notes: notes !== undefined ? notes : existingRecords.notes,
         middleAbsenceMinutes: finalMiddleAbsenceMinutes,
         rawPunches: newRawPunches,
+        manualPunchIndices: patchManualIndices,
         isManualEdit: true,
       };
 
@@ -1539,6 +1600,19 @@ export async function registerRoutes(
       rawArr.push(time);
       rawArr.sort();
 
+      // تحديد index البصمة الجديدة بعد الفرز
+      const newPunchIdx = rawArr.indexOf(time);
+
+      // قراءة manualPunchIndices الحالية وتحديثها
+      let manualIndices: number[] = [];
+      try {
+        const mi = (existing as any).manualPunchIndices;
+        if (mi) manualIndices = JSON.parse(mi);
+      } catch { manualIndices = []; }
+      // إزاحة الفهارس الموجودة التي تأثرت بإدراج العنصر الجديد
+      manualIndices = manualIndices.map(i => i >= newPunchIdx ? i + 1 : i);
+      manualIndices.push(newPunchIdx);
+
       const newCheckIn  = rawArr[0];
       const newCheckOut = rawArr[rawArr.length - 1];
       const newRawPunches = JSON.stringify(rawArr);
@@ -1555,6 +1629,7 @@ export async function registerRoutes(
         checkOut: rawArr.length >= 2 ? newCheckOut : null,
         rawPunches: newRawPunches,
         middleAbsenceMinutes: newMiddleAbs,
+        manualPunchIndices: JSON.stringify(manualIndices),
         isManualEdit: true,
       };
 

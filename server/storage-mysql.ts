@@ -313,6 +313,8 @@ export class MysqlStorage implements IStorage {
       notes: data.notes ?? null,
       rawPunches: data.rawPunches ?? null,
       deletedPunches: data.deletedPunches ?? null,
+      manualPunchIndices: (data as any).manualPunchIndices ?? null,
+      isManualEdit: (data as any).isManualEdit ?? false,
     });
     const [result] = await mysqlDb.select().from(schema.attendanceRecords).where(eq(schema.attendanceRecords.id, id));
     return result as AttendanceRecord;
@@ -892,6 +894,13 @@ export class MysqlStorage implements IStorage {
     ) as [any[], any];
     if (!Array.isArray(grantExcCols) || grantExcCols.length === 0) {
       await rawPool.query(`ALTER TABLE grants ADD COLUMN excluded_employee_ids TEXT NULL DEFAULT NULL`);
+    }
+    // إضافة عمود manual_punch_indices إلى جدول attendance_records إن لم يكن موجوداً
+    const [mpiCols] = await rawPool.query(
+      `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='attendance_records' AND COLUMN_NAME='manual_punch_indices'`
+    ) as [any[], any];
+    if (!Array.isArray(mpiCols) || mpiCols.length === 0) {
+      await rawPool.query(`ALTER TABLE attendance_records ADD COLUMN manual_punch_indices TEXT NULL DEFAULT NULL`);
     }
   }
 

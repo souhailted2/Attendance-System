@@ -180,12 +180,23 @@ export default function Attendance() {
     canDelete: "in" | "out" | "punch" | "none" | "rest";
     punchIndex?: number;
     isManualEdit?: boolean;
+    isManualPunch?: boolean;
   }> = [];
 
   for (const record of attendance || []) {
     const emp = employees?.find((e) => e.id === record.employeeId);
     const recMiddle = record.middleAbsenceMinutes;
     const isManualEdit = !!record.isManualEdit;
+
+    // قراءة فهارس البصمات اليدوية
+    let manualPunchIndicesSet = new Set<number>();
+    try {
+      const mi = (record as any).manualPunchIndices;
+      if (mi) {
+        const parsed: number[] = JSON.parse(mi);
+        manualPunchIndicesSet = new Set(parsed);
+      }
+    } catch { manualPunchIndicesSet = new Set(); }
 
     // يوم الراحة (مناوبة 24 ساعة)
     if ((record as any).status === "rest") {
@@ -218,21 +229,22 @@ export default function Attendance() {
           canDelete: isFirst ? "in" : isLast ? "out" : isMiddle ? "punch" : "none",
           punchIndex: idx,
           isManualEdit,
+          isManualPunch: manualPunchIndicesSet.has(idx),
         });
       });
     } else if (rawPunches.length === 1) {
       // دخول فقط بدون خروج
-      allMovements.push({ id: `${record.id}-p0`, recordId: record.id, emp, date: record.date, time: rawPunches[0], type: "in", canDelete: "in", isManualEdit });
+      allMovements.push({ id: `${record.id}-p0`, recordId: record.id, emp, date: record.date, time: rawPunches[0], type: "in", canDelete: "in", isManualEdit, isManualPunch: manualPunchIndicesSet.has(0) });
     } else {
       // لا توجد rawPunches — الطريقة القديمة
       if (record.checkIn) {
-        allMovements.push({ id: `${record.id}-in`, recordId: record.id, emp, date: record.date, time: record.checkIn, type: "in", canDelete: "in", isManualEdit });
+        allMovements.push({ id: `${record.id}-in`, recordId: record.id, emp, date: record.date, time: record.checkIn, type: "in", canDelete: "in", isManualEdit, isManualPunch: isManualEdit });
       }
       if (record.checkOut && record.checkOut !== record.checkIn) {
-        allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle, canDelete: "out", isManualEdit });
+        allMovements.push({ id: `${record.id}-out`, recordId: record.id, emp, date: record.date, time: record.checkOut, type: "out", middleAbsenceMinutes: recMiddle, canDelete: "out", isManualEdit, isManualPunch: isManualEdit });
       }
       if (!record.checkIn && !record.checkOut) {
-        allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in", canDelete: "none", isManualEdit });
+        allMovements.push({ id: `${record.id}-none`, recordId: record.id, emp, date: record.date, time: "", type: "in", canDelete: "none", isManualEdit, isManualPunch: false });
       }
     }
   }
@@ -627,7 +639,7 @@ export default function Attendance() {
                           ) : (
                             <span className="text-muted-foreground text-sm">-</span>
                           )}
-                          {mv.isManualEdit && mv.time && (
+                          {mv.isManualPunch && mv.time && (
                             <span
                               className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 px-1.5 py-0.5 rounded"
                               title="أُدخل يدوياً من قِبل المالك"
