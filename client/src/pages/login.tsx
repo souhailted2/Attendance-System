@@ -54,7 +54,7 @@ export default function Login() {
 
       {/* ===== RIGHT PANEL: Form ===== */}
       <div
-        className="relative z-10 flex items-center justify-center w-full lg:w-[42%] p-6 lg:p-10"
+        className="relative z-10 flex items-center justify-center w-full lg:w-[45%] p-6 lg:p-10"
         style={{ background: "#F5F6FA" }}
       >
         <div
@@ -215,14 +215,14 @@ export default function Login() {
             className="text-xs text-center mt-5"
             style={{ color: "#9ca3af" }}
           >
-            TEDJANI ATTENDIX — جميع الحقوق محفوظة
+            جميع الحقوق محفوظة — TEDJANI ATTENDIX
           </p>
         </div>
       </div>
 
       {/* ===== LEFT PANEL: Branding (desktop only) ===== */}
       <div
-        className="hidden lg:flex flex-col justify-between w-[58%] p-14 relative overflow-hidden"
+        className="hidden lg:flex flex-col justify-between w-[55%] p-14 relative overflow-hidden"
         style={{
           background: "linear-gradient(155deg, #0D1321 0%, #111827 55%, #0f1a2e 100%)",
         }}
@@ -266,7 +266,8 @@ export default function Login() {
             src="/logo-horizontal.png"
             alt="TEDJANI ATTENDIX"
             style={{
-              width: "300px",
+              width: "260px",
+              maxWidth: "80%",
               height: "auto",
               objectFit: "contain",
               filter: "drop-shadow(0 6px 28px rgba(212,175,55,0.32))",
