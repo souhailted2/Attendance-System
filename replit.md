@@ -1,9 +1,7 @@
-# TEDJANI ATTENDIX — Smart Attendance & Workforce Management
+# Attendance Management System - نظام إدارة الحضور والانصراف
 
 ## Overview
-A comprehensive Arabic RTL attendance management system branded as **TEDJANI ATTENDIX**. Supports worker management with company affiliation, workshop assignment, wages, shifts (morning/evening), contract tracking, daily attendance recording (check-in/check-out), monthly reports with totals, work rules with penalties, device settings management, and CSV import. Arabic RTL interface with dark mode support.
-
-**Brand Identity**: Gold (#D4AF37 / #B8860B) + Navy (#0D1321 / #1B2434) | Fonts: Tajawal Bold + Cairo Regular
+A comprehensive worker attendance management system built with React + Express + PostgreSQL. Supports worker management with company affiliation, workshop assignment, wages, shifts (morning/evening), contract tracking, daily attendance recording (check-in/check-out), monthly reports with totals, work rules with penalties, device settings management, and CSV import. Arabic RTL interface with dark mode support.
 
 ## Architecture
 - **Frontend**: React + TypeScript + Tailwind CSS + Shadcn UI, RTL layout (Arabic)

@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { Key, RefreshCw, Copy, Check, Bot, Info, Download, ExternalLink, Fingerprint, Package, Database, Wifi, Phone, Mail, MapPin, Clock } from "lucide-react";
-import brandLogoImg from "@assets/ChatGPT_Image_Apr_24,_2026,_06_21_21_PM_1777051422873.png";
+import { Key, RefreshCw, Copy, Check, Bot, Info, Download, ExternalLink, Fingerprint, Package, Database, Wifi } from "lucide-react";
 import type { DeviceSettings } from "@shared/schema";
 
 export default function AgentSettings() {
@@ -132,81 +131,6 @@ export default function AgentSettings() {
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
-
-      {/* ===== بطاقة هوية الشركة / Company Identity Card ===== */}
-      <div
-        className="rounded-2xl overflow-hidden"
-        style={{
-          background: "linear-gradient(135deg, #0D1321 0%, #1B2434 100%)",
-          border: "1px solid rgba(212,175,55,0.30)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.30), 0 0 0 1px rgba(212,175,55,0.08)",
-        }}
-        data-testid="card-company-identity"
-      >
-        {/* Brand image strip */}
-        <div className="relative h-28 overflow-hidden">
-          <img
-            src={brandLogoImg}
-            alt="TEDJANI ATTENDIX"
-            className="w-full object-cover object-top opacity-60"
-            style={{ filter: "brightness(0.7) saturate(0.9)" }}
-          />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, transparent 30%, #0D1321 100%)" }} />
-        </div>
-
-        {/* Content */}
-        <div className="px-6 pb-6 -mt-2">
-          {/* Logo + Name */}
-          <div className="flex items-center gap-4 mb-5">
-            <div
-              className="flex h-12 w-12 items-center justify-center rounded-xl shrink-0"
-              style={{
-                background: "linear-gradient(135deg, #D4AF37, #B8860B)",
-                boxShadow: "0 4px 16px rgba(212,175,55,0.45)",
-              }}
-            >
-              <Clock className="h-6 w-6 text-white" />
-            </div>
-            <div>
-              <h2
-                className="text-xl font-bold text-white"
-                style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.06em" }}
-              >
-                TEDJANI ATTENDIX
-              </h2>
-              <p className="text-sm" style={{ color: "rgba(212,175,55,0.80)", fontFamily: "'Cairo', sans-serif" }}>
-                Smart Attendance & Workforce Management
-              </p>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="mb-4" style={{ borderBottom: "1px solid rgba(212,175,55,0.15)" }} />
-
-          {/* Contact info */}
-          <div className="grid grid-cols-1 gap-2.5">
-            {[
-              { icon: Phone, value: "+213 555 123 456", label: "الهاتف" },
-              { icon: Mail, value: "contact@tedjani-attendix.dz", label: "البريد الإلكتروني" },
-              { icon: MapPin, value: "Algeria", label: "الموقع" },
-            ].map(({ icon: Icon, value, label }) => (
-              <div key={label} className="flex items-center gap-3">
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded-lg shrink-0"
-                  style={{ background: "rgba(212,175,55,0.12)", border: "1px solid rgba(212,175,55,0.22)" }}
-                >
-                  <Icon className="h-3.5 w-3.5" style={{ color: "#D4AF37" }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.40)" }}>{label}</p>
-                  <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.88)" }}>{value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
           <Bot className="h-5 w-5 text-primary" />

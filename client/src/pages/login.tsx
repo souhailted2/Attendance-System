@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  ClipboardCheck,
   Lock,
   User,
   Users,
@@ -12,9 +13,7 @@ import {
   ShieldCheck,
   Fingerprint,
   Clock4,
-  Clock,
 } from "lucide-react";
-import brandLogoImg from "@assets/ChatGPT_Image_Apr_24,_2026,_06_21_21_PM_1777051422873.png";
 
 const features = [
   { icon: Fingerprint, text: "تكامل أجهزة ZKTeco البيومترية" },
@@ -53,14 +52,14 @@ export default function Login() {
 
   return (
     <div className="login-bg min-h-screen flex overflow-hidden relative" dir="rtl">
-      {/* Dark mode only: atmospheric orbs — gold/amber tone */}
+      {/* Dark mode only: atmospheric orbs */}
       <div
         className="login-orb absolute pointer-events-none"
-        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 65%)" }}
+        style={{ top: "-20%", right: "-10%", width: "600px", height: "600px", borderRadius: "50%", filter: "blur(60px)", background: "radial-gradient(circle, hsl(262 80% 55% / 0.18) 0%, transparent 65%)" }}
       />
       <div
         className="login-orb absolute pointer-events-none"
-        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, rgba(184,134,11,0.12) 0%, transparent 65%)" }}
+        style={{ bottom: "-15%", left: "-10%", width: "500px", height: "500px", borderRadius: "50%", filter: "blur(50px)", background: "radial-gradient(circle, hsl(220 80% 60% / 0.14) 0%, transparent 65%)" }}
       />
 
       {/* ===== RIGHT PANEL: Form ===== */}
@@ -78,15 +77,15 @@ export default function Login() {
             <div
               className="flex h-10 w-10 items-center justify-center rounded-xl shrink-0"
               style={{
-                background: "linear-gradient(135deg, #D4AF37, #B8860B)",
-                boxShadow: "0 4px 16px rgba(212,175,55,0.40)",
+                background: "linear-gradient(135deg, hsl(262 80% 55%), hsl(280 75% 65%))",
+                boxShadow: "0 4px 16px hsl(262 80% 55% / 0.40)",
               }}
             >
-              <Clock className="h-5 w-5 text-white" />
+              <ClipboardCheck className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="text-base font-bold login-title" style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.04em" }}>TEDJANI ATTENDIX</h1>
-              <p className="text-[10px] login-subtitle" style={{ fontFamily: "'Cairo', sans-serif" }}>Smart Attendance & Workforce Management</p>
+              <h1 className="text-base font-bold login-title">نظام إدارة الحضور</h1>
+              <p className="text-xs login-subtitle">v2.0</p>
             </div>
           </div>
 
@@ -109,7 +108,7 @@ export default function Login() {
                     data-testid="input-username"
                     type="text"
                     placeholder="أدخل اسم المستخدم"
-                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-amber-400/50"
+                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-purple-400/50"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     autoComplete="username"
@@ -129,7 +128,7 @@ export default function Login() {
                     data-testid="input-password"
                     type="password"
                     placeholder="••••••••"
-                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-amber-400/50"
+                    className="login-input pr-9 h-10 text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-purple-400/50"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete="current-password"
@@ -154,22 +153,20 @@ export default function Login() {
 
               <Button
                 type="submit"
-                className="w-full h-10 text-sm font-semibold rounded-lg border-0"
+                className="w-full h-10 text-sm font-semibold rounded-lg border-0 text-white"
                 disabled={loading}
                 data-testid="button-login-submit"
                 style={{
                   background: loading
-                    ? "rgba(212,175,55,0.35)"
-                    : "linear-gradient(135deg, #D4AF37, #B8860B)",
-                  color: "#0D1321",
-                  boxShadow: loading ? "none" : "0 4px 18px rgba(212,175,55,0.40)",
+                    ? "rgba(139, 92, 246, 0.40)"
+                    : "linear-gradient(135deg, hsl(262 80% 52%), hsl(280 75% 58%))",
+                  boxShadow: loading ? "none" : "0 4px 18px hsl(262 80% 52% / 0.40)",
                   transition: "all 0.2s ease",
-                  fontWeight: "700",
                 }}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
-                    <div className="h-3.5 w-3.5 rounded-full border-2 border-[#0D1321]/30 border-t-[#0D1321] animate-spin" />
+                    <div className="h-3.5 w-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                     جاري التحقق...
                   </span>
                 ) : "دخول إلى النظام"}
@@ -178,17 +175,17 @@ export default function Login() {
           </div>
 
           <p className="login-footer text-xs text-center">
-            TEDJANI ATTENDIX — Smart Attendance & Workforce Management
+            نظام إدارة الحضور والانصراف — جميع الحقوق محفوظة
           </p>
         </div>
       </div>
 
-      {/* ===== LEFT PANEL: Branding (desktop only — always dark navy) ===== */}
+      {/* ===== LEFT PANEL: Branding (desktop only — always dark purple) ===== */}
       <div className="login-branding-panel hidden lg:flex flex-col justify-center w-[55%] p-16 relative overflow-hidden">
-        {/* Gold glow */}
+        {/* Subtle inner glow */}
         <div
           className="absolute inset-0 pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 60% 40%, rgba(212,175,55,0.10) 0%, transparent 65%)" }}
+          style={{ background: "radial-gradient(ellipse at 60% 40%, rgba(139,92,246,0.15) 0%, transparent 65%)" }}
         />
 
         <div
@@ -199,45 +196,43 @@ export default function Login() {
             transition: "opacity 0.6s ease 0.1s, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.1s",
           }}
         >
-          {/* Brand image */}
-          <div className="mb-8 flex items-center gap-4">
+          {/* Logo */}
+          <div className="flex items-center gap-4 mb-10">
             <div
               className="flex h-14 w-14 items-center justify-center rounded-2xl shrink-0"
               style={{
-                background: "linear-gradient(135deg, #D4AF37, #B8860B)",
-                boxShadow: "0 8px 32px rgba(212,175,55,0.45)",
+                background: "linear-gradient(135deg, hsl(262 80% 55%), hsl(280 75% 65%))",
+                boxShadow: "0 8px 32px hsl(262 80% 55% / 0.45)",
               }}
             >
-              <Clock className="h-7 w-7 text-white" />
+              <ClipboardCheck className="h-7 w-7 text-white" />
             </div>
             <div>
-              <h1
-                className="text-2xl font-bold text-white"
-                style={{ fontFamily: "'Tajawal', sans-serif", letterSpacing: "0.06em" }}
-              >
-                TEDJANI ATTENDIX
-              </h1>
-              <p className="text-sm mt-0.5" style={{ color: "rgba(212,175,55,0.70)", fontFamily: "'Cairo', sans-serif" }}>
-                Smart Attendance & Workforce Management
+              <h1 className="text-2xl font-bold text-white">نظام إدارة الحضور</h1>
+              <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.40)" }}>
+                Attendance Management System v2.0
               </p>
             </div>
           </div>
 
-          {/* Brand sheet preview */}
-          <div
-            className="mb-8 rounded-xl overflow-hidden"
-            style={{
-              border: "1px solid rgba(212,175,55,0.25)",
-              boxShadow: "0 8px 32px rgba(0,0,0,0.30)",
-              maxWidth: "420px",
-            }}
-          >
-            <img
-              src={brandLogoImg}
-              alt="TEDJANI ATTENDIX Brand Identity"
-              className="w-full object-cover"
-              style={{ maxHeight: "220px", objectPosition: "top" }}
-            />
+          {/* Headline */}
+          <div className="mb-10 space-y-3">
+            <h2 className="text-4xl font-bold text-white leading-tight">
+              إدارة الحضور
+              <br />
+              <span
+                style={{
+                  background: "linear-gradient(135deg, hsl(262 85% 75%), hsl(220 85% 75%))",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                بكل احترافية
+              </span>
+            </h2>
+            <p className="text-base leading-relaxed max-w-md" style={{ color: "rgba(255,255,255,0.42)" }}>
+              منصة متكاملة لإدارة حضور الموظفين مع تكامل أجهزة ZKTeco البيومترية وتقارير ذكية فورية.
+            </p>
           </div>
 
           {/* Features */}
@@ -255,11 +250,11 @@ export default function Login() {
                 <div
                   className="flex h-8 w-8 items-center justify-center rounded-lg shrink-0"
                   style={{
-                    background: "rgba(212,175,55,0.15)",
-                    border: "1px solid rgba(212,175,55,0.30)",
+                    background: "rgba(139, 92, 246, 0.20)",
+                    border: "1px solid rgba(139, 92, 246, 0.30)",
                   }}
                 >
-                  <f.icon className="h-4 w-4" style={{ color: "#D4AF37" }} />
+                  <f.icon className="h-4 w-4 text-purple-300" />
                 </div>
                 <span className="text-sm" style={{ color: "rgba(255,255,255,0.60)" }}>{f.text}</span>
               </div>
@@ -268,8 +263,8 @@ export default function Login() {
 
           {/* Stats bar */}
           <div
-            className="mt-10 flex items-center gap-8 pt-8"
-            style={{ borderTop: "1px solid rgba(212,175,55,0.15)" }}
+            className="mt-12 flex items-center gap-8 pt-8"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
           >
             {[
               { value: "99.9%", label: "وقت التشغيل" },
@@ -280,7 +275,7 @@ export default function Login() {
                 <p
                   className="text-2xl font-bold"
                   style={{
-                    background: "linear-gradient(135deg, #D4AF37, #F5D060)",
+                    background: "linear-gradient(135deg, hsl(262 85% 72%), hsl(220 85% 72%))",
                     WebkitBackgroundClip: "text",
                     WebkitTextFillColor: "transparent",
                   }}

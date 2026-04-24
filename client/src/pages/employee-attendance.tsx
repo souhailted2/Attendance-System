@@ -305,7 +305,7 @@ export default function EmployeeAttendancePage() {
 
       {/* Print-only header — hidden on screen, visible only when printing */}
       <div id="employee-print-header" className="hidden" aria-hidden="true">
-        <div className="print-emp-org">TEDJANI ATTENDIX</div>
+        <div className="print-emp-org">نظام إدارة الحضور والانصراف</div>
         <div className="print-emp-title">{employee?.name ?? ""}</div>
         <div className="print-emp-meta">
           {employee && <>كود: {employee.employeeCode}</>}
