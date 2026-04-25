@@ -501,7 +501,7 @@ export default function Login() {
             data-testid="img-logo"
             style={{
               width: "100%",
-              maxWidth: "460px",
+              maxWidth: "320px",
               height: "auto",
               objectFit: "contain",
               marginBottom: "28px",
